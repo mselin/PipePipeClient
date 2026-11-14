@@ -208,7 +208,7 @@ What its members do, and the `internal` classes of `QueueGuardGlue.kt`:
 
 ```kotlin
 fun interface TapDialogExtension { fun create(context: Context): TapDialogAddOn }
-interface TapDialogAddOn { val view: View; fun onChoice(choice: GuardChoice) }   // before the choice is carried out, never CANCEL
+interface TapDialogAddOn { val view: View; fun onChoice(choice: GuardChoice) }   // only for a row click that is then carried out, right before it; never CANCEL, never a dropped click
 internal class DialogGuardUi(activity: FragmentActivity, owner: LifecycleOwner, extension: TapDialogExtension?) : GuardUi
 ```
 
