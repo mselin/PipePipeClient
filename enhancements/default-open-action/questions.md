@@ -52,3 +52,21 @@ is carried out, never CANCEL", and it drops a row click while the list's screen 
 least started. Is the add-on called for a dropped click? AC-8 saves a choice only together
 with carrying it out. Planned with: no, the add-on is called only for a click that is then
 carried out; a dropped click saves nothing (AC-8, AC-9).
+
+## A3 spec
+Not intended: there must be a way to play a video at once. "Show stream details" is now
+offered whenever a tap would neither open the page nor ask, the main player included (AC-11).
+There it does what a tap does today, which plays the video and replaces the queue; the user
+has switched asking off.
+
+## A4 spec
+Yes. AC-13 now reads: AC-6 in a local playlist with Music Player Mode on, AC-5 everywhere
+else.
+
+## A5 spec
+As planned: an audio-only item starts in the popup player like any other item. No stream type
+is needed in the tap request.
+
+## A6 spec
+Answered by queue-guard's plan, which now says the add-on is called only for a row click that
+is then carried out, never for a dropped click (its section 3.3). The assumption stands.

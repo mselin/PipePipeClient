@@ -52,14 +52,23 @@ Remembering a choice
 
 Reaching the video page
 
-- **AC-11** While nothing is playing and "Start playback in" is *Background player* or
-  *Popup player*, the long-press menu of a video contains "Show stream details", which opens
-  the video as a video tap does today. This adds to queue-guard's AC-17.
+- **AC-11** The long-press menu of a video contains "Show stream details" whenever a video
+  tap would neither open the video's page nor ask. That is, in addition to queue-guard's
+  AC-17:
+  - while nothing is playing and "Start playback in" is *Background player* or *Popup
+    player*;
+  - while something is playing in any player, "Ask before replacing the queue" is off and
+    the default action is *Add to queue* or *Play next*.
+
+  The entry opens the video as a video tap does today. While the main player is in use that
+  plays the video and replaces the queue, as a tap does today.
 
 General
 
 - **AC-12** A video tap on the current item behaves as today, whatever the settings.
-- **AC-13** If the player was closed while the dialog was open, *Play now* follows AC-5.
+- **AC-13** If the player was closed while the dialog was open, *Play now* does what a video
+  tap does while nothing is playing: AC-6 in a local playlist with Music Player Mode on, AC-5
+  everywhere else.
 - **AC-14** With both settings on their defaults the app behaves exactly as with queue-guard
   alone.
 - **AC-15** The play buttons are not affected by either setting.
