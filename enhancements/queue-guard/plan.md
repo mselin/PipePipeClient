@@ -317,13 +317,13 @@ background and the popup player.
   *Play now* regardless.
 - AC-17 "in use" is read as: something is playing in the background or popup player.
 
-## 9. Assumptions waiting for an answer
+## 9. Assumptions, all confirmed by the spec
 
-| Q | Planned with | Affects |
-|---|---|---|
-| Q4 | *Play now* in the background player plays the tapped video alone, in every list | AC-5, AC-16 |
-| Q5 | player closed during the list dialog: *Add all* and *Play all next* start the list in the background player; *Replace queue* is the button as today | AC-11, AC-12 |
-| Q6 | while the player's queue is shuffled, added videos are shuffled as today's "Enqueue" does | AC-11 |
-| Q7 | the switch is on the screen titled "Player", directly below "Preferred 'open' action" | AC-15 |
-| Q8 | a play button on a list with no videos loaded behaves as today, no dialog | AC-10 |
-| Q9 | *Play now* in the main player is today's tap even while autoplay is not allowed: the page opens, the running player stops, the video does not start | AC-5, AC-16 |
+| Q | Planned with | Confirmed by | Affects |
+|---|---|---|---|
+| Q4 | *Play now* in the background or popup player plays the tapped video alone, in every list | A4 | AC-5, AC-16 |
+| Q5 | player closed during the list dialog: *Add all* and *Play all next* start the list in the background player; *Replace queue* is the button as today | A5 | AC-11, AC-12 |
+| Q6 | while the player's queue is shuffled, added videos are shuffled as today's "Enqueue" does | A6 | AC-11 |
+| Q7 | the switch is on the screen titled "Player", directly below "Preferred 'open' action" | A7 | AC-15 |
+| Q8 | a play button on a list with no videos loaded behaves as today, no dialog | A8 | AC-10 |
+| Q9 | *Play now* in the main player is today's tap even while autoplay is not allowed: the page opens, the running player stops, the video does not start | A9 | AC-5, AC-16 |
