@@ -47,8 +47,10 @@ Confirming
 - **AC-11** A created group gets the same default icon the existing group dialog starts with
   and is placed last in the manual order, like a group created the existing way. Several
   created at once keep the order in which they were added.
-- **AC-12** If saving fails, no group is left behind without the channel, the dialog stays
-  open and an error is shown.
+- **AC-12** If creating the pending groups fails, nothing at all is saved: no group is left
+  behind without the channel, the other checkbox changes are not saved either, the dialog
+  stays open and an error is shown. A failure while saving the other checkbox changes behaves
+  as today.
 
 Afterwards
 

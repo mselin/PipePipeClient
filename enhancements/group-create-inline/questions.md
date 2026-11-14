@@ -33,3 +33,8 @@ then already contain the channel, so no group is left without it.
 The other reading (any failure keeps the dialog open, all changes saved together or not at all)
 is possible with the same single hook line, but the fork then replaces upstream's save instead
 of calling it (plan section 2, S1). Affects AC-8 and AC-12.
+
+## A3 spec
+AC-12 is about creating the pending groups. They are saved first; if that fails nothing is
+saved and the dialog stays open with an error. Saving the other checkbox changes keeps
+today's behaviour, also when it fails. AC-12 now says so. The plan's assumption stands.
