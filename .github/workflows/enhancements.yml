@@ -1,0 +1,60 @@
+name: Enhancements
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'enhancements/**'
+      - 'feature/**'
+  pull_request:
+    branches:
+      - 'enhancements/**'
+      - 'feature/**'
+
+permissions:
+  contents: read
+
+jobs:
+  layers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Each commit writes only what its layer owns
+        run: |
+          git fetch --no-tags origin dev:refs/remotes/origin/dev
+          enhancements/tools/check-layers.sh origin/dev
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: PipePipeClient
+
+      # the client build includes ../PipePipeExtractor
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/PipePipeExtractor
+          ref: main
+          path: PipePipeExtractor
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 25
+          distribution: temurin
+          cache: gradle
+
+      - name: Unit tests
+        working-directory: PipePipeClient
+        run: ./gradlew :app:testDebugUnitTest -DskipFormatKtlint --stacktrace
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          retention-days: 7
+          path: PipePipeClient/app/build/reports/tests/
