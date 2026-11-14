@@ -39,12 +39,16 @@ branch onto its parent. `enhancements/integration` is rebuilt, never rebased.
   Android glue (dialogs, preferences) is a thin shell around it.
 - New strings and preference keys go in `res/values/enhancements_*.xml`, never in upstream
   `strings.xml` / `settings_keys.xml` (those are the files that conflict on every rebase).
-- An upstream file may receive a hook: a single call into `enhancements/`, marked
-  `// ENH:<feature>`. `git grep "ENH:"` lists every touch point in the fork.
+- An upstream file may receive hooks. A hook is one line that carries the marker
+  `ENH:<feature>`: an added call into `enhancements/`, an existing call redirected to
+  `enhancements/` on its own line, or one XML element where code cannot be called.
+  `git grep "ENH:"` lists every touch point in the fork, and `check-layers.sh` rejects a code
+  commit that changes an upstream file in any other way.
 - With every new setting at its default, behaviour equals upstream, except where the spec
   explicitly says otherwise (F1's confirmation).
 
-Known hook points (confirmed in the code, to be finalised by each Plan):
+Starting points for hooks, noted before the plans were written. Each feature's `plan.md`
+has the final list:
 
 | Feature | Hook |
 |---|---|
@@ -103,8 +107,8 @@ A forwarded question is answered with the forward (`## A3 tests: forwarded as Q4
 1. Spec approved by the user.
 2. Plan approved; every `AC-n` mapped to a piece of the design.
 3. Tests committed and failing only for the reason "not implemented".
-4. Code committed; unit tests green; `git diff dev -- . ':!enhancements' ':!app/src/test'`
-   shows only new files and `ENH:` hook lines in upstream files.
+4. Code committed; unit tests green; every line the feature adds to or changes in an
+   upstream file is an `ENH:` hook line (`check-layers.sh` verifies this).
 5. `check-layers.sh --open-questions` reports none.
 6. Merged into `enhancements/integration`, debug APK built and tried on a device.
 
