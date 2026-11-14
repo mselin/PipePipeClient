@@ -24,7 +24,7 @@ Code paths below are relative to `app/src/main/java/org/schabi/newpipe/`, resour
 
 | # | Assumption | ACs |
 |---|---|---|
-| S1 | **Open question Q3.** AC-12 ("stays open, error shown") applies to creating the pending groups. Today's save of the other checkbox changes keeps today's failure behaviour: it closes the dialog silently (`FGSD:217-220`). Pending groups are committed first; if that fails, nothing at all is saved. If Q3 is answered "all changes": the hook line gains two arguments (`selectedGroupIds`, `originalGroupIds`), `GroupWriter` also applies the membership adds/removes in the same transaction, and `SelectionUi.runUpstreamSave()` becomes a plain dismiss. Still one line in one file. | AC-8, AC-12 |
+| S1 | **Q3, confirmed by A3.** AC-12 ("stays open, error shown") applies to creating the pending groups. Today's save of the other checkbox changes keeps today's failure behaviour: it closes the dialog silently (`FGSD:217-220`). Pending groups are committed first; if that fails, nothing at all is saved. | AC-8, AC-12 |
 | S2 | *New group* is visible at once but disabled until upstream has loaded the groups (milliseconds). The duplicate check needs the loaded names, and upstream ignores OK until then (`FGSD:163-165`). | AC-1, AC-4 |
 | S3 | Pending groups are listed after all existing groups, in the order added, as ordinary rows. | AC-5, AC-7 |
 | S4 | While the creation transaction runs, OK, Cancel, *New group* and Back are disabled, as the existing group dialog does while saving (`local/subscription/dialog/FeedGroupDialog.kt:517-524`). | AC-8, AC-10 |
@@ -298,7 +298,7 @@ line. (7) Device checks of section 11.
 
 ## 10. Risks and edge cases found in the code
 
-- **Partial failure (Q3).** If creation succeeds and upstream's save of the other changes then
+- **Partial failure (accepted in A3).** If creation succeeds and upstream's save of the other changes then
   fails, the dialog closes without a message, as today; the new groups exist with the channel.
 - **No "loaded" signal upstream.** `isDataLoaded` is a private primitive, so the fork infers it
   from the adapter notification. If upstream stops notifying, *New group* stays disabled: caught
