@@ -31,10 +31,12 @@ While nothing is playing
 - **AC-5** A video tap starts the video according to "Start playback in", whatever the
   default action is:
   - *Video page*: what a video tap does today.
-  - *Background player*: what the long-press action "Start playing in the background" does
-    today. The list stays on screen.
-  - *Popup player*: what the long-press action "Start playing in a popup" does today,
-    including its prompt when the popup permission is missing. The list stays on screen.
+  - *Background player*: the tapped video alone starts in the background player, as the
+    long-press action "Start playing in the background" does in search results. The list
+    stays on screen.
+  - *Popup player*: the tapped video alone starts in the popup player, as the long-press
+    action "Start playing in a popup" does in search results, including its prompt when the
+    popup permission is missing. The list stays on screen.
 - **AC-6** In a local playlist with Music Player Mode on, a video tap while nothing is
   playing does what it does there today; "Start playback in" does not apply.
 
