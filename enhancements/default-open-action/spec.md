@@ -11,7 +11,7 @@ same dialog, same "Ask before replacing the queue" switch. Read
 Settings
 
 - **AC-1** A setting "Default action when tapping a video" sits with the queue-guard switch
-  (Settings > Video & audio). Values: *Play now* (default), *Add to queue*, *Play next*. Its
+  (Settings > Player). Values: *Play now* (default), *Add to queue*, *Play next*. Its
   summary shows the selected value.
 - **AC-2** A setting "Start playback in" sits beside it. Values: *Video page* (default),
   *Background player*, *Popup player*. Its summary shows the selected value. It applies only
