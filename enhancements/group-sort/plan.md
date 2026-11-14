@@ -148,7 +148,7 @@ Fixtures (computed by running this algorithm on a JDK):
 | F1 | "ZZZ - Last", "music", "Mix 2", "001 - First", "ZZZZ - Last of last", "Mix 10" | "001 - First", "Mix 10", "Mix 2", "music", "ZZZ - Last", "ZZZZ - Last of last" | exact reverse of A-Z |
 | F2 | "b", "Music", "a", "music", " MUSIC " | "a", "b", "Music", "music", " MUSIC " | "Music", "music", " MUSIC ", "b", "a" |
 | F3 | any shuffle of the A-Z column | "Mix", "music", "Zebra", "zebra 2", "Äpfel", "ärger", "日本" | exact reverse |
-| F4 (assumes Q4) | any shuffle of the A-Z column | "- Top", "001", ":x", "[old]", "_misc", "A Team", "A-Team", "music", "{x}", "~last", "Äpfel" | exact reverse |
+| F4 | any shuffle of the A-Z column | "- Top", "001", ":x", "[old]", "_misc", "A Team", "A-Team", "music", "{x}", "~last", "Äpfel" | exact reverse |
 
 ## 6. New resources
 
@@ -225,7 +225,7 @@ read files as XML/text; Gradle runs unit tests with `app/` as working directory 
 | AC-2 | `sort(.., MANUAL, ..)` returns its input | `GroupSorter.sort` returns the same instance; `GroupSortStreams.sorted` with `MANUAL` emits the source lists unchanged | D2 |
 | AC-3 | H1 + `sort(.., NAME_ASC, ..)` | `GroupSorter.sort` on F1-F3. Wiring: `FeedDatabaseManager.kt` has exactly one `ENH:group-sort` line and it contains `GroupSortHooks.sortedGroups(feedGroupTable.getAll())` | D2 (the lists are Fragments) |
 | AC-4 | H1 + `sort(.., NAME_DESC, ..)` | `GroupSorter.sort` on F1-F3 | D2 |
-| AC-5 | `GroupSorter.compareNames` | the AC-5 chain pairwise and as a sort; case, trim, prefix, digits as characters, "Ä" after "Z"; `compareNames(a,b)` and `(b,a)` have opposite signs; F4 in separately named tests (Q4) | none needed |
+| AC-5 | `GroupSorter.compareNames` | the AC-5 chain pairwise and as a sort; case, trim, prefix, digits as characters, "Ä" after "Z"; `compareNames(a,b)` and `(b,a)` have opposite signs; F4 | none needed |
 | AC-6 | stable sort; reversed comparator for Z-A | F2 in both directions, elements told apart by an id | none needed |
 | AC-7 | no new code: only database groups reach the sorter. "All" and "New" are separate adapter items around the section (`SubscriptionFragment.kt:183-185`); the picker adds "All" before the groups (`SelectChannelGroupFragment.java:150-152`) | `GroupSorter.sort` returns exactly the input elements (same size, same multiset) in every mode | D2 (placement is adapter wiring in a Fragment) |
 | AC-8 | Room re-emission, `GroupSortPreference.modes`, `GroupSortStreams.sorted` | `sorted`: a new `groups` item is emitted sorted; a mode change re-emits the last list re-sorted without a new `groups` item; a repeated mode emits nothing; nothing before both sources emitted | D3 (preference listener and LiveData need the framework) |
@@ -258,11 +258,10 @@ Device checks (debug APK of `enhancements/integration`):
 6. `./gradlew :app:testDebugUnitTest -DskipFormatKtlint`; `git diff dev -- . ':!enhancements'
    ':!app/src/test'` must show new files plus exactly the four hook lines; then D1-D6.
 
-## 11. Assumptions and open question
+## 11. Assumptions
 
-- **Q4 (open; AC-5, and through it AC-3/AC-4):** the spec does not place spaces and symbols.
-  Planned with plain character-code order after lower-case folding (section 5). A different
-  answer changes only `fold`/`compareNames` and fixture F4; no hook, signature or resource.
+- **Q4, confirmed by A4 (AC-5):** spaces and symbols sort by plain character code after
+  lower-case folding (section 5, fixture F4).
 - AC-6 "equal names" is read as "equal under AC-5": names that differ only in case or
   surrounding whitespace are ties. This follows from AC-5 and AC-6 taken together.
 - AC-8 "the next time they are shown": the Subscriptions tab is re-sorted as soon as the
