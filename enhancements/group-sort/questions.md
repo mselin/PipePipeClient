@@ -26,3 +26,12 @@ Applied: unchanged (AC-10).
 last."
 Applied: plain character-by-character comparison, no number values and no language-specific
 rules, so prefixes like these sort predictably (AC-5).
+
+## Q4 plan -> spec
+AC-5 fixes the order of digits, A-Z and letters outside A-Z, but not where spaces and symbols
+sort. The plan assumes plain character-code order after folding letters to lower case: space and
+`! " # $ % & ' ( ) * + , - . /` before digits; `: ; < = > ? @ [ \ ] ^ _` and the backtick
+between digits and letters; `{ | } ~` after "z" but before "Ä". Example: "- Top" < "001" <
+"[old]" < "_misc" < "A Team" < "A-Team" < "music" < "~last" < "Äpfel". Is that the intended
+order? The examples already in AC-5 sort the same either way; only names that start with or
+contain symbols are affected (AC-5, and through it AC-3/AC-4).
