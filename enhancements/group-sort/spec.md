@@ -22,11 +22,12 @@ The user can keep channel groups sorted by name instead of in manual order.
 - **AC-2** With *Manual* every group list is exactly as it is without this feature.
 - **AC-3** With *Name (A-Z)* every group list shows the groups in ascending name order.
 - **AC-4** With *Name (Z-A)* every group list shows them in descending name order.
-- **AC-5** Names are compared character by character, ignoring upper/lower case and
-  surrounding whitespace. Digits come before letters, and a name that is the beginning of
-  another comes first: "001 - First" < "Mix 10" < "Mix 2" < "music" < "ZZZ - Last" <
-  "ZZZZ - Last of last". Numbers are not compared by value and no language-specific alphabet
-  rules apply: letters outside A-Z (such as "Ä") come after "Z".
+- **AC-5** Names are compared character by character by character code, after ignoring
+  upper/lower case and surrounding whitespace. A name that is the beginning of another comes
+  first. This gives: space and most punctuation, then digits, then letters A-Z, then letters
+  outside A-Z (such as "Ä"). Numbers are not compared by value and no language-specific
+  alphabet rules apply. Examples: "- Top" < "001 - First" < "Mix 10" < "Mix 2" < "music" <
+  "ZZZ - Last" < "ZZZZ - Last of last" < "Äpfel".
 - **AC-6** Groups with equal names keep their manual order relative to each other, in both
   directions.
 - **AC-7** Entries that are not groups keep their place: "All" stays first and "New" stays

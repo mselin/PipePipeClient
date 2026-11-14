@@ -35,3 +35,8 @@ between digits and letters; `{ | } ~` after "z" but before "Ä". Example: "- Top
 "[old]" < "_misc" < "A Team" < "A-Team" < "music" < "~last" < "Äpfel". Is that the intended
 order? The examples already in AC-5 sort the same either way; only names that start with or
 contain symbols are affected (AC-5, and through it AC-3/AC-4).
+
+## A4 spec
+Yes. "By character" (A3) means plain character-code order after ignoring case, symbols and
+spaces included, exactly as the plan assumed. AC-5 now says so and has an example with a
+leading symbol. The plan's algorithm and fixture F4 stand.
