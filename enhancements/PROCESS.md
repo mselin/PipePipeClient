@@ -113,5 +113,15 @@ A forwarded question is answered with the forward (`## A3 tests: forwarded as Q4
 Upstream has no JVM unit tests (`app/src/test` does not exist; JUnit is already a
 `testImplementation` dependency). `enhancements/base` adds that source set and a fork CI
 workflow (`.github/workflows/enhancements.yml`) running `check-layers.sh` and
-`./gradlew :app:testDebugUnitTest`. Building needs
-the Android SDK and JDK 25, so tests run in GitHub Actions on the fork or on a workstation.
+`./gradlew :app:testDebugUnitTest`. 
+
+To run the same locally: JDK 25, the Android SDK (`ANDROID_HOME`), and the extractor checked
+out next to the client as `../PipePipeExtractor`. Then:
+
+```bash
+enhancements/tools/check-layers.sh origin/dev
+```
+
+```bash
+./gradlew :app:testDebugUnitTest -DskipFormatKtlint
+```
