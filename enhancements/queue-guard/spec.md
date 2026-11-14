@@ -25,11 +25,13 @@ While something is playing, a tap must not silently replace the queue.
   videos, a local playlist, the history and the feed.
 - **Current item**: the queue item the player is on.
 - **Play now**: the tapped video replaces the queue and plays in the player that is in use.
-  - Main player: what a video tap does today.
-  - Background player: what the long-press action "Start playing in the background" does
-    today. The list stays on screen.
-  - Popup player: what the long-press action "Start playing in a popup" does today. The list
+  - Main player: what a video tap does today, autoplay setting included: where autoplay is
+    not allowed, the page opens and the video waits for the user to press play.
+  - Background player: the tapped video alone starts in the background player, as the
+    long-press action "Start playing in the background" does in search results. The list
     stays on screen.
+  - Popup player: the tapped video alone starts in the popup player, as the long-press action
+    "Start playing in a popup" does in search results. The list stays on screen.
   - In a local playlist with Music Player Mode on: what a video tap does there today,
     whichever player is in use.
 
@@ -60,19 +62,23 @@ Play buttons
 
 - **AC-10** While something is playing, pressing a play button opens the dialog in its list
   form. It shows how many videos the list would add, the number of items in the queue, and
-  four choices: *Add all to queue*, *Play all next*, *Replace queue*, *Cancel*.
+  four choices: *Add all to queue*, *Play all next*, *Replace queue*, *Cancel*. A play button
+  on a list with no videos loaded behaves as today, without a dialog.
 - **AC-11** *Add all to queue* appends the videos loaded in the list, in list order, to the
   end of the queue. *Play all next* inserts them, in list order, right after the current
   item. Both show the toast of the matching single-video action and do not interrupt
-  playback. The count shown in the dialog is the number of videos added.
+  playback. The count shown in the dialog is the number of videos added. While the player's
+  queue is shuffled, the added videos are mixed in as "Enqueue" does today. If the player was
+  closed while the dialog was open, both do what "Enqueue" does today while nothing is
+  playing: the list starts in the background player.
 - **AC-12** *Replace queue* does what the pressed button does today.
 - **AC-13** *Cancel* and the other dismissals of AC-6 change nothing.
 - **AC-14** While nothing is playing, the play buttons behave as today and no dialog appears.
 
 Setting
 
-- **AC-15** A switch "Ask before replacing the queue" sits next to "Preferred 'open' action"
-  (Settings > Video & audio). It is on by default and covers video taps and play buttons
+- **AC-15** A switch "Ask before replacing the queue" sits directly below "Preferred 'open'
+  action" (Settings > Player). It is on by default and covers video taps and play buttons
   together.
 - **AC-16** With the switch off no dialog appears. While something is playing, a video tap on
   anything but the current item does Play now directly, and the play buttons behave as today.

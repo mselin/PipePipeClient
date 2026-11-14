@@ -67,3 +67,29 @@ a video tap does today". While autoplay is not allowed (setting "never", or "onl
 mobile data), today's tap opens the page, stops the running player and does not start the
 tapped video (NavigationHelper.java:414-416, VideoDetailFragment.kt:587-600). Is that what
 *Play now* should do then? Planned with: yes, exactly what a tap does today.
+
+## A4 spec
+The tapped video alone, in every list. "The tapped video replaces the queue" is the rule; the
+reference to the long-press action was imprecise, since that action plays the whole list in
+playlists and history. Terms now say so. Starting a list from a video stays available in the
+long-press menu.
+
+## A5 spec
+As planned, by the rule of AC-9: *Add all to queue* and *Play all next* start the list in the
+background player, *Replace queue* does what the button does today. AC-11 now says so; AC-12
+already covers *Replace queue*.
+
+## A6 spec
+As today's "Enqueue": mixed in while the player's queue is shuffled, list order otherwise.
+AC-11 now says so.
+
+## A7 spec
+The screen is "Player". AC-15 now reads "directly below Preferred 'open' action
+(Settings > Player)".
+
+## A8 spec
+Today's behaviour, no dialog. AC-10 now says so.
+
+## A9 spec
+Yes, exactly what a tap does today: the autoplay setting keeps deciding whether the video
+starts by itself. Terms now say so.
