@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Enforces the layer rules in enhancements/PROCESS.md.
 #
-#   check-layers.sh [<base-ref>]     every commit in <base-ref>..HEAD writes only what its layer owns
-#                                    (default base: origin/dev)
+#   check-layers.sh [<base-ref>]     every commit in <base-ref>..HEAD writes only what its layer owns,
+#                                    and code commits change files of <base-ref> only by ENH: hook
+#                                    lines (default base: origin/dev)
 #   check-layers.sh --open-questions fails while a question in any questions.md has no answer
 set -euo pipefail
 
@@ -51,7 +52,7 @@ layer_owned() {
 }
 
 check_commits() {
-    local base=$1 status=0 commit subject layer feature path deleted
+    local base=$1 status=0 commit subject layer feature path deleted unmarked added removed
     local prefix='^(spec|plan|test|code)\(([a-z0-9-]+)\): '
 
     while IFS= read -r commit; do
@@ -71,6 +72,22 @@ check_commits() {
             elif layer_owned "$path"; then
                 echo "FAIL  ${commit:0:9}  \"$subject\" has no layer prefix but writes $path"
                 status=1
+            fi
+
+            # an upstream file may only gain or change marked hook lines
+            if [[ $layer == code ]] && git cat-file -e "$base:$path" 2>/dev/null; then
+                unmarked=$(git show --format= -U0 "$commit" -- "$path" |
+                    grep -E '^\+' | grep -Ev '^\+\+\+ ' | grep -Fvc "ENH:$feature" || true)
+                added=$(git show --numstat --format= "$commit" -- "$path" | awk '{print $1}')
+                removed=$(git show --numstat --format= "$commit" -- "$path" | awk '{print $2}')
+                if [[ ${unmarked:-0} != 0 ]]; then
+                    echo "FAIL  ${commit:0:9}  $path: $unmarked changed line(s) without ENH:$feature"
+                    status=1
+                fi
+                if (( ${removed:-0} > ${added:-0} )); then
+                    echo "FAIL  ${commit:0:9}  $path: removes upstream lines ($removed removed, $added added)"
+                    status=1
+                fi
             fi
 
             # questions.md is a log: entries are added, never edited or removed
