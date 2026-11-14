@@ -97,8 +97,10 @@ How it composes with `base`. It never reads the ask switch: "ask is on" is `base
 - *idle* over `b`: `tap.startsListInBackground` or `startPlaybackIn() == VIDEO_PAGE` -> `b`;
   `BACKGROUND_PLAYER` -> `START_BACKGROUND`; `POPUP_PLAYER` -> `START_POPUP`.
 - `onListPlay`, `onListChoice`: the base call, arguments and result unchanged.
-- `offersStreamDetails`: `base.offersStreamDetails(player) || (!player.somethingPlaying &&
-  settings.startPlaybackIn() != VIDEO_PAGE)`.
+- `offersStreamDetails`: `base.offersStreamDetails(player)`, or not `player.somethingPlaying`
+  and `settings.startPlaybackIn() != VIDEO_PAGE`, or `player.somethingPlaying` and
+  `base.onListPlay(player) != ListEffect.ASK` (while something is playing that is exactly "ask
+  is off", QG plan 3.2) and `settings.defaultAction() != PLAY_NOW`.
 
 Rule tables for `OpenActionPolicy(QueueGuardPolicy(GuardSettings { ask }), settings)`, first match
 wins. playing = `player.somethingPlaying` (false for `PlayerState.IDLE` and for any kind with
@@ -137,12 +139,13 @@ playlist with Music Player Mode on); kind = `player.kind`; "any" = no influence 
 `offersStreamDetails` (`onListPlay` and `onListChoice` are QG plan 3.2's rows whatever the two
 settings are, AC-15):
 
-| # | playing | kind | start playback in | Result | AC |
-|---|---|---|---|---|---|
-| 20 | yes | `BACKGROUND`, `POPUP` | any | `true` | QG 17 |
-| 21 | yes | `MAIN` | any | `false` | QG 17 |
-| 22 | no | any | `BACKGROUND_PLAYER`, `POPUP_PLAYER` | `true` | 11 |
-| 23 | no | any | `VIDEO_PAGE` | `false` | 14 |
+| # | playing | kind | ask | default action | start playback in | Result | AC |
+|---|---|---|---|---|---|---|---|
+| 20 | yes | `BACKGROUND`, `POPUP` | any | any | any | `true` | QG 17 |
+| 21 | yes | `MAIN` | off | `ADD_TO_QUEUE`, `PLAY_NEXT` | any | `true` | 11 |
+| 21b | yes | `MAIN` | any other combination | | any | `false` | QG 17, 14 |
+| 22 | no | any | any | any | `BACKGROUND_PLAYER`, `POPUP_PLAYER` | `true` | 11 |
+| 23 | no | any | any | any | `VIDEO_PAGE` | `false` | 14 |
 
 ### 4.3 `RememberChoice.kt` (plain Kotlin)
 
@@ -217,7 +220,7 @@ parser over this feature's two resource files, QG's `res/values/enhancements_que
 | 8 | `RememberChoice`, `PrefsOpenActionSettings.save` | JVM M: 4.3. Scenario with one in-memory fake that is `GuardSettings`, `OpenActionSettings` and `RememberStore`: ask on, playing; tap -> prompt; `RememberChoice.onChoice(PLAY_NEXT, true)`, then the prompt's callback -> only `enqueueNext()`; the fake holds `PLAY_NEXT` and ask off; a second tap -> `enqueueNext()` without UI. Same for the other two choices. Manual: both values shown in Settings afterwards (preference glue) |
 | 9 | 4.3; QG's dialog calls the add-on for no dismissal | JVM M: `CANCEL` checked, and every choice unchecked, save nothing. Manual: Cancel, Back, outside tap, rotation with the box ticked (dialog lifecycle) |
 | 10 | G2 feeds only `onVideoTap`; QG builds the list dialog with no extension (QG plan 3.3) | Manual: the list dialog has no checkbox (the box is attached by QG's Android dialog code; nothing to call on the JVM) |
-| 11 | rows 20-23, QG's M1 | JVM P: the four rows; C: `offersStreamDetails()`. Manual: the entry appears and opens the page (QG's menu glue) |
+| 11 | rows 20-23, QG's M1 | JVM P: the five rows, row 21 for both enqueue actions and row 21b for ask on and for `PLAY_NOW`; C: `offersStreamDetails()`. Manual: the entry appears and opens the page (QG's menu glue) |
 | 12 | row 5 | JVM P: `OPEN_AS_TODAY` for every combination of the settings, ask and kind; C returns `false` |
 | 13 | row 19 | JVM P. C: the fake player is set to `PlayerState.IDLE` between prompt and choice, for each start-in value and MPM |
 | 14 | `PLAY_NOW` + `VIDEO_PAGE` delegate everything | JVM: over the whole grid (kind incl. `null`, queue size 0 and 3, current or not, ask, MPM, every `GuardChoice`), P with default settings equals `QueueGuardPolicy` alone in all five functions; `DEFAULT` of both enums |
@@ -258,17 +261,14 @@ with no player, the main, the background and the popup player.
 - QG plan 8 applies unchanged to the effects reused here (sparse feed items are loaded first,
   *Play next* on a one-item queue, url forms of the current item).
 
-## 9. Assumptions and open questions
+## 9. Assumptions
 
 Not a question, since "sits with" and "beside it" leave it to the plan: S2 and S3 go directly
-below QG's switch, default action first (AC-1, AC-2). Open in `questions.md`:
+below QG's switch, default action first (AC-1, AC-2). The questions this plan raised are answered:
 
-| Q | Planned with | Affects |
+| Q | Outcome | Affects |
 |---|---|---|
-| Q3 | no extra long-press entry while the main player is in use, the switch is off and the default action is *Add to queue* or *Play next*; nothing in a list then plays another video at once | AC-3, AC-11 |
-| Q4 | *Play now* after the player was closed, in a local playlist with Music Player Mode on, does what a tap does there today (AC-6 before AC-13): row 19 through row 1 | AC-6, AC-13 |
-| Q5 | *Popup player* starts audio-only items in the popup player too, although the long-press menu hides that action for them (`info_list/dialog/InfoItemDialog.java:287-290`) | AC-5 |
-| Q6 (about QG's plan) | QG's dialog calls `TapDialogAddOn.onChoice` only for a row click it then carries out, not for a click it drops | AC-8, AC-9 |
-
-A different answer changes: Q3 the `offersStreamDetails` rows or QG's menu entry; Q4 row 19; Q5 QG's
-`TapRequest` (QG plan 3.1), which carries no stream type; Q6 QG's dialog.
+| Q3 | A3 changed the spec: "Show stream details" is also offered while the main player is in use, the switch is off and the default action is *Add to queue* or *Play next* (row 21, the `offersStreamDetails` rule in 4.2). QG's M1 entry already opens the page as a tap does today | AC-11 |
+| Q4 | A4 confirmed: *Play now* after the player was closed follows AC-6 in a local playlist with Music Player Mode on (row 19 through row 1) | AC-6, AC-13 |
+| Q5 | A5 confirmed: *Popup player* starts audio-only items in the popup player too | AC-5 |
+| Q6 | A6 confirmed, and QG plan 3.3 now states it: the add-on is called only for a row click that is then carried out | AC-8, AC-9 |
