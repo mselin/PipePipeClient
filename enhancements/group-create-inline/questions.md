@@ -20,3 +20,16 @@ unchecked is not created (AC-9).
 leave this limit at to the selection dialog for now."
 Applied: the name prompt refuses a name already used by an existing or pending group (AC-4,
 Terms). The existing group dialog keeps accepting duplicates (AC-14).
+
+## Q3 plan -> spec
+Does AC-12 also cover the checkbox changes of existing groups? Today, when saving those fails,
+the dialog closes without a message (FeedGroupSelectionDialog.java:217-220), and AC-8 says they
+are saved "as today". AC-12 says that if saving fails the dialog stays open and an error is
+shown.
+Planned with: AC-12 applies to creating the pending groups. They are committed first, in one
+transaction; if that fails nothing is saved, the dialog stays open and the error is shown. If
+it succeeds, today's save runs unchanged, including its silent close on failure; the new groups
+then already contain the channel, so no group is left without it.
+The other reading (any failure keeps the dialog open, all changes saved together or not at all)
+is possible with the same single hook line, but the fork then replaces upstream's save instead
+of calling it (plan section 2, S1). Affects AC-8 and AC-12.
