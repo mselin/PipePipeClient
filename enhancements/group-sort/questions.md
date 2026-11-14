@@ -12,3 +12,17 @@ with a notice (AC-10). The alternative is to disable it until *Manual* is select
 ## Q3 spec -> user
 Should numbers in names sort by value ("Mix 2" before "Mix 10", AC-5), or strictly character
 by character ("Mix 10" before "Mix 2")?
+
+## A1 user
+"Settings > Appearance"
+Applied: unchanged (AC-1).
+
+## A2 user
+"Reorder dialog." Follow-up choice: "Stay usable with a notice".
+Applied: unchanged (AC-10).
+
+## A3 user
+"By character. User needs to create groups like 001 - First, ZZZ - Last, ZZZZ - Last of
+last."
+Applied: plain character-by-character comparison, no number values and no language-specific
+rules, so prefixes like these sort predictably (AC-5).
