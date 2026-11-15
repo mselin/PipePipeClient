@@ -174,7 +174,8 @@ class QueueGuardController(private val policy: GuardPolicy, private val player: 
 - `onListPlay`: `videoCount <= 0` -> `playAsToday()`. Otherwise `policy.onListPlay(s)`:
   `PLAY_AS_TODAY` -> `playAsToday()`; `ASK` -> `ui.askForList(videoCount, s.queueSize, cb)`, whose
   `cb` performs `policy.onListChoice(choice, player.current())` with `PLAY_AS_TODAY`,
-  `ENQUEUE_ALL`, `ENQUEUE_ALL_NEXT` -> `playAsToday()`, `enqueueAll()`, `enqueueAllNext()`.
+  `ENQUEUE_ALL`, `ENQUEUE_ALL_NEXT` -> `playAsToday()`, `enqueueAll()`, `enqueueAllNext()`. As for
+  a tap, a second call of `cb` is ignored.
 
 ### 3.3 Android glue (no unit tests: the build has no Robolectric)
 
