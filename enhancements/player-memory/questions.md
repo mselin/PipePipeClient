@@ -39,3 +39,33 @@ previews look the same once shown.
 Yes to all three: "the next two" wrap at the end of the queue as the player's own order
 does; an item pushed out of the window by a queue edit may stay loaded until the next
 synchronization; picking a far item that was played earlier loads it again.
+
+## Q4 tests -> plan
+PROCESS.md, on defect fixes inside upstream code: "Where it has no decision logic, instrumented
+tests and a device script take the place of unit tests." Section 4 gives AC-6 (M8) the device
+script D1 only and names no instrumented test for any criterion. Is an instrumented test wanted
+for AC-6 (for example: after `initPlayback` twice, one active `MediaSessionCompat` of the app)?
+Working assumption: none. No file was added under `app/src/androidTest`; AC-6 is covered by the
+source-scan tests `PlayerMemoryWiringTest.ac6_*` (the two marked lines, their place, one caller of
+`setupMediaSession` left) and by D1.
+
+## Q5 tests -> plan
+`PreviewLoadState`, three points section 3 leaves open. (1) `request` for a cached page, or for
+the page in flight, while another page is pending: is the pending page kept? (2) A download that
+fails (Picasso throws or returns null): section 3 only describes a result with a bitmap. If the
+glue does not call `onLoaded` for a failure, the page stays in flight and the item never loads
+another sheet. (3) `refresh(player.binding.playbackSeekBar, progress, true)`: which `progress`?
+Working assumptions: (1) yes, read literally ("null when not armed, when `cached`, or when
+`page` is the page in flight" changes nothing); pinned by
+`PreviewLoadStateTest.ac1_cachedOrInFlightRequests_doNotDropThePendingPage`. (2) the glue calls
+`onLoaded` for every finished download and puts nothing into the cache when there is no bitmap;
+not testable on the JVM, to be checked in D4 with the network off. (3) the seekbar's own
+`progress`; not tested.
+
+## Q6 tests -> plan
+Section 7 has `LoadWindowTest` green after code commit 2 (M5) and the remaining tests green
+after commit 3 (M4). All tests of the package are one Gradle source set: it compiles only when
+all four plain classes and `LazySeekbarPreviews.MAX_SHEET_BYTES` exist, so after commits 1 and 2
+alone no unit test of the app can run. The wiring tests also count all six marked lines at once.
+Working assumption: accepted; the tests are run after commit 3 (or the Code layer adds the new
+files of step 3 before the hook lines). The tests were not split to match the three commits.
