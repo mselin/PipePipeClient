@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enh_keep_position_key" translatable="false">enh_keep_position_key</string>
+    <string name="enh_keep_position_title">Keep position of the playing video</string>
+    <string name="enh_keep_position_summary">The video continues where it was when it moves between players, changes quality or recovers from an error</string>
+</resources>
