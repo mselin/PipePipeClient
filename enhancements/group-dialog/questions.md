@@ -21,3 +21,11 @@ during the save; rotation cannot be disabled, and finding F12 is about exactly t
 Planned with: the running save is not cancelled. It is one transaction, so everything of that OK
 is saved or nothing; the old dialog's result (close, or the error message) is dropped, and the
 dialog that Android rebuilds loads the groups again (plan section 2, S3). Affects AC-2 and AC-5.
+
+## A2 spec
+As planned: after a failed load, OK closes the dialog without saving, like Cancel. There is
+nothing it could save.
+
+## A3 spec
+As planned: a running save is not cancelled by a rotation. It saves everything or nothing;
+only its answer to the old dialog is dropped. That removes the partial save of finding F12.
