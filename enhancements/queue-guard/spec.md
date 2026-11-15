@@ -18,6 +18,9 @@ While something is playing, a tap must not silently replace the queue.
 
 - **Something is playing**: a player (main, background or popup) is open and holds at least
   one item, playing or paused.
+- **A queue worth guarding**: something is playing, except when the main player is in use
+  and its queue holds one video, not counting one appended by "Auto-enqueue next stream".
+  Watching a single video in the main player is not a queue.
 - **Video tap**: a tap on a video in any list inside the app (search, trending, channel,
   remote or local playlist, feed, history, related videos) that today opens the video or, in
   Music Player Mode, starts it.
@@ -39,7 +42,7 @@ While something is playing, a tap must not silently replace the queue.
 
 Video taps
 
-- **AC-1** While something is playing, a video tap on anything but the current item opens
+- **AC-1** With a queue worth guarding, a video tap on anything but the current item opens
   the queue-guard dialog. Until the user chooses, nothing else happens: no page opens,
   playback and queue are untouched.
 - **AC-2** The dialog shows the title of the tapped video, the number of items in the queue,
@@ -52,7 +55,8 @@ Video taps
 - **AC-5** *Play now (replaces the queue)* does Play now as defined above.
 - **AC-6** *Cancel*, Back, a tap outside the dialog, or the dialog being dismissed by a
   screen rotation changes nothing.
-- **AC-7** While nothing is playing, a video tap behaves as today and no dialog appears.
+- **AC-7** Without a queue worth guarding (nothing is playing, or a single video in the main
+  player), a video tap behaves as today and no dialog appears.
 - **AC-8** A video tap on the current item behaves as today and no dialog appears.
 - **AC-9** If the player was closed while the dialog was open, *Add to queue* and *Play next*
   do what "Enqueue" does today when nothing is playing (the video starts in the background
@@ -60,7 +64,7 @@ Video taps
 
 Play buttons
 
-- **AC-10** While something is playing, pressing a play button opens the dialog in its list
+- **AC-10** With a queue worth guarding, pressing a play button opens the dialog in its list
   form. It shows how many videos the list would add, the number of items in the queue, and
   four choices: *Add all to queue*, *Play all next*, *Replace queue*, *Cancel*. A play button
   on a list with no videos loaded behaves as today, without a dialog.
@@ -73,14 +77,15 @@ Play buttons
   playing: the list starts in the background player.
 - **AC-12** *Replace queue* does what the pressed button does today.
 - **AC-13** *Cancel* and the other dismissals of AC-6 change nothing.
-- **AC-14** While nothing is playing, the play buttons behave as today and no dialog appears.
+- **AC-14** Without a queue worth guarding, the play buttons behave as today and no dialog
+  appears.
 
 Setting
 
 - **AC-15** A switch "Ask before replacing the queue" sits directly below "Preferred 'open'
   action" (Settings > Player). It is on by default and covers video taps and play buttons
   together.
-- **AC-16** With the switch off no dialog appears. While something is playing, a video tap on
+- **AC-16** With the switch off no dialog appears. With a queue worth guarding, a video tap on
   anything but the current item does Play now directly, and the play buttons behave as today.
 
 Reaching the video page
