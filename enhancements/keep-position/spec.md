@@ -11,12 +11,15 @@ that switch is on.
 - While that switch is on, the position of the video that is already playing is discarded too
   whenever the player loads it again. The video then restarts at 0:00:
   - when it moves between the main, background and popup player (reported by the user);
-  - when its quality is changed, and when the player recovers from a network or decoder error
-    (read from the code, not yet seen on a device).
-- While that switch is on, a link that names a time does not go to it: the video stays where
-  it is or starts at 0:00. This holds for a time in a video's description or comments and for
-  a video link whose address carries a start time (read from the code, not yet seen on a
-  device).
+  - when its quality or audio track is changed, and when the player recovers from a network
+    error or from a decoder failure it can recover from (confirmed in the code by the plan,
+    not yet seen on a device).
+- While that switch is on, a link whose address names a time does not go to it: the video
+  stays where it is or starts at 0:00. This holds for a link in a description or comments
+  whose address ends in a time (`&t=90`, `#timestamp=90`) and for a video link whose address
+  carries a start time (confirmed in the code by the plan, not yet seen on a device).
+- A time written as text in a description or comments (`1:30`) is different: it jumps the
+  running player directly and already works whatever that switch is set to.
 - While that switch is off, reloads continue at the position the video had and links that
   name a time go to it.
 
@@ -27,7 +30,9 @@ that switch is on.
   queue, next, previous, the automatic move to the next item, a video opened from the history
   or from a link, and pressing play after the player was closed.
 - **Timed start**: a start that names its own time. There are two kinds:
-  - a **timestamp link**: a time in a video's description or comments;
+  - a **timestamp link**: a link in a video's description or comments whose address ends in a
+    time (`&t=90`, `#timestamp=90`). A time written as text (`1:30`) is not one: it works
+    today and is not changed;
   - a **video link with a start time**: a link to a video whose address carries a start time
     (such as `?t=90`), opened from another app (Share, Open with) or tapped inside the app.
 - **Reload**: the player loads the playing video again without a start in between. The known
@@ -36,7 +41,8 @@ that switch is on.
     by a button (Background and Popup on the video's page, the popup's fullscreen button,
     "Switch to ..." in the queue screen) or automatically ("Minimize on app switch" and
     coming back to the app);
-  - **quality change**: another quality is picked in the player;
+  - **quality or audio track change**: another quality or audio track is picked in the
+    player;
   - **error recovery**: the player reloads the video after a network or decoder error.
 
 ## Acceptance criteria
@@ -47,9 +53,11 @@ that switch is on.
   from an error.
 - **AC-2** With both switches on, after a player switch the video continues at the position
   it had, in every direction between the main, background and popup player, for the button
-  and for the automatic ways.
-- **AC-3** With both switches on, after a quality change the video continues at the position
-  it had.
+  and for the automatic ways. Where the main player does not start by itself after the
+  popup's fullscreen button (the Autoplay setting decides that, as today), pressing play then
+  still continues at that position, unless another video was started in between.
+- **AC-3** With both switches on, after a quality or audio track change the video continues at
+  the position it had.
 - **AC-4** With both switches on, after an error recovery the video continues at the position
   it had.
 - **AC-5** "The position it had" is the position at the moment the reload began, as exactly
@@ -62,7 +70,8 @@ that switch is on.
   except for timed starts (AC-12 to AC-14).
 - **AC-9** While "Always start play from beginning" is off, the app behaves exactly as it
   does without this feature, whatever the new switch is set to.
-- **AC-10** Live streams behave as today: there is no position to keep.
+- **AC-10** Live streams behave as today: there is no position to keep, and a timed start of
+  a live stream is not exempt either.
 - **AC-11** All new texts are translatable. English is delivered; other languages fall back
   to English.
 
@@ -70,7 +79,8 @@ Timed starts
 
 - **AC-12** Tapping a timestamp link plays that video from the link's time, whatever "Always
   start play from beginning" and the new switch are set to. If that video is the playing
-  video, it jumps to the time without restarting.
+  video and alone in its queue, it jumps to the time without restarting; in a longer queue
+  the tap replaces the queue by that video, as it does today.
 - **AC-13** Opening a video link with a start time plays the video from that time, whatever
   the two switches are set to.
 - **AC-14** Everything else about a timed start (which player is used, what happens to the
@@ -80,5 +90,8 @@ Timed starts
 
 ## Not covered
 
-- What "Always start play from beginning" does to starts (AC-7 keeps it).
+- What "Always start play from beginning" does to every other start (AC-7 keeps it). That
+  includes a start position that comes without a link: a cast session handed to the app, and
+  Bilibili round play.
+- Times written as text in descriptions and comments. They already work.
 - The "Resume playback" setting of the watch history.
