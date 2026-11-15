@@ -38,3 +38,15 @@ of calling it (plan section 2, S1). Affects AC-8 and AC-12.
 AC-12 is about creating the pending groups. They are saved first; if that fails nothing is
 saved and the dialog stays open with an error. Saving the other checkbox changes keeps
 today's behaviour, also when it fails. AC-12 now says so. The plan's assumption stands.
+
+## Q4 tests -> plan
+Is `isBusy` already true while `ui.setBusy(true)` runs? Plan section 4 says two things that
+differ for that one moment. The comment on the property: "true only while a createGroups call is
+unanswered". `confirm()` step 4: `isBusy = true`, then `ui.setBusy(true)`, then
+`saver.createGroups(...)`; during `ui.setBusy(true)` no call has been made yet, but `isBusy` is
+true.
+Tested with: step 4 as written, because the numbered steps are named as the contract.
+`GroupCreateSessionTest.ac8_sessionIsAlreadyBusyWhenTheUiIsToldBusy` expects `isBusy == true`
+inside `ui.setBusy(true)`. It is the only test that depends on this; every other test holds for
+both readings. If the comment is meant to the letter, that test is removed. The Android ui
+cannot observe the difference. Affects AC-8.
