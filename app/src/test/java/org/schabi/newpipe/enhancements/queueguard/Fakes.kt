@@ -23,13 +23,24 @@ internal const val TAPPED_URL = "https://video.example/watch?v=tapped"
 /** The three players of plan 3.1, spelled out so that a test never depends on the enum's own order. */
 internal val ALL_KINDS: List<PlayerKind> = listOf(PlayerKind.MAIN, PlayerKind.BACKGROUND, PlayerKind.POPUP)
 
-/** A player of [kind] that holds [queueSize] items and is on the item [url] of [serviceId]. */
+/**
+ * A player of [kind] that holds [queueSize] items and is on the item [url] of [serviceId]. Of the
+ * [queueSize] items, [autoQueued] were added by the player itself through "Auto-enqueue next stream"
+ * (plan 3.1, `autoQueuedCount`); by default the user put all of them there.
+ */
 internal fun playing(
     kind: PlayerKind,
     queueSize: Int = 3,
     serviceId: Int = SERVICE,
     url: String? = CURRENT_URL,
-): PlayerState = PlayerState(kind = kind, queueSize = queueSize, currentServiceId = serviceId, currentUrl = url)
+    autoQueued: Int = 0,
+): PlayerState = PlayerState(
+    kind = kind,
+    queueSize = queueSize,
+    currentServiceId = serviceId,
+    currentUrl = url,
+    autoQueuedCount = autoQueued,
+)
 
 /** A player of [kind] that is open but holds no item. By the spec's terms nothing is playing. */
 internal fun openButEmpty(kind: PlayerKind): PlayerState =
@@ -41,6 +52,38 @@ internal val NOTHING_PLAYING: List<PlayerState> = listOf(PlayerState.IDLE) + ALL
 /** Every state in which something is playing: each player, with a queue of one item and of several. */
 internal val SOMETHING_PLAYING: List<PlayerState> =
     ALL_KINDS.flatMap { listOf(playing(it, queueSize = 1), playing(it, queueSize = 3)) }
+
+/**
+ * States with "a queue worth guarding" (spec, Terms; plan 3.1, `worthGuarding`), written
+ * `queueSize`/`autoQueued`: the background and the popup player with 1/0 and 3/0, the background player
+ * with 3/2 (there the auto-enqueued videos do not matter), and the main player with at least two videos
+ * the user put there: 3/0, 2/0, 3/1 and 5/3. In all of them something is playing.
+ */
+internal val WORTH_GUARDING: List<PlayerState> = listOf(
+    playing(PlayerKind.BACKGROUND, queueSize = 1),
+    playing(PlayerKind.BACKGROUND, queueSize = 3),
+    playing(PlayerKind.POPUP, queueSize = 1),
+    playing(PlayerKind.POPUP, queueSize = 3),
+    playing(PlayerKind.BACKGROUND, queueSize = 3, autoQueued = 2),
+    playing(PlayerKind.MAIN, queueSize = 3),
+    playing(PlayerKind.MAIN, queueSize = 2),
+    playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 1),
+    playing(PlayerKind.MAIN, queueSize = 5, autoQueued = 3),
+)
+
+/**
+ * States in which something is playing but the queue is not worth guarding: the main player with at most
+ * one video the user put there, written `queueSize`/`autoQueued`. 1/0: one video. 2/1: it and the
+ * auto-enqueued next one. 3/2: playback moved on by itself and the next one was auto-enqueued again
+ * (answer A13). 2/2 and 1/1: only auto-enqueued videos are left, none of the user's.
+ */
+internal val SINGLE_IN_MAIN: List<PlayerState> = listOf(
+    playing(PlayerKind.MAIN, queueSize = 1),
+    playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 1),
+    playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 2),
+    playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 2),
+    playing(PlayerKind.MAIN, queueSize = 1, autoQueued = 1),
+)
 
 /** A tap on a video that is not the current item of [playing] (unless [url] and [serviceId] say so). */
 internal fun tapOn(
