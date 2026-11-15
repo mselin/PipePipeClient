@@ -668,7 +668,7 @@ public class ChannelVideosFragment extends BaseListInfoFragment<StreamInfoItem, 
         updateSortButton();
         activity.invalidateOptionsMenu();
         PicassoHelper.loadBanner(result.getBannerUrl()).tag(PICASSO_CHANNEL_TAG)
-                .fit().centerCrop().onlyScaleDown() // ENH:release-views
+                .fit().centerCrop() // ENH:release-views
                 .into(headerBinding.channelBannerImage);
         PicassoHelper.loadAvatar(result.getAvatarUrl()).tag(PICASSO_CHANNEL_TAG)
                 .into(headerBinding.channelAvatarView);
