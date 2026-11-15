@@ -6,19 +6,23 @@ file cited by name alone is the only one of that name. Line numbers are those of
 `cd87fc7`. `QG` stands for `org.schabi.newpipe.enhancements.queueguard.QueueGuard`; hooks spell
 it out in full so that no import line is added.
 
-**Changed 2026-11-15, after answer A11 (spec commit `00302ba`).** The guard asks only for "a queue
-worth guarding": a single video in the main player, not counting an auto-enqueued one, is replaced
-as upstream does. What changed in this plan:
+**Changed 2026-11-15, after answers A11 to A14 (spec commits `00302ba`, `ddb29b0`).** The guard
+asks only for "a queue worth guarding": in the main player, a queue with at most one video the
+user put there is replaced as upstream does, and videos the player added by itself through
+"Auto-enqueue next stream" never count, played or not. What changed in this plan:
 
-- 3.1: `PlayerState` gets `autoQueuedCount` (last, default `0`) and the derived `worthGuarding`.
+- 3.1: `PlayerState` gets `autoQueuedCount` (last, default `0`) and the derived `worthGuarding`;
+  new `AutoQueuedRecord`, the fork's own record of the videos the player added by itself.
   `somethingPlaying` and `isCurrent` keep their meaning.
 - 3.2: the first row of `onTap` and of `onListPlay` tests `worthGuarding` instead of
   `somethingPlaying` (AC-1, AC-7, AC-10, AC-14, AC-16). No other row, no signature and nothing in
   `QueueGuardController` changes.
-- 2 and 3.3: one new hook, Q1, an accessor in `PlayQueue.java` (the auto-enqueued mark is
-  private), read by `HolderPlayerStateSource`. Now 9 upstream files and 24 marked lines.
+- 2 and 3.3: one new hook, Q1, an added call in `PlayQueue.java` that reports every auto-enqueued
+  video; `HolderPlayerStateSource` counts them in the queue. Now 9 upstream files and 24 marked
+  lines. The accessor hook planned after A11 is gone: upstream's own mark names only the latest
+  auto-enqueued video, which A13 makes insufficient, and the record makes it unnecessary.
 - 4: the summary of the switch. 5: AC rows 1, 7, 10, 14, 16, 17 and a list of what the Tests
-  layer changes. 6: what follows for default-open-action. 8, 9: new risks, questions Q12-Q14.
+  layer changes. 6: what follows for default-open-action (A14). 8, 9: new risks; Q12 to Q14.
 
 ## 1. Shape
 
@@ -69,27 +73,25 @@ asked and for *Replace queue*. All 15 listeners use this form, to have one mecha
 | B4 | `local/history/StatisticsPlaylistFragment.java` | `:387` main, `:389` popup, `:391` background |
 | B5 | `local/feed/FeedFragment.kt` | `:331` main, `:338` popup, `:347` background shuffled, `:349` background |
 
-**Form C, accessor: one added line that calls nothing.** "A queue worth guarding" does not count a
-video appended by "Auto-enqueue next stream". Upstream keeps that mark in
-`PlayQueue.autoQueuedUuid` (`player/playqueue/PlayQueue.java:70`), a private field with no getter,
-and no public member tells the two cases apart: `append` and `appendAutoQueued` (`:309`, `:319`)
-emit the same `AppendEvent` (`:343`), `PlayerMediaItem` carries no flag
-(`PlayerHelper.java:574-578`), and a queue of the playing video plus one more looks the same
-whether the second was auto-enqueued or enqueued by the user. So the mark is exposed:
+**Form A again, for the queue: one added line that skips nothing.** "A queue worth guarding" does
+not count the videos the player added by itself, also after they have played (A13). Upstream
+knows only the latest one (`PlayQueue.autoQueuedUuid`, `player/playqueue/PlayQueue.java:70`,
+private, overwritten by the next auto-enqueue `:339-341`), and no public member tells an
+auto-enqueued video from one the user enqueued: `append` and `appendAutoQueued` (`:309`, `:319`)
+emit the same `AppendEvent` (`:343`) and `PlayerMediaItem` carries no flag. So the fork keeps its
+own record, fed where every auto-enqueue passes:
 
 | # | Where | Added line |
 |---|---|---|
-| Q1 | `player/playqueue/PlayQueue.java`, directly after the field at `:70` | `@Nullable public synchronized String enhAutoQueuedUuid() { return autoQueuedUuid; } // ENH:queue-guard` |
+| Q1 | `player/playqueue/PlayQueue.java:323` `appendInternal`, after `:325` (`itemList` is built) | `if (autoQueued) org.schabi.newpipe.enhancements.queueguard.QueueGuard.noteAutoQueued(itemList); // ENH:queue-guard` |
 
-Q1 skips nothing and changes no upstream statement; `Nullable` is imported already. It is not
-one of the three hook forms PROCESS.md lists (it is no call into `enhancements/`);
-`check-layers.sh` accepts it, since it tests only for the marker (Q12). Rejected: reading the
-field by reflection (no hook, but the release build is minified, `app/build.gradle:86-88`, and a
-renamed field would fail silently); redirecting the two `appendAutoQueued` calls in
-`player/AutoQueueController.kt:48,66` to a wrapper that remembers the item (2 lines, and it would
-miss upstream clearing the mark when the item is moved by hand, `PlayQueue.java:441-443`);
-guessing from the "Auto-enqueue next stream" setting and the queue size (wrong as soon as the user
-enqueues one video).
+Both callers of `appendAutoQueued` (`player/AutoQueueController.kt:48`, the next part of a
+multi-part video, and `:66`, the related video) and any later one go through this line. It is an
+added call into `enhancements/`, a form PROCESS.md lists. Rejected: redirecting the two calls in
+`AutoQueueController.kt` (2 lines, and a third caller would be missed); the accessor for
+`autoQueuedUuid` that A12 accepted (it cannot name a video that has already played, and with the
+record it adds nothing); a field or set inside `PlayQueue` (several upstream lines); reading the
+private field by reflection (the release build is minified, `app/build.gradle:86-88`).
 
 **Why not `NavigationHelper`** (the hook PROCESS.md suggests). `openVideoDetailFragment` and
 `playOn*Player` cannot tell a tap or a play button from their other callers, which pass the same
@@ -122,12 +124,12 @@ data class PlayerState(
     val queueSize: Int,           // 0 while the player holds no queue
     val currentServiceId: Int,
     val currentUrl: String?,      // url of the current item, null if none
-    val autoQueuedCount: Int = 0, // of the queueSize items, those appended by auto-enqueue
+    val autoQueuedCount: Int = 0, // of the queueSize items, those the player added by itself
 ) {
     /** Spec, Terms, "something is playing". Unchanged. */
     val somethingPlaying: Boolean get() = kind != null && queueSize > 0
     /** Spec, Terms, "a queue worth guarding": something is playing, except in the main player
-     *  while its queue holds at most one video that was not auto-enqueued. */
+     *  while its queue holds at most one video the user put there. */
     val worthGuarding: Boolean
         get() = somethingPlaying && !(kind == PlayerKind.MAIN && queueSize - autoQueuedCount <= 1)
     fun isCurrent(tap: TapRequest): Boolean =
@@ -150,23 +152,60 @@ fun movesForPlayNext(sizeAfterAppend: Int, added: Int, currentIndex: Int): List<
 /** Index for "Show stream details" in a menu given as string resource ids: -1 if [detailsRes] is already
  *  there, else the index of [anchorRes], else the size (append). */
 fun streamDetailsInsertIndex(entryResources: List<Int>, detailsRes: Int, anchorRes: Int): Int
+
+const val AUTO_QUEUED_RECORD_LIMIT: Int = 1000
+/** The uuids of the queue items the player added by itself. Thread-safe (every member `@Synchronized`). */
+class AutoQueuedRecord(private val limit: Int = AUTO_QUEUED_RECORD_LIMIT) {
+    /** Remembers [uuids]. Beyond [limit] entries the oldest are forgotten, one per entry added. */
+    fun add(uuids: Collection<String>)
+    /** How many entries of [queueUuids] are remembered; a uuid that occurs twice counts twice. */
+    fun countIn(queueUuids: List<String>): Int
+}
 ```
 
 `autoQueuedCount` is the last constructor parameter and has a default, so every existing
 `PlayerState(kind, queueSize, currentServiceId, currentUrl)` call, positional or named, compiles
-unchanged and describes a queue without an auto-enqueued video: `IDLE`, this feature's tests and
-those of default-open-action. `queueSize` stays the whole queue, auto-enqueued video included: it
-is the number the dialog shows (AC-2, AC-10). The two properties side by side:
+unchanged and describes a queue the user built alone: `IDLE`, this feature's tests and those of
+default-open-action. `queueSize` stays the whole queue, auto-enqueued videos included: it is the
+number the dialog shows (AC-2, AC-10). `queueSize - autoQueuedCount` is the number of videos the
+user put there. The two properties side by side:
 
 | State | `somethingPlaying` | `worthGuarding` |
 |---|---|---|
 | no player, or `queueSize == 0` | no | no |
-| `BACKGROUND` or `POPUP`, `queueSize >= 1` | yes | yes |
-| `MAIN`, `queueSize - autoQueuedCount <= 1` (one video; one video and an auto-enqueued one) | yes | no |
+| `BACKGROUND` or `POPUP`, `queueSize >= 1`, any `autoQueuedCount` | yes | yes |
+| `MAIN`, `queueSize - autoQueuedCount <= 1` | yes | no |
 | `MAIN`, `queueSize - autoQueuedCount >= 2` | yes | yes |
 
-`worthGuarding` implies `somethingPlaying`. A count is used, not a flag, so that the answer to
-Q13 changes only what the glue counts, not the model.
+`worthGuarding` implies `somethingPlaying`. Queues of the third line, main player (A is a video
+the user tapped, B and C came by auto-enqueue): A alone; A and B, whichever of the two plays; A,
+B, C after playback moved on by itself; B and C after the user removed A (no video of the user
+left); B and D after the user removed A and enqueued D (one). Of the fourth line: A and D; A, B
+and D.
+
+**Which videos the player added by itself (the rule the glue and `AutoQueuedRecord` implement).**
+
+1. A queue item counts as added by the player if and only if its uuid
+   (`PlayerMediaItem.uuid`, one per queue slot, `player/mediaitem/PlayerMediaItem.kt:17,34`) was
+   passed to `PlayQueue.appendAutoQueued` in this process. Every other item is the user's: the
+   tapped video, a played list, everything enqueued by hand.
+2. Playing does not change it: such a video is not the user's before, while or after it plays.
+3. Moving it does not change it either, by drag in the queue screen or otherwise. Upstream drops
+   its own mark on a move (`PlayQueue.java:441-443`); the fork does not follow, because the user
+   still did not add the video, and following would need a second hook. Shuffling changes nothing.
+4. Enqueueing the same video by hand creates a new item with a new uuid
+   (`PlayerMediaItem.kt:173`, `:236`): that item is the user's, and the queue then holds the
+   video twice, or once if upstream dropped the auto-enqueued tail for it (`PlayQueue.java:331-337`).
+5. The record is keyed by uuid, not by queue object, so it follows the queue wherever its items
+   go: a copy through `SerializedCache` (how a queue travels in an intent,
+   `util/NavigationHelper.java:88,601`, `player/PlayerStartController.kt:30-31`) keeps the uuids,
+   as serialization keeps the field; so does a switch between main, background and popup player
+   and a restart of the player service in the same process. A removed item's uuid simply never
+   matches again.
+6. The record is lost when the process dies and it forgets its oldest entries beyond
+   `AUTO_QUEUED_RECORD_LIMIT`. A forgotten video counts as the user's, so the guard errs towards
+   asking. The player and its queue end with the process too, and 1000 is more auto-enqueues
+   than a session produces.
 
 ### 3.2 `GuardPolicy.kt`, `QueueGuardController.kt` (plain Kotlin)
 
@@ -220,8 +259,8 @@ class QueueGuardController(private val policy: GuardPolicy, private val player: 
 | `offersStreamDetails` | playing and kind `BACKGROUND` or `POPUP` | `true`, else `false` | 17 |
 
 Only the first row of `onTap` and of `onListPlay` differ from the plan before A11. What the table
-means where the two properties differ, the main player holding one video (with or without an
-auto-enqueued one behind it):
+means where the two properties differ, the main player holding at most one video the user put
+there (alone, or with videos the player added by itself around it):
 
 - **Whether to ask is decided by `worth guarding`.** A video tap gives `OPEN_AS_TODAY` and a play
   button `PLAY_AS_TODAY`, switch on or off, Music Player Mode or not: no dialog, upstream's own
@@ -274,6 +313,7 @@ object QueueGuard {
     @JvmStatic fun playOnBackgroundPlayer(context: Context, queue: PlayQueue, resumePlayback: Boolean)
     @JvmStatic fun playOnBackgroundPlayerShuffled(context: Context, queue: PlayQueue, resumePlayback: Boolean)
     @JvmStatic fun addStreamDetailsEntry(fragment: Fragment, entries: MutableList<StreamDialogEntry>)
+    @JvmStatic fun noteAutoQueued(items: List<PlayerMediaItem>)   // hook Q1, any thread
 }
 ```
 
@@ -284,18 +324,18 @@ What its members do, and the `internal` classes of `QueueGuardGlue.kt`:
 | `QueueGuard` fields | one `QueueGuardController(policy, HolderPlayerStateSource)`, plus the two lines default-open-action replaces (section 6): `private val policy: GuardPolicy = QueueGuardPolicy(PrefsGuardSettings)` and `private val tapDialogExtension: TapDialogExtension? = null` |
 | `onVideoTap` | `false` if `fragment.view == null`; else `controller.onVideoTap(TapRequest(item.serviceId, item.url, item.name, startsListInBackground), FragmentTapActions(fragment, item, replay), DialogGuardUi(fragment.requireActivity(), fragment.viewLifecycleOwner, tapDialogExtension))` |
 | `playOn*` | `asToday` = the `NavigationHelper` method of the same name with the same arguments. `context` not an `AppCompatActivity`: run `asToday`. Else `controller.onListPlay(queue.streams.size, QueueListActions(context, queue, asToday), DialogGuardUi(activity, activity, null))` |
+| `noteAutoQueued` | `autoQueuedRecord.add(items.map { it.uuid })`, nothing else: no controller, no preference, no `Context` |
 | `addStreamDetailsEntry` | if `controller.offersStreamDetails()` and `i = streamDetailsInsertIndex(entries.map { it.resource }, R.string.show_stream_details, R.string.download)` is not `-1`: insert at `i` a `StreamDialogEntry(R.string.show_stream_details)` whose action is `NavigationHelper.openVideoDetailFragment(f.requireContext(), f.requireActivity().supportFragmentManager, item.serviceId, item.url, item.name, null, false)` |
 | `object PrefsGuardSettings : GuardSettings` | default shared preferences of `App.getApp()`, key `R.string.enh_queue_guard_ask_key`, default `ASK_BEFORE_REPLACING_DEFAULT`, read on every call |
-| `object HolderPlayerStateSource : PlayerStateSource` | from `PlayerHolder.getInstance()`: `kind` = `getType()` (`VIDEO`->`MAIN`, `AUDIO`->`BACKGROUND`, `POPUP`->`POPUP`, `null`->`null`), `queueSize` = `getQueueSize()`, `currentServiceId` and `currentUrl` from `getPlayer()?.playQueue?.item` (`-1`, `null` if none), `autoQueuedCount` = `1` if `getPlayer()?.playQueue?.enhAutoQueuedUuid()` (hook Q1) is not `null`, else `0` |
+| `object HolderPlayerStateSource : PlayerStateSource` | from `PlayerHolder.getInstance()`: `kind` = `getType()` (`VIDEO`->`MAIN`, `AUDIO`->`BACKGROUND`, `POPUP`->`POPUP`, `null`->`null`), `queueSize` = `getQueueSize()`, `currentServiceId` and `currentUrl` from `getPlayer()?.playQueue?.item` (`-1`, `null` if none), `autoQueuedCount` = `autoQueuedRecord.countIn(uuids)` with `uuids` = `q.getItem(i)?.uuid` for `i` in `0 until q.size()`, nulls left out, `q` = `getPlayer()?.playQueue` (`0` if `q` is `null`) |
+| `internal val autoQueuedRecord = AutoQueuedRecord()` (top level of `QueueGuardGlue.kt`) | the one record of the process, written by `QueueGuard.noteAutoQueued`, read by `HolderPlayerStateSource` |
 | `class FragmentTapActions(fragment: Fragment, item: StreamInfoItem, replay: Runnable) : TapActions` | `openAsToday` = `replay.run()`; the others call `StreamDialogDefaultEntry.ENQUEUE`, `.ENQUEUE_NEXT`, `.START_HERE_ON_BACKGROUND`, `.START_HERE_ON_POPUP` `.action.onClick(fragment, item)` |
 | `class QueueListActions(context: Context, queue: PlayQueue, asToday: Runnable) : ListActions` | `playAsToday` = `asToday.run()`; `enqueueAll` = `NavigationHelper.enqueueOnPlayer(context, queue)`; `enqueueAllNext`: `target = PlayerHolder.getInstance().player?.playQueue`; if `null`, `NavigationHelper.enqueueNextOnPlayer(context, queue)`; else toast `R.string.enqueued_next`, `target.append(queue.streams)`, then `target.move(from, to)` for each of `movesForPlayNext(target.size(), queue.streams.size, target.index)` (index read after the append) |
 
-`autoQueuedCount` needs no search through the queue: upstream sets the mark only when it appends
-that item (`PlayQueue.java:339-341`) and clears it when the item is dropped for a user's enqueue
-(`:331-337`), removed (`:399-401`) or moved by hand (`:441-443`), so a mark that is not `null`
-names an item of the queue. It is at most one item ("Auto-enqueuing only ever appends a single
-entry at the tail", `:66-67`). The mark stays on the item after playback has moved on to it, until
-the next auto-enqueue replaces it; such an item is not counted either (Q13).
+The queue is read by index (`PlayQueue.getItem(int)` answers `null` out of bounds, `:204-209`),
+not by iterating `getStreams()`: Q1 can run on the round-play timer's thread
+(`player/AutoQueueController.kt:78-82`) while a tap reads the queue on the main thread, and an
+iterator would throw then. For the same reason `AutoQueuedRecord` is synchronized.
 
 `QueueGuardDialog.kt`:
 
@@ -348,20 +388,20 @@ R = a test that parses the two resource XML files with the JDK parser (Gradle ru
 
 | AC | Implemented by | Verified by |
 |---|---|---|
-| 1 | T1-T4, Q1, `PlayerState.worthGuarding`, `P.onTap` | JVM: `worthGuarding` over the table of 3.1; P gives `ASK` for every state worth guarding (`BACKGROUND` and `POPUP` with one video and with several, `MAIN` with two videos, `MAIN` with two and an auto-enqueued one) and for `startsListInBackground`; C returns `true`, calls only `askForTap`, no action before a choice. Manual: one tap per list (wiring); in the main player, enqueue a second video, then tap (Q1 reads the live queue) |
+| 1 | T1-T4, Q1, `AutoQueuedRecord`, `PlayerState.worthGuarding`, `P.onTap` | JVM: `worthGuarding` over the table of 3.1; `AutoQueuedRecord` (5.1); P gives `ASK` for every state worth guarding (`BACKGROUND` and `POPUP` with one video and with several, `MAIN` with two of the user's videos, with and without auto-enqueued ones) and for `startsListInBackground`; C returns `true`, calls only `askForTap`, no action before a choice. Manual: one tap per list (wiring); in the main player, enqueue a second video, then tap (the glue reads the live queue) |
 | 2 | C -> `askForTap`, `DialogGuardUi`, strings | JVM: C passes `tap.title` and `queueSize`; R: the four English texts. Manual: look of the dialog |
 | 3 | `onTapChoice` -> `enqueue()` | JVM: P; C calls only `enqueue()`. Manual: toast and queue equal long-press "Enqueue" |
 | 4 | `onTapChoice` -> `enqueueNext()` | JVM: P, C. Manual: position in the queue |
 | 5 | *playNow* rows | JVM: P for `MAIN`, `BACKGROUND`, `POPUP`, Music Player Mode; C: `openAsToday()` re-enters `onVideoTap`, which returns `false`. Manual: each player |
 | 6 | `CANCEL` -> `NONE`; dismissals do not call back | JVM: C with `CANCEL` and with no callback: no action. Manual: Back, outside tap, rotation (needs the activity lifecycle) |
-| 7 | `P.onTap`, first row | JVM: P gives `OPEN_AS_TODAY` while nothing is playing and for `MAIN` with one video, with one video and an auto-enqueued one, switch on and off, with and without `startsListInBackground`; C returns `false`, UI and actions untouched. Manual: with "Auto-enqueue next stream" on, watch a video and tap a related one: no dialog |
+| 7 | `P.onTap`, first row | JVM: P gives `OPEN_AS_TODAY` while nothing is playing and for `MAIN` with one video of the user's and none, one or two auto-enqueued ones, switch on and off, with and without `startsListInBackground`; C returns `false`, UI and actions untouched. Manual: with "Auto-enqueue next stream" on, watch a video and tap a related one: no dialog; let playback move on by itself twice, switch to the popup player and back, tap again: no dialog (Q1 and rule 5 of 3.1) |
 | 8 | `PlayerState.isCurrent` | JVM: P (same url on another service still asks) |
 | 9 | `cb` reads `player.current()` at choice time | JVM: C with the fake player set to `IDLE` between prompt and choice, all three choices; and set to `MAIN` with one video instead: the choice is carried out as if nothing had changed (3.2) |
 | 10 | B1-B5, `P.onListPlay`, C -> `askForList` | JVM: P gives `ASK` for every state worth guarding; C passes `videoCount` and `queueSize` (the whole queue, an auto-enqueued video included); R: texts. Manual: each of the 15 buttons |
 | 11 | `enqueueAll()`, `enqueueAllNext()`, `movesForPlayNext` | JVM: P, C; the moves applied to a `MutableList` (`add(to, removeAt(from))`) give list order behind the current item, current first, middle and last. Manual: toast and queue on a device (the glue edits the live `PlayQueue`) |
 | 12 | `PLAY_NOW` -> `playAsToday()` | JVM: P, C. Manual: one button per page |
 | 13 | as 6 | JVM: C. Manual: as 6 |
-| 14 | `P.onListPlay`, first row | JVM: P gives `PLAY_AS_TODAY` while nothing is playing and for `MAIN` with one video (with and without an auto-enqueued one), switch on and off; C calls `playAsToday()` at once, no UI |
+| 14 | `P.onListPlay`, first row | JVM: P gives `PLAY_AS_TODAY` while nothing is playing and for `MAIN` with one video of the user's (with and without auto-enqueued ones), switch on and off; C calls `playAsToday()` at once, no UI |
 | 15 | S1, `enh_queue_guard_ask_key`, `PrefsGuardSettings` | JVM: R (S1 is the element right after the one with `@string/preferred_open_action_key`, `defaultValue` `true`; title and the summary of section 4); `ASK_BEFORE_REPLACING_DEFAULT` is `true`; P uses one setting for taps and lists. Manual: Settings |
 | 16 | switch-off rows | JVM: P for every kind, worth guarding or not; C: `MAIN` returns `false` (one video or several), `BACKGROUND` and `POPUP` call `startIn…()` without UI; list: `playAsToday()` |
 | 17 | M1, `P.offersStreamDetails`, `streamDetailsInsertIndex` | JVM: P (`BACKGROUND`, `POPUP` playing: `true`; `MAIN` with one video or several, idle: `false`); index is `-1` when present. Manual: menu, page opens, playback goes on |
@@ -372,11 +412,10 @@ Wiring on the JVM (recommended): a test reads the 9 files as text and expects th
 lines containing `ENH:queue-guard`: `BaseListFragment.java` 1, `LocalPlaylistFragment.java` 5,
 `StatisticsPlaylistFragment.java` 4, `FeedFragment.kt` 5, `PlaylistFragment.java` 3,
 `ChannelVideosFragment.java` 3, `InfoItemDialog.java` 1, `video_audio_settings.xml` 1,
-`PlayQueue.java` 1. The `PlayQueue.java` line is the accessor: it contains
-`enhAutoQueuedUuid()` and `return autoQueuedUuid;` and, unlike the other code hooks, does not name
-`QueueGuard`.
+`PlayQueue.java` 1. The `PlayQueue.java` line names `QueueGuard` in full like the other code
+hooks and contains `if (autoQueued)` and `.noteAutoQueued(itemList)`.
 
-### 5.1 For the Tests layer: what A11 changes
+### 5.1 For the Tests layer: what A11 and A13 change
 
 The 164 existing tests, by class. "Changes" means the test is right about everything except that
 it expects a dialog for the main player with one video; the count is from reading the tests, not
@@ -384,27 +423,34 @@ from a run.
 
 | Class | Tests | Stay | Change | New, at least |
 |---|---|---|---|---|
-| `GuardModelTest` | 25 | 25 | 0 | 6 |
+| `GuardModelTest` | 25 | 25 | 0 | 12 |
 | `QueueGuardPolicyTest` | 45 | 40 | 5 | 8 |
 | `QueueGuardControllerTest` | 45 | 27 | 18 | 5 |
 | `QueueGuardControllerContractTest` | 31 | 31 | 0 | 0 |
 | `QueueGuardResourcesTest` | 10 | 9 | 1 | 0 |
 | `QueueGuardWiringTest` | 8 | 8 | 0 | 1 |
-| Total | 164 | 140 | 24 | 20 |
+| Total | 164 | 140 | 24 | 26 |
 
 `Fakes.kt`: `playing(...)` gets a last parameter `autoQueued: Int = 0`, passed on as
 `autoQueuedCount`. `SOMETHING_PLAYING` and `NOTHING_PLAYING` stay as they are. Two fixtures are
-added. `WORTH_GUARDING`: `BACKGROUND` and `POPUP` with `queueSize` 1 and 3, `MAIN` with 3, `MAIN`
-with 2, `MAIN` with 3 of which 1 auto-enqueued. `SINGLE_IN_MAIN`: `MAIN` with 1, and `MAIN` with 2
-of which 1 auto-enqueued.
+added, written `queueSize`/`autoQueued`. `WORTH_GUARDING`: `BACKGROUND` and `POPUP` with 1/0 and
+3/0, `BACKGROUND` with 3/2, `MAIN` with 3/0, 2/0, 3/1 and 5/3. `SINGLE_IN_MAIN`: `MAIN` with 1/0,
+2/1, 3/2 (A13: watched, playing by itself, next one auto-enqueued), 2/2 and 1/1 (no video of the
+user left).
 
 - `GuardModelTest`. All stay: `somethingPlaying`, `isCurrent`, the moves and the menu index did
-  not change. New: `worthGuarding` for each line of the table in 3.1 (`BACKGROUND` and `POPUP`
-  with one video: yes; `MAIN` with one: no; `MAIN` with two: yes; `MAIN` with two of which one
-  auto-enqueued: no; `MAIN` with three of which one auto-enqueued: yes); `false` for every state
-  of `NOTHING_PLAYING`; `autoQueuedCount` is `0` for `IDLE` and for the four-argument
-  constructor; `somethingPlaying` and `isCurrent` are the same with and without an auto-enqueued
-  video.
+  not change. New, `PlayerState`: `worthGuarding` is `true` for every state of `WORTH_GUARDING`
+  and `false` for every state of `SINGLE_IN_MAIN`, one test per line of the table in 3.1;
+  `false` for every state of `NOTHING_PLAYING`, whatever `autoQueuedCount`; `autoQueuedCount`
+  is `0` for `IDLE` and for the four-argument constructor; `somethingPlaying` and `isCurrent`
+  do not depend on `autoQueuedCount`. New, `AutoQueuedRecord` (rules 1 to 6 of 3.1): an empty
+  record counts `0` in any queue; added uuids are counted, the others not, whatever the order of
+  the queue (rules 1 to 3); a uuid that is no longer in the queue is not counted and one that
+  was never added is the user's (rules 4, 5); adding a uuid twice counts it once per occurrence
+  in the queue; with `limit` 3, a fourth uuid makes the first forgotten and keeps the other
+  three (rule 6); `AUTO_QUEUED_RECORD_LIMIT` is `1000`; the A13 scenario end to end: record B
+  and C, the queue A, B, C gives a state with `autoQueuedCount` 2 that is not worth guarding in
+  `MAIN`, and A, B, C, D gives one that is.
 - `QueueGuardPolicyTest`. Change, by iterating over `WORTH_GUARDING` instead of
   `SOMETHING_PLAYING`: `ac8_sameUrlOnAnotherServiceIsNotTheCurrentItemAndAsks`,
   `ac1_tapInAListWithMusicPlayerModeAsksInEveryPlayer`,
@@ -415,13 +461,13 @@ of which 1 auto-enqueued.
   run over `SOMETHING_PLAYING`, main player with one video included, and must keep doing so) and
   the switch-off tests (`MAIN` gives `OPEN_AS_TODAY` either way). New: AC-7 `onTap` over
   `SINGLE_IN_MAIN`, switch on and off, both kinds of tap, gives `OPEN_AS_TODAY`; AC-1 `MAIN`
-  with two videos asks, and with two and an auto-enqueued one; AC-14 `onListPlay` over
+  with two of the user's videos asks, with and without auto-enqueued ones (2/0, 3/1, 5/3); AC-14 `onListPlay` over
   `SINGLE_IN_MAIN`, switch on and off, gives `PLAY_AS_TODAY`; AC-10 `onListPlay` asks over
   `WORTH_GUARDING`; AC-16 no state of `SINGLE_IN_MAIN` asks or starts another player with the
   switch off; AC-3 to AC-5 `onTapChoice` over `SINGLE_IN_MAIN` gives `ENQUEUE`, `ENQUEUE_NEXT`,
   `OPEN_AS_TODAY`; AC-11, AC-12 `onListChoice` over `SINGLE_IN_MAIN` gives `ENQUEUE_ALL`,
   `ENQUEUE_ALL_NEXT`, `PLAY_AS_TODAY`; AC-17 `false` over `SINGLE_IN_MAIN`, `true` for
-  `BACKGROUND` with one video and an auto-enqueued one.
+  `BACKGROUND` whatever `autoQueuedCount` (2/1, 3/2).
 - `QueueGuardControllerTest`. Change, by the same swap of fixture (each taps or presses a button
   in every state of `SOMETHING_PLAYING` and expects the prompt):
   `ac1_tapWhileSomethingIsPlayingIsTakenOverAndOnlyOpensTheDialog`,
@@ -436,7 +482,7 @@ of which 1 auto-enqueued.
   list). New: AC-7 a tap over `SINGLE_IN_MAIN` returns `false` with an empty journal, switch on
   and off; AC-14 a play button there calls only `playAsToday()`; AC-1 the state is read at every
   tap (`MAIN` with one video: not taken over; the same scene with two: dialog); AC-2 the prompt
-  gets the whole `queueSize` when one of the videos is auto-enqueued; AC-3 to AC-5 and AC-11,
+  gets the whole `queueSize` when some of the videos are auto-enqueued (`MAIN` 5/3 shows 5); AC-3 to AC-5 and AC-11,
   AC-12 a prompt in `MAIN` with three videos, the player set to `MAIN` with one before the
   choice: `enqueue()`, `enqueueNext()`, `openAsToday()` with the replay let through,
   `enqueueAll()`, `enqueueAllNext()`, `playAsToday()`.
@@ -445,9 +491,11 @@ of which 1 auto-enqueued.
 - `QueueGuardResourcesTest`. `ac15_switchHasItsTitleSummaryAndPreferenceKey` expects the new
   summary of section 4. The others stay.
 - `QueueGuardWiringTest`. The 8 stay. New: `PlayQueue.java` holds exactly one marked line, with
-  the two fragments named above.
-- The glue (`HolderPlayerStateSource`, Q1) has no JVM test, as before: it is in the "Manual"
-  cells of AC-1 and AC-7.
+  the fragments named above (`assertCodeHooks` with `total = 1`, `taps = 0` covers the name).
+- The glue (`HolderPlayerStateSource`, `QueueGuard.noteAutoQueued`) has no JVM test, as before:
+  it is in the "Manual" cells of AC-1 and AC-7. Rules 3 and 5 of 3.1 hold by construction (the
+  record is keyed by uuid and nothing removes from it on a move); on the JVM they are pinned by
+  the `AutoQueuedRecord` tests above.
 
 ## 6. Extension points for default-open-action
 
@@ -471,9 +519,9 @@ both answers as "ask is off" (its 4.2: `b == ASK`, and `base.onListPlay(player) 
 it is, it would carry out the default action there although the switch is on (*Add to queue*
 enqueues without a dialog) and offer "Show stream details" by row 21. Its row 6 (`ASK`, its AC-4
 "opens the dialog as before, the default action is not used") and row 21b no longer describe that
-state, and its spec and this one disagree on it (Q14). So its plan needs an amendment of its own:
+state. A14 decided it, in both specs. So its plan needs an amendment of its own:
 
-- Planned with (Q14): in that state the tap behaves as today (this spec's AC-7) and the default
+- A14: in that state the tap behaves as today (this spec's AC-7) and the default
   action is not used (its AC-4). Row 6 splits into "worth guarding -> `ASK`" and "playing, not
   worth guarding, ask on -> `OPEN_AS_TODAY`"; row 21b stays as written. `OpenActionPolicy` can no
   longer take "not `ASK`" for "ask is off": it reads the switch itself, through `GuardSettings`
@@ -499,10 +547,11 @@ state, and its spec and this one disagree on it (Q14). So its plan needs an amen
 gives the counts of section 5. (5) Device pass over the "Manual" cells with the main, the
 background and the popup player.
 
-For A11, on top of the built feature: (a) `autoQueuedCount` and `worthGuarding` in
-`GuardModel.kt`, the two first rows in `GuardPolicy.kt`; (b) hook Q1, then `autoQueuedCount` in
-`HolderPlayerStateSource`; (c) the summary string; (d) device pass over the "Manual" cells of
-AC-1 and AC-7 with "Auto-enqueue next stream" on and off.
+For A11 and A13, on top of the built feature: (a) `autoQueuedCount`, `worthGuarding` and
+`AutoQueuedRecord` in `GuardModel.kt`, the two first rows in `GuardPolicy.kt`; (b)
+`autoQueuedRecord`, `QueueGuard.noteAutoQueued` and `autoQueuedCount` in
+`HolderPlayerStateSource`, then hook Q1; (c) the summary string; (d) device pass over the
+"Manual" cells of AC-1 and AC-7 with "Auto-enqueue next stream" on and off.
 
 ## 8. Risks and edge cases
 
@@ -526,20 +575,23 @@ AC-1 and AC-7 with "Auto-enqueue next stream" on and off.
 - AC-17 "in use" is read as: something is playing in the background or popup player.
 - With a single video in the main player a tap replaces it without asking, as upstream does. The
   auto-enqueued video behind it goes with it, and so does a paused video.
-- "One video" counts videos the queue holds, not videos the user enqueued: after "Auto-enqueue
-  next stream" has moved playback on once, the main player holds the watched video, the playing
-  one and a new auto-enqueued one, which is two without the auto-enqueued one, and the guard asks
-  (Q13).
-- Q1 adds a member to an upstream class. If upstream renames or drops `autoQueuedUuid`, the build
-  breaks at that line, which is the wanted signal. `synchronized` as the writers of the field are
-  (the round-play timer appends from its own thread, `player/AutoQueueController.kt:78-82`).
+- However long playback has moved on by itself in the main player, a tap replaces the queue
+  without asking, the watched videos included (A13). The user's second video is what makes a
+  queue.
+- An auto-enqueued video the user dragged to another place still does not count (rule 3 of 3.1),
+  although upstream then stops treating it as auto-enqueued.
+- Q1 runs inside `PlayQueue`'s lock and possibly off the main thread: `noteAutoQueued` must stay
+  a plain set insertion. It loads `QueueGuard`, whose initialiser must keep touching neither
+  `App.getApp()` nor resources (as default-open-action's plan already requires).
+- The record is per process: after a process death it is empty, and it holds at most
+  `AUTO_QUEUED_RECORD_LIMIT` uuids (36 characters each). Both err towards asking.
 - While the main player is starting and its queue is still `null`, `queueSize` is `0`
   (`PlayerHolder.java:95-101`): nothing is playing, as before A11.
 
 ## 9. Assumptions
 
-Q4 to Q9 are confirmed by the spec. Q12 to Q14 were raised by the change for A11 and are open;
-the plan is complete with the assumptions stated.
+Q4 to Q9 are confirmed by the spec. Q12 to Q14 were raised by the change for A11; A13 changed
+what was planned. Nothing is open.
 
 | Q | Planned with | Confirmed by | Affects |
 |---|---|---|---|
@@ -549,6 +601,10 @@ the plan is complete with the assumptions stated.
 | Q7 | the switch is on the screen titled "Player", directly below "Preferred 'open' action" | A7 | AC-15 |
 | Q8 | a play button on a list with no videos loaded behaves as today, no dialog | A8 | AC-10 |
 | Q9 | *Play now* in the main player is today's tap even while autoplay is not allowed: the page opens, the running player stops, the video does not start | A9 | AC-5, AC-16 |
-| Q12 | the auto-enqueued mark is read through one marked accessor line in `PlayQueue.java` (hook Q1), a hook form PROCESS.md does not list | open | AC-1, AC-7, AC-10, AC-14 |
-| Q13 | not counted is the one video upstream marks as auto-enqueued, wherever playback is; a queue that auto-enqueue has advanced through holds two or more videos and is worth guarding | open | AC-1, AC-7, AC-10, AC-14 |
-| Q14 | default-open-action, main player with one video, switch on: the tap behaves as today and the default action is not used; with the switch off its default action applies as its AC-3 says | open | section 6; its AC-3, AC-4, AC-11 |
+| Q12 | an accessor line in `PlayQueue.java` as a hook form | A12 accepted the form; no longer used, Q1 is now an added call (section 2) | AC-1, AC-7, AC-10, AC-14 |
+| Q13 | only the one video upstream marks is not counted | A13 decided otherwise: no video the player added by itself counts, played or not. Planned accordingly: `AutoQueuedRecord`, rules 1 to 6 of 3.1 | AC-1, AC-7, AC-10, AC-14 |
+| Q14 | default-open-action, main player with one video, switch on: the tap behaves as today and the default action is not used; with the switch off its default action applies as its AC-3 says | A14 | section 6; its AC-3, AC-4, AC-11 |
+
+Decided by this plan, within the spec's words ("videos the player added by itself ... never
+count"): an auto-enqueued video the user moves stays the player's, and the same video enqueued
+by hand is a new item and the user's (rules 3 and 4 of 3.1).
