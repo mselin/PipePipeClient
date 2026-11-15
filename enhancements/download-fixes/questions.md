@@ -42,3 +42,48 @@ does not honour a range request, since it never appends.
 Both out of scope here. Keeping download state out of Android's own backup belongs to
 backup-safety (its backup rules carry the database only). Partial media and HLS work files
 stay where they are.
+
+## Q5 tests -> plan
+`writeAtomically` uses one temporary name per target (`<target>.new`). Section 2 says saves
+"never overlap", and `DownloadMission.writeThisToFile` is indeed under the mission's lock, but
+`DownloadManager.java:253` saves the same file outside it. Two unsynchronized writers of one
+target would share the temporary file, and one of them could rename the other's half-written
+state into place. Working assumption, tested in
+`PendingStateFilesTest.ac2_sameMissionSavedByTwoThreads_theFileIsAlwaysOneCompleteState`:
+`PendingStateFiles` itself lets the writers of a target take turns (a `synchronized` is
+enough), so that the file is always one complete state and no save fails. If the plan wants
+this left to the callers, that test goes.
+
+## Q6 tests -> plan
+Section 4 allows "arrays of allowed types" and does not list `java.lang.Object`. A
+`java.util.Arrays$ArrayList` (allowed) keeps its elements in the array it was made from, which
+is an `Object[]` for a list of mixed or generic element type (`Arrays.asList` / Kotlin `listOf`
+called with `Any` elements). Is `[Ljava.lang.Object;` allowed? Working assumption: the tests
+assert nothing about `Object[]` in either direction. The real mission of
+`RealMissionAllowListTest` (headers, HLS and SABR checkpoints, recovery info with
+`YoutubeSabrInfo`, post-processing, an exception with cause) is read without it.
+
+## Q7 tests -> plan
+`ResumeCheck.rangeStart`: is `bytes 100-199/*` (complete length unknown, legal in RFC 9110)
+"bytes a-b/len" (100) or "malformed" (-1)? Working assumption: not tested. Both readings keep
+the file correct; with -1 an honoured resume from such a server is discarded and the download
+starts over.
+
+## Q8 tests -> plan
+Three details of section 3 that the signatures leave open and the tests fix as follows.
+(a) `SegmentBuffer(charge, initialCapacity)` charges `initialCapacity` in its constructor and
+throws `SegmentOverBudgetException` there if it does not fit. (b) Growth is charged in steps of
+exactly 256 KiB (`initialCapacity + n * 262144`); the number is in the test because the plan has
+no constant for it. (c) After `toByteArray()` has built its one array, the charge is lowered to
+the size of that array ("frees the chunks" includes their charge), so `charge.bytes` equals the
+array's size and `peakBytes` saw chunks + array; when the first array is returned itself,
+nothing changes. If any of these is meant differently, `SegmentBufferTest` changes.
+
+## Q9 tests -> plan
+`migrate`, case 3 "different bytes": the old file "is copied to `newDir/set_aside/`". Working
+assumption, tested in `ac4_plantedFileWithTheNameOfAPrivateMission_neverReplacesIt`: when that
+name is taken in `set_aside/` an existing file is never overwritten (some other free name is
+used, as `setAside` does with `.1`, `.2`); the first one keeps the plain name. Also assumed:
+`newDir` exists when `migrate` is called (section 2 calls it after `getPendingDir`); the tests
+always create it, except one where it is a regular file and every copy must count as failed
+with nothing deleted.
