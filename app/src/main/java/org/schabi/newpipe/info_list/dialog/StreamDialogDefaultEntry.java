@@ -61,17 +61,19 @@ public enum StreamDialogDefaultEntry {
             openChannelFragment(fragment, item, item.getUploaderUrl());
         } else {
             fetchUploaderUrlIfSparse(fragment.requireContext(), item.getServiceId(), item.getUrl(),
-                    item.getUploaderUrl(), url -> openChannelFragment(fragment, item, url));
+                    item.getUploaderUrl(), org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(fragment, // ENH:crash-fixes
+                            url -> openChannelFragment(fragment, item, url))); // ENH:crash-fixes
         }
     }),
 
     /**
      * Enqueues the stream automatically to the current PlayerType.
      */
-    ENQUEUE(R.string.enqueue_stream, (fragment, item) ->
-            fetchItemInfoIfSparse(fragment.requireContext(), item, singlePlayQueue ->
-                NavigationHelper.enqueueOnPlayer(fragment.getContext(), singlePlayQueue))
-    ),
+    ENQUEUE(R.string.enqueue_stream, (fragment, item) -> { // ENH:crash-fixes
+        final Context context = fragment.requireContext(); // ENH:crash-fixes
+        fetchItemInfoIfSparse(context, item, singlePlayQueue -> // ENH:crash-fixes
+            NavigationHelper.enqueueOnPlayer(context, singlePlayQueue)); // ENH:crash-fixes
+    }), // ENH:crash-fixes
 
     /**
      * Enqueues the stream automatically to the current PlayerType
@@ -113,12 +115,12 @@ public enum StreamDialogDefaultEntry {
         PlaylistDialog.createCorrespondingDialog(
                 fragment.getContext(),
                 Collections.singletonList(new StreamEntity(item)),
-                dialog -> dialog.show(
+                org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(fragment, dialog -> dialog.show( // ENH:crash-fixes
                         fragment.getParentFragmentManager(),
                         "StreamDialogEntry@"
                                 + (dialog instanceof PlaylistAppendDialog ? "append" : "create")
                                 + "_playlist"
-                )
+                )) // ENH:crash-fixes
         )
     ),
 
@@ -128,11 +130,11 @@ public enum StreamDialogDefaultEntry {
 
     DOWNLOAD(R.string.download, (fragment, item) ->
             fetchStreamInfoAndSaveToDatabase(fragment.requireContext(), item.getServiceId(),
-                    item.getUrl(), info -> {
+                    item.getUrl(), org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(fragment, info -> { // ENH:crash-fixes
                         final DownloadDialog downloadDialog
                                 = DownloadDialog.newInstance(fragment.requireContext(), info);
                         downloadDialog.show(fragment.getChildFragmentManager(), "downloadDialog");
-                    })
+                    })) // ENH:crash-fixes
     ),
 
     OPEN_IN_BROWSER(R.string.open_in_browser, (fragment, item) ->

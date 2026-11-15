@@ -350,6 +350,13 @@ public final class Player {
 
 
         audioReactor = new AudioReactor(context, simpleExoPlayer);
+        audioReactor.setResumeOverride(() -> { // ENH:crash-fixes
+            final boolean idle = liveIdle; // ENH:crash-fixes
+            if (idle) { // ENH:crash-fixes
+                play(); // ENH:crash-fixes
+            } // ENH:crash-fixes
+            return idle; // ENH:crash-fixes
+        }); // ENH:crash-fixes
         setupMediaSession();
 
         broadcastReceiverController.register();
