@@ -53,3 +53,52 @@ extractor is the root-cause fix and is the owner's decision; it is noted in `TOD
 No exception ships. If a device test shows BiliBili needs one, it may only be an added trust
 anchor or a host-name relaxation for exactly named hosts, as the plan describes. Accepting
 any certificate is not allowed.
+
+## Q5 tests -> plan
+Section 4 says that before Code exists "T1/T2 do not compile" while T3 and T4 fail. All four
+are in one source set: if T1/T2 do not compile, no unit test of the branch runs, T3 and T4
+included. Also, T1 needs `restore()` on a `TlsDefaults` that never captured and a "first"
+`capture()` per test, which a singleton shared by all tests of one JVM cannot give. May the
+tests reach `TlsDefaults` and `StrictHostnames` by reflection?
+Assumption tested with: yes. The tests look both classes up by name and check the plan's
+signatures at run time (public static `capture()`, `restore()`, both synchronized;
+`matches(String, SSLSession): Boolean`). T1/T2 load `TlsDefaults` a second time in a class
+loader of their own (parent: JDK classes only; class path: the test run's), so every test
+starts with nothing recorded; this assumes `TlsDefaults` needs only the JDK, the Kotlin stdlib
+and app classes. Before Code exists T1/T2 fail with "... does not exist: not implemented yet".
+
+## Q6 tests -> plan
+The tests check more than T1 to T4 list. Is each of these wanted? All pass on today's sources
+or against an implementation as planned.
+- T2, second test: a certificate the default factory trusts but for another name connects after
+  `trustEveryone()` and fails with `IOException` after `restore()` (the host-name half of AC-1).
+- T3: `https://127.0.0.1:<port>` with the `localhost` certificate answers 200 (IP literal, plan
+  3.2); an untrusted certificate is rejected with accept-all `HttpsURLConnection` defaults.
+- `StrictHostnamesTest`: `StrictHostnames.matches` directly on real sessions (true for the
+  certificate's names, false for others, false with an accept-all default verifier, false for a
+  session without peer certificate). It is the only test that runs the planned verifier before
+  `RawHttp` is edited.
+- T4: `SSLContext.setDefault(` nowhere; `setSSLSocketFactory(`, `setHostnameVerifier(`,
+  `.sslSocketFactory =`, `.hostnameVerifier =` nowhere (the plan's `hostnameVerifier(` does not
+  match the per-connection setter, so a relaxed verifier on one connection would pass T4 as
+  listed); `checkServerTrusted` only inside the inert `MainActivity.trustEveryone()`;
+  `::trustEveryone` counted as a call; `capture()` and `restore()` must be the statements
+  directly before and after `NewPipe.init(...)`, not merely somewhere around it.
+Assumption tested with: yes to all. If section 2 (an exception list) is ever carried out, T4's
+per-connection check has to be revised in that round.
+
+## Q7 tests -> plan
+Section 4 maps T4 to AC-6 but none of the listed checks concerns settings. What should T4
+assert for AC-6?
+Assumption tested with: `TlsDefaults.kt` and `StrictHostnames.kt` exist under
+`src/main/java/org/schabi/newpipe/enhancements/tlschecks/`; no file of that package imports
+`android.*`/`androidx.*` or mentions `Preference`; no file under `src/main/res` is named
+`*tls*` and no resource XML mentions `tls-checks`/`tls_checks`. Device step D7 stays the real
+check.
+
+## Q8 tests -> plan
+D1 (instrumented, badssl.com hosts) is not written in this round: it needs the public network
+and a device or emulator at run time, neither of which the test layer had, so it could not be
+run even once. Should it be written unrun, or stay a manual device step?
+Assumption: left out; AC-1/AC-2 on Android are covered by device steps D3 and D6 until D1
+exists.
