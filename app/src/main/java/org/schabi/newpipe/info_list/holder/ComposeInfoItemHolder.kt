@@ -28,8 +28,10 @@ class ComposeInfoItemHolder(
 ) {
 
     private val composeView = itemView as ComposeView
+    private val watched = org.schabi.newpipe.enhancements.subscriptionscale.RowWatchState() // ENH:subscription-scale
 
     override fun updateFromItem(infoItem: InfoItem, historyRecordManager: HistoryRecordManager) {
+        watched.cancel() // ENH:subscription-scale
         val state = buildInfoItemState(composeView.context, infoItem, historyRecordManager) ?: return
         composeView.setContent {
             PipePipeComposeTheme(composeView.context) {
@@ -55,5 +57,6 @@ class ComposeInfoItemHolder(
                 )
             }
         }
+        if (infoItem is org.schabi.newpipe.extractor.stream.StreamInfoItem) watched.refresh(infoItem, historyRecordManager) { updateFromItem(infoItem, historyRecordManager) } // ENH:subscription-scale
     }
 }
