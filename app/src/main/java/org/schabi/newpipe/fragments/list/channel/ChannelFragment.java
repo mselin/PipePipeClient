@@ -396,6 +396,15 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
             handleResult(currentInfo);
         }
     }
+    @Override // ENH:crash-fixes
+    public void onResume() { // ENH:crash-fixes
+        super.onResume(); // ENH:crash-fixes
+        // the tabs were dropped by TabAdapter if the result arrived after onStop // ENH:crash-fixes
+        if (currentInfo != null && tabAdapter != null && tabAdapter.getCount() == 0 // ENH:crash-fixes
+                && !isContentUnsupported()) { // ENH:crash-fixes
+            updateTabs(); // ENH:crash-fixes
+        } // ENH:crash-fixes
+    } // ENH:crash-fixes
 
     @Override
     public void startLoading(final boolean forceLoad) {
