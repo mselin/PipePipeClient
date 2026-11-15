@@ -212,6 +212,18 @@ public class ChannelVideosFragment extends BaseListInfoFragment<StreamInfoItem, 
         super.onViewCreated(rootView, savedInstanceState);
         showContentNotSupportedIfNeeded();
     }
+    @Override // ENH:release-views
+    public void onDestroyView() { // ENH:release-views
+        disposables.clear(); // ENH:release-views
+        if (subscribeButtonMonitor != null) { // ENH:release-views
+            subscribeButtonMonitor.dispose(); // ENH:release-views
+        } // ENH:release-views
+        channelBinding = null; // ENH:release-views
+        headerBinding = null; // ENH:release-views
+        playlistControlBinding = null; // ENH:release-views
+        addToGroupButton = null; // ENH:release-views
+        super.onDestroyView(); // ENH:release-views
+    } // ENH:release-views
 
     @Override
     public void onDestroy() {
@@ -576,7 +588,7 @@ public class ChannelVideosFragment extends BaseListInfoFragment<StreamInfoItem, 
                             final int selectedFilterId = getNormalizedSortFilterId(
                                     sortFilterItems.get(which));
                             dialog.dismiss();
-                            if (selectedFilterId == selectedSortFilterId) {
+                            if (selectedFilterId == selectedSortFilterId || getView() == null) { // ENH:release-views
                                 return;
                             }
                             selectedSortFilterId = selectedFilterId;
@@ -647,12 +659,16 @@ public class ChannelVideosFragment extends BaseListInfoFragment<StreamInfoItem, 
 
     @Override
     public void handleResult(@NonNull final ChannelInfo result) {
+        if (headerBinding == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         super.handleResult(result);
 
         headerBinding.getRoot().setVisibility(View.VISIBLE);
         updateSortButton();
         activity.invalidateOptionsMenu();
         PicassoHelper.loadBanner(result.getBannerUrl()).tag(PICASSO_CHANNEL_TAG)
+                .fit().centerCrop().onlyScaleDown() // ENH:release-views
                 .into(headerBinding.channelBannerImage);
         PicassoHelper.loadAvatar(result.getAvatarUrl()).tag(PICASSO_CHANNEL_TAG)
                 .into(headerBinding.channelAvatarView);

@@ -128,3 +128,35 @@ assertion observes.
 ## A8 plan
 Accepted, all four. Local playlists, history, bookmarks and the Subscriptions tab stay
 covered by the main-page test and the device script only.
+
+## Q9 code -> plan
+Plan 4.2 rests on "`handleResult`, `handleNextItems`, `showListFooter`, `hideLoading` are never
+called between `onPause` and the next `onResume`". The code shows three ways a load result
+reaches a list page whose view is destroyed, each of which would be a `NullPointerException` on
+`itemsList` with the plan as written:
+(1) Main page tabs are never resumed unless shown (`MainFragment` uses
+`BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT` with every tab kept offscreen), so a tab that loads in
+the background (trending, a playlist, a channel tab) gets no `onPause` when the main page is
+left; its worker is not disposed and its result arrives for a left page. This happens whenever a
+channel is opened from the Subscriptions tab before the other tabs have finished loading.
+(2) A load can start after `onPause` while the view still exists: the exit animation runs between
+`onPause` and `onDestroyView`, and a fling still scrolling then reaches the end and calls
+`loadMoreItems`; the retry button fires 300 ms after its click.
+(3) `ChannelVideosFragment`'s sort dialog is a plain dialog and can outlive the view (the
+activity opens another page from an intent); choosing a sort order calls `startLoading`.
+Code added these guards, in files the plan already names, same shape as the plan's own:
+- `BaseListFragment`: `if (itemsList == null) return;` in `showLoading`, `hideLoading`,
+  `showEmptyState`, `showListFooter`, `handleError`, `useNormalItemListScrollListener`,
+  `useInitialItemListLoadScrollListener` (`BaseLocalListFragment` already does the same). A late
+  result then only updates the adapter's data, which is shown on return.
+- `ChannelVideosFragment.handleResult` and `CommentsFragment.handleResult` return at once when
+  their header / empty-state view is null; `currentInfo` is already stored by the subscriber and
+  `doInitialLoadLogic` shows it on return.
+- the sort dialog ignores a choice made when the page has no view.
+- `ChannelFragment.onDestroyView` keeps `lastTab` when the tab bar has no tab yet (position -1),
+  so a tab restored from saved state survives leaving the page before it has loaded.
+Size is therefore 114 added and 6 changed lines in the plan's 10 files, not 55 and 5. Not
+changed, because it is the same today: a late result of a left kiosk or channel tab page still
+sets the toolbar title through `setTitle`. Are these guards accepted, or should left pages be
+handled differently (for example by disposing the workers in `onDestroyView`)?
+Written with: yes, the guards above; nothing of the plan was left out.

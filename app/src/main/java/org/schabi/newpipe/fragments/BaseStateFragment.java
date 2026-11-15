@@ -85,6 +85,9 @@ public abstract class BaseStateFragment<I> extends BaseFragment implements ViewC
         if (errorPanelHelper != null) {
             errorPanelHelper.dispose();
         }
+        errorPanelHelper = null; // ENH:release-views
+        emptyStateView = null; // ENH:release-views
+        loadingProgressBar = null; // ENH:release-views
     }
 
     protected void onRetryButtonClicked() {
@@ -182,7 +185,9 @@ public abstract class BaseStateFragment<I> extends BaseFragment implements ViewC
             return;
         }
 
-        errorPanelHelper.showError(errorInfo);
+        if (errorPanelHelper != null) { // ENH:release-views
+            errorPanelHelper.showError(errorInfo); // ENH:release-views
+        } // ENH:release-views
         lastPanelError = errorInfo;
     }
 
@@ -196,16 +201,20 @@ public abstract class BaseStateFragment<I> extends BaseFragment implements ViewC
             return;
         }
 
-        errorPanelHelper.showTextError(errorString);
+        if (errorPanelHelper != null) { // ENH:release-views
+            errorPanelHelper.showTextError(errorString); // ENH:release-views
+        } // ENH:release-views
     }
 
     public final void hideErrorPanel() {
-        errorPanelHelper.hide();
+        if (errorPanelHelper != null) { // ENH:release-views
+            errorPanelHelper.hide(); // ENH:release-views
+        } // ENH:release-views
         lastPanelError = null;
     }
 
     public final boolean isErrorPanelVisible() {
-        return errorPanelHelper.isVisible();
+        return errorPanelHelper != null && errorPanelHelper.isVisible(); // ENH:release-views
     }
 
     /**

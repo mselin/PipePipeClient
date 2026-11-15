@@ -276,6 +276,13 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
         if (infoListAdapter != null) {
             infoListAdapter.setSelectionState(null);
         }
+        if (itemsList != null) { // ENH:release-views
+            itemsList.setAdapter(null); // ENH:release-views
+        } // ENH:release-views
+        if (infoListAdapter != null) { // ENH:release-views
+            infoListAdapter.setHeaderSupplier(null); // ENH:release-views
+        } // ENH:release-views
+        itemsList = null; // ENH:release-views
         super.onDestroyView();
     }
 
@@ -356,6 +363,9 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
         }
 
         itemsList.post(() -> {
+            if (itemsList == null) { // ENH:release-views
+                return; // ENH:release-views
+            } // ENH:release-views
             final RecyclerView.ViewHolder focusedHolder =
                     itemsList.findViewHolderForAdapterPosition(position);
 
@@ -574,6 +584,9 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
         if (DEBUG) {
             Log.d(TAG, "useNormalItemListScrollListener called");
         }
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         itemsList.clearOnScrollListeners();
         itemsList.addOnScrollListener(new DefaultItemListOnScrolledDownListener());
     }
@@ -599,6 +612,9 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
         if (DEBUG) {
             Log.d(TAG, "useInitialItemListLoadScrollListener called");
         }
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         itemsList.clearOnScrollListeners();
         if(false){
             itemsList.addOnScrollListener(new InitialItemListOnScrolledDownListener() {
@@ -815,12 +831,18 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
     @Override
     public void showLoading() {
         super.showLoading();
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         animateHideRecyclerViewAllowingScrolling(itemsList);
     }
 
     @Override
     public void hideLoading() {
         super.hideLoading();
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         animate(itemsList, true, 300);
     }
 
@@ -828,11 +850,17 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
     public void showEmptyState() {
         super.showEmptyState();
         showListFooter(false);
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         animateHideRecyclerViewAllowingScrolling(itemsList);
     }
 
     @Override
     public void showListFooter(final boolean show) {
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         itemsList.post(() -> {
             if (infoListAdapter != null && itemsList != null) {
                 infoListAdapter.showFooter(show || hiddenItemCount > 0
@@ -851,6 +879,9 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
     public void handleError() {
         super.handleError();
         showListFooter(false);
+        if (itemsList == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         animateHideRecyclerViewAllowingScrolling(itemsList);
     }
 
