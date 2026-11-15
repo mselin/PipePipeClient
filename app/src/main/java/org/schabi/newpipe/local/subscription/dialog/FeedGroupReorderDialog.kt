@@ -53,6 +53,7 @@ class FeedGroupReorderDialog : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = DialogFeedGroupReorderBinding.bind(view)
+        org.schabi.newpipe.enhancements.groupsort.GroupSortHooks.attachReorderNotice(view) // ENH:group-sort
 
         viewModel = ViewModelProvider(this).get(FeedGroupReorderDialogViewModel::class.java)
         viewModel.groupsLiveData.observe(viewLifecycleOwner, Observer(::handleGroups))
