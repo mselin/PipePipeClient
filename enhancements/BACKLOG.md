@@ -64,3 +64,25 @@ What is known from the code, not confirmed as the cause:
 Not explained: the 3.7 GB outside the Java heap. To find out, reproduce the import with the
 debug build connected to a computer and take `adb shell dumpsys meminfo` for the app, or a
 bug report, while it hangs.
+
+## Crash on a channel page: tab is null in `updateTabs`
+
+Reported by the owner on 2026-11-15, device-test debug build, Android 17, with an app crash
+report: `NullPointerException` at `ChannelFragment.updateTabs` (`getTabAt(i).setText`),
+reached from a finished channel load.
+
+What the code shows:
+
+- `updateTabs` assumes the tab bar has one tab per page of the adapter.
+- `TabAdapter.notifyDataSetChanged` (`fragments/detail/TabAdapter.java`) catches an
+  `IllegalStateException` from the pager and only prints it. When that happens the tab bar is
+  never told about the new pages, so it has fewer tabs than the adapter and `getTabAt(i)`
+  returns null.
+
+Not known: what made the pager throw, and whether the release-views change (which rebuilds
+the adapter when a channel page is shown again) makes it more likely. The swallowed exception
+is printed to logcat under `System.err` just before the crash.
+
+## App closes when a video is started
+
+Reported by the owner on 2026-11-15, same build, without a crash report. Nothing known yet.
