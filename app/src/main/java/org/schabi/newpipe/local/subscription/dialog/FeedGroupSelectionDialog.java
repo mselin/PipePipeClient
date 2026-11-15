@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.TextView;
+import android.widget.Toast; // ENH:group-dialog
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,8 +18,15 @@ import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.schabi.newpipe.NewPipeDatabase; // ENH:group-dialog
 import org.schabi.newpipe.R;
 import org.schabi.newpipe.database.feed.model.FeedGroupEntity;
+import org.schabi.newpipe.enhancements.groupdialog.GroupDialogSession; // ENH:group-dialog
+import org.schabi.newpipe.enhancements.groupdialog.NamePrompt; // ENH:group-dialog
+import org.schabi.newpipe.enhancements.groupdialog.PendingGroup; // ENH:group-dialog
+import org.schabi.newpipe.enhancements.groupdialog.RoomGroupTable; // ENH:group-dialog
+import org.schabi.newpipe.enhancements.groupdialog.RxChangeSaver; // ENH:group-dialog
+import org.schabi.newpipe.enhancements.groupdialog.SelectionUi; // ENH:group-dialog
 import org.schabi.newpipe.local.feed.FeedDatabaseManager;
 
 import java.util.ArrayList;
@@ -32,7 +40,7 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
-public class FeedGroupSelectionDialog extends DialogFragment {
+public class FeedGroupSelectionDialog extends DialogFragment implements SelectionUi { // ENH:group-dialog
     private static final String KEY_SUBSCRIPTION_ID = "subscription_id";
 
     private long subscriptionId;
@@ -43,6 +51,16 @@ public class FeedGroupSelectionDialog extends DialogFragment {
     private CompositeDisposable disposables = new CompositeDisposable();
     private FeedDatabaseManager feedDatabaseManager;
     private boolean isDataLoaded = false;
+    private GroupDialogSession session; // ENH:group-dialog
+    private RxChangeSaver saver; // ENH:group-dialog
+    private List<PendingGroup> pending = new ArrayList<>(); // ENH:group-dialog
+    private boolean busy = false; // ENH:group-dialog
+    private RecyclerView recyclerView; // ENH:group-dialog
+    private Button saveButton; // ENH:group-dialog
+    private Button cancelButton; // ENH:group-dialog
+    private Button newGroupButton; // ENH:group-dialog
+    private TextView loadError; // ENH:group-dialog
+    private NamePrompt namePrompt; // ENH:group-dialog
 
     public static FeedGroupSelectionDialog newInstance(long subscriptionId) {
         FeedGroupSelectionDialog dialog = new FeedGroupSelectionDialog();
@@ -73,7 +91,7 @@ public class FeedGroupSelectionDialog extends DialogFragment {
 
         setupRecyclerView(view);
         setupButtons(view);
-        org.schabi.newpipe.enhancements.groupcreateinline.GroupCreateInline.attach(this, view, subscriptionId, allGroups, this::saveChanges); // ENH:group-create-inline
+        setupSession(view); // ENH:group-dialog
         loadDataSynchronously();
 
         return new AlertDialog.Builder(requireContext())
@@ -82,20 +100,35 @@ public class FeedGroupSelectionDialog extends DialogFragment {
     }
 
     private void setupRecyclerView(View view) {
-        RecyclerView recyclerView = view.findViewById(R.id.groups_recycler_view);
+        recyclerView = view.findViewById(R.id.groups_recycler_view); // ENH:group-dialog
         adapter = new GroupSelectionAdapter();
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         recyclerView.setAdapter(adapter);
     }
 
     private void setupButtons(View view) {
-        Button cancelButton = view.findViewById(R.id.cancel_button);
-        Button saveButton = view.findViewById(R.id.save_button);
+        cancelButton = view.findViewById(R.id.cancel_button); // ENH:group-dialog
+        saveButton = view.findViewById(R.id.save_button); // ENH:group-dialog
 
         cancelButton.setOnClickListener(v -> dismiss());
         saveButton.setOnClickListener(v -> saveChanges());
     }
 
+    private void setupSession(View view) { // ENH:group-dialog
+        saver = new RxChangeSaver( // ENH:group-dialog
+                new RoomGroupTable(NewPipeDatabase.getInstance(requireContext()))); // ENH:group-dialog
+        session = new GroupDialogSession(subscriptionId, saver, this); // ENH:group-dialog
+        loadError = view.findViewById(R.id.enh_group_dialog_load_error); // ENH:group-dialog
+        newGroupButton = view.findViewById(R.id.enh_group_dialog_new_group_button); // ENH:group-dialog
+        newGroupButton.setOnClickListener(v -> openNamePrompt()); // ENH:group-dialog
+    } // ENH:group-dialog
+    private void openNamePrompt() { // ENH:group-dialog
+        if (namePrompt != null) { // ENH:group-dialog
+            namePrompt.dismiss(); // ENH:group-dialog
+        } // ENH:group-dialog
+        namePrompt = new NamePrompt(requireContext(), session::submitName); // ENH:group-dialog
+        namePrompt.show(); // ENH:group-dialog
+    } // ENH:group-dialog
     private void loadDataSynchronously() {
         // Load all data in a single chain to avoid race conditions
         Disposable loadDisposable = feedDatabaseManager.groups()
@@ -149,11 +182,17 @@ public class FeedGroupSelectionDialog extends DialogFragment {
 
                             isDataLoaded = true;
                             adapter.notifyDataSetChanged();
+                            List<String> names = new ArrayList<>(); // ENH:group-dialog
+                            for (FeedGroupEntity group : allGroups) { // ENH:group-dialog
+                                names.add(group.getName()); // ENH:group-dialog
+                            } // ENH:group-dialog
+                            session.onLoaded(names); // ENH:group-dialog
                         },
                         throwable -> {
                             // Handle error
                             isDataLoaded = true;
                             adapter.notifyDataSetChanged();
+                            session.onLoadFailed(); // ENH:group-dialog
                         }
                 );
 
@@ -165,69 +204,54 @@ public class FeedGroupSelectionDialog extends DialogFragment {
             return; // Don't save if data isn't loaded yet
         }
 
-        // Find groups to add and remove
-        Set<Long> toAdd = new HashSet<>(selectedGroupIds);
-        toAdd.removeAll(originalGroupIds);
-
-        Set<Long> toRemove = new HashSet<>(originalGroupIds);
-        toRemove.removeAll(selectedGroupIds);
-
-        List<Single<Void>> operations = new ArrayList<>();
-
-        // Add to new groups
-        for (Long groupId : toAdd) {
-            Single<Void> addOperation = feedDatabaseManager.subscriptionIdsForGroup(groupId)
-                    .firstOrError()
-                    .flatMapCompletable(currentIds -> {
-                        List<Long> newIds = new ArrayList<>(currentIds);
-                        if (!newIds.contains(subscriptionId)) {
-                            newIds.add(subscriptionId);
-                        }
-                        return feedDatabaseManager.updateSubscriptionsForGroup(groupId, newIds);
-                    })
-                    .toSingle(() -> (Void) null);
-
-            operations.add(addOperation);
-        }
-
-        // Remove from old groups
-        for (Long groupId : toRemove) {
-            Single<Void> removeOperation = feedDatabaseManager.subscriptionIdsForGroup(groupId)
-                    .firstOrError()
-                    .flatMapCompletable(currentIds -> {
-                        List<Long> newIds = new ArrayList<>(currentIds);
-                        newIds.remove(subscriptionId);
-                        return feedDatabaseManager.updateSubscriptionsForGroup(groupId, newIds);
-                    })
-                    .toSingle(() -> (Void) null);
-
-            operations.add(removeOperation);
-        }
-
-        if (operations.isEmpty()) {
-            dismiss();
-            return;
-        }
-
-        // Execute all operations
-        Disposable saveDisposable = Single.zip(operations, objects -> (Void) null)
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        result -> dismiss(),
-                        throwable -> {
-                            // Handle error but still dismiss
-                            dismiss();
-                        }
-                );
-
-        disposables.add(saveDisposable);
+        session.confirm(selectedGroupIds, originalGroupIds); // ENH:group-dialog
     }
 
+    @Override // ENH:group-dialog
+    public void showPending(@NonNull List<PendingGroup> shown) { // ENH:group-dialog
+        pending = shown; // ENH:group-dialog
+        adapter.notifyDataSetChanged(); // ENH:group-dialog
+        if (!shown.isEmpty()) { // ENH:group-dialog
+            recyclerView.scrollToPosition(adapter.getItemCount() - 1); // ENH:group-dialog
+        } // ENH:group-dialog
+    } // ENH:group-dialog
+    @Override // ENH:group-dialog
+    public void showLoaded() { // ENH:group-dialog
+        newGroupButton.setEnabled(true); // ENH:group-dialog
+    } // ENH:group-dialog
+    @Override // ENH:group-dialog
+    public void showLoadError() { // ENH:group-dialog
+        recyclerView.setVisibility(View.GONE); // ENH:group-dialog
+        loadError.setVisibility(View.VISIBLE); // ENH:group-dialog
+    } // ENH:group-dialog
+    @Override // ENH:group-dialog
+    public void setBusy(boolean nowBusy) { // ENH:group-dialog
+        busy = nowBusy; // ENH:group-dialog
+        saveButton.setEnabled(!busy); // ENH:group-dialog
+        cancelButton.setEnabled(!busy); // ENH:group-dialog
+        newGroupButton.setEnabled(!busy); // ENH:group-dialog
+        setCancelable(!busy); // ENH:group-dialog
+        adapter.notifyDataSetChanged(); // ENH:group-dialog
+    } // ENH:group-dialog
+    @Override // ENH:group-dialog
+    public void showSaveError() { // ENH:group-dialog
+        Toast.makeText(requireContext(), R.string.enh_group_dialog_save_failed, // ENH:group-dialog
+                Toast.LENGTH_LONG).show(); // ENH:group-dialog
+    } // ENH:group-dialog
+    @Override // ENH:group-dialog
+    public void close() { // ENH:group-dialog
+        dismissAllowingStateLoss(); // ENH:group-dialog
+    } // ENH:group-dialog
     @Override
     public void onDestroy() {
         super.onDestroy();
         disposables.clear();
+        if (namePrompt != null) { // ENH:group-dialog
+            namePrompt.dismiss(); // ENH:group-dialog
+        } // ENH:group-dialog
+        if (saver != null) { // ENH:group-dialog
+            saver.detach(); // ENH:group-dialog
+        } // ENH:group-dialog
     }
 
     // Helper class to store group membership information
@@ -255,12 +279,14 @@ public class FeedGroupSelectionDialog extends DialogFragment {
             if (position < allGroups.size()) {
                 FeedGroupEntity group = allGroups.get(position);
                 holder.bind(group);
-            }
+            } else if (position - allGroups.size() < pending.size()) { // ENH:group-dialog
+                holder.bindPending(pending.get(position - allGroups.size())); // ENH:group-dialog
+            } // ENH:group-dialog
         }
 
         @Override
         public int getItemCount() {
-            return allGroups.size();
+            return allGroups.size() + pending.size(); // ENH:group-dialog
         }
     }
 
@@ -301,7 +327,21 @@ public class FeedGroupSelectionDialog extends DialogFragment {
                 if (isBinding || !isDataLoaded) return;
                 updateGroupSelection(group.getUid(), isChecked);
             });
+            itemView.setEnabled(!busy); // ENH:group-dialog
+            checkBox.setEnabled(!busy); // ENH:group-dialog
         }
+        public void bindPending(PendingGroup group) { // ENH:group-dialog
+            groupName.setText(group.getName()); // ENH:group-dialog
+            checkBox.setOnCheckedChangeListener(null); // ENH:group-dialog
+            checkBox.setChecked(group.getChecked()); // ENH:group-dialog
+            checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> { // ENH:group-dialog
+                session.setChecked(group.getId(), isChecked); // ENH:group-dialog
+                pending = session.getPending(); // ENH:group-dialog
+            }); // ENH:group-dialog
+            itemView.setOnClickListener(v -> checkBox.toggle()); // ENH:group-dialog
+            itemView.setEnabled(!busy); // ENH:group-dialog
+            checkBox.setEnabled(!busy); // ENH:group-dialog
+        } // ENH:group-dialog
 
         private void updateGroupSelection(long groupId, boolean isSelected) {
             if (isSelected) {

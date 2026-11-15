@@ -8,14 +8,14 @@
     android:paddingRight="?dialogPreferredPadding">
 
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/enh_group_create_inline_name_container"
+        android:id="@+id/enh_group_dialog_name_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/name"
         app:errorEnabled="true">
 
         <org.schabi.newpipe.views.NewPipeEditText
-            android:id="@+id/enh_group_create_inline_name_input"
+            android:id="@+id/enh_group_dialog_name_input"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:imeOptions="actionDone"
