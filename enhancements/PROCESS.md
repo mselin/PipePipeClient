@@ -22,12 +22,13 @@ dev (upstream, never committed to)
    ├─ feature/queue-guard             F1: clicking a video must not silently replace the queue
    │  └─ feature/default-open-action  F2: setting for the default click action (nested on F1)
    ├─ feature/group-create-inline     F3: "create new group" when adding a channel to a group
-   └─ feature/group-sort              F4: keep groups sorted A-Z / Z-A
+   ├─ feature/group-sort              F4: keep groups sorted A-Z / Z-A
+   └─ feature/keep-position           F5: the playing video keeps its position; timed links work
 enhancements/integration              merge of all feature branches, for building and device testing
 ```
 
 F2 is nested on F1 because both decide what a click on a video does and share one decision
-point. F3 and F4 are independent of each other and of F1/F2.
+point. F3, F4 and F5 are independent of each other and of F1/F2.
 
 Updating from upstream: fetch `dev`, rebase `enhancements/base`, then rebase each feature
 branch onto its parent. `enhancements/integration` is rebuilt, never rebased.
