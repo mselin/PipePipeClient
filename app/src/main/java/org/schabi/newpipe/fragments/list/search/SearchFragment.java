@@ -409,6 +409,7 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
         searchSubmit.setVisibility(View.GONE);
         updateSearchEditTextMargin();
 
+        searchBinding.suggestionsList.setAdapter(null); // ENH:release-views
         searchBinding = null;
         super.onDestroyView();
     }
