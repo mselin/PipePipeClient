@@ -167,15 +167,17 @@ detaching in `onDestroyView` does not lose the scroll position; `FeedFragment.kt
 ## 5. Banner size (AC-6)
 
 `ChannelVideosFragment.java:655-656`, one added line between `tag(...)` and `into(...)`:
-`.fit().centerCrop().onlyScaleDown()`. `PicassoHelper` is not changed (section 1, M3).
+`.fit().centerCrop()`. `PicassoHelper` is not changed (section 1, M3).
 
 - `fit()` makes Picasso decode and scale to the size of the banner view (full width, 70 dp,
   `app/src/main/res/layout/channel_header.xml:14-22`), which is never larger than the screen. A
   2560 x 424 banner becomes about 1080 x 193 on a 1080 px wide phone.
 - Same look: the view already shows the image with `centerCrop`. Picasso's `centerCrop` picks the
   same scale and the same centred region for the same target size, so the view then draws the
-  result one to one. `onlyScaleDown` leaves a banner smaller than the view unscaled, and the view
-  enlarges it as today. The view cannot change size without being rebuilt (`MainActivity` has no
+  result one to one. A banner smaller than the view is enlarged by Picasso instead of by the
+  view, with the same result on screen. `onlyScaleDown` must not be added: Picasso refuses it
+  together with `fit()` and throws when the request is built (Q10).
+  The view cannot change size without being rebuilt (`MainActivity` has no
   `configChanges`, `app/src/main/AndroidManifest.xml:65-67`), and a rebuild loads again.
 - Placeholder and error drawable are set as before. With images disabled the request has no
   image and Picasso returns before the deferred path.
