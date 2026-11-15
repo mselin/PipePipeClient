@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enh_group_create_inline_new_group">New group</string>
+    <string name="enh_group_create_inline_add">Add</string>
+    <string name="enh_group_create_inline_name_exists">A group with this name already exists</string>
+    <string name="enh_group_create_inline_save_failed">Could not save. No group was created.</string>
+</resources>
