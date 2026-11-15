@@ -111,3 +111,20 @@ Also for the owner: none of AC-2a's other pages (local playlists, history, bookm
 Subscriptions tab alone) has a walker test in plan 6; they are reached only through
 `ac3_..._mainPage` and the device script.
 Written with: yes to all four.
+
+## A5 plan
+Accepted: the walker follows app-owned helper objects two levels deep, checks the pager
+adapter through its private fields and walks child fragments.
+
+## A6 plan
+Accepted: the channel page test writes a hand-built `ChannelInfo` into the private
+`ChannelFragment.currentInfo`. Code must not rename that field.
+
+## A7 plan
+Accepted, and it is the better test: while the page is left, the old header's button must
+not change. The fix clears the subscription monitors in `onDestroyView`, which is what the
+assertion observes.
+
+## A8 plan
+Accepted, all four. Local playlists, history, bookmarks and the Subscriptions tab stay
+covered by the main-page test and the device script only.
