@@ -47,12 +47,15 @@ class DefaultOpenActionWiringTest {
 
     /**
      * G1 (plan section 2): `private val policy: GuardPolicy =
-     * DOA.policy(QueueGuardPolicy(PrefsGuardSettings)) // ENH:default-open-action`, with the class named in
-     * full so that no import line is added. Through this line every rule of this feature reaches the taps.
+     * DOA.policy(QueueGuardPolicy(PrefsGuardSettings), PrefsGuardSettings) // ENH:default-open-action`, with
+     * the class named in full so that no import line is added. Through this line every rule of this feature
+     * reaches the taps. The second argument is queue-guard's switch "Ask before replacing the queue", the
+     * very object the wrapped policy was built with: with asking on the default action is not used (AC-4),
+     * with asking off it is (AC-3), and both policies must read the one switch (plan section 8).
      */
     @Test
-    fun ac3_ac5_ac11_hookG1_queueGuardWrapsItsPolicyInDefaultOpenAction() {
-        val call = "$defaultOpenAction.policy(QueueGuardPolicy(PrefsGuardSettings))"
+    fun ac3_ac4_ac5_ac11_hookG1_queueGuardWrapsItsPolicyInDefaultOpenAction() {
+        val call = "$defaultOpenAction.policy(QueueGuardPolicy(PrefsGuardSettings), PrefsGuardSettings)"
         val lines = queueGuardLines().filter { marker in it && "DefaultOpenAction.policy(" in it }
         assertEquals("G1: lines marked $marker in $queueGuardFile that call DefaultOpenAction.policy(", 1, lines.size)
         assertTrue("G1 must call $call, the line is: ${lines.shown()}", call in lines.single())

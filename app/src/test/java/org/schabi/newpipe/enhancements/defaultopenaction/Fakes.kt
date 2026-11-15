@@ -22,8 +22,10 @@ import org.schabi.newpipe.enhancements.queueguard.TapRequest
  * the types of its plan (sections 3.1 and 3.2) are used, which its Code layer delivers in `app/src/main`.
  *
  * The letters P, D, C, M used in the test files are those of plan section 6:
- *   P = the combined policy `OpenActionPolicy(QueueGuardPolicy(ask switch), settings)` ([CombinedPolicy]),
- *   D = `OpenActionPolicy` over a recording fake `GuardPolicy` ([RecordingGuardPolicy]),
+ *   P = the combined policy `OpenActionPolicy(QueueGuardPolicy(g), g, settings)` on one ask switch `g`
+ *       ([CombinedPolicy]),
+ *   D = `OpenActionPolicy` over a recording fake `GuardPolicy` ([RecordingGuardPolicy]) with an ask switch
+ *       of its own,
  *   C = `QueueGuardController` on top of P with recording actions and dialog ([Scene]),
  *   M = `RememberChoice` with a recording `RememberStore` ([RecordingRememberStore]).
  */
@@ -56,13 +58,23 @@ internal val ALL_START_INS: List<StartPlaybackIn> =
 /** "Ask before replacing the queue" on, then off. */
 internal val ASK_ON_AND_OFF: List<Boolean> = listOf(true, false)
 
-/** A player of [kind] that holds [queueSize] items and is on the item [url] of [serviceId]. */
+/**
+ * A player of [kind] that holds [queueSize] items and is on the item [url] of [serviceId]. Of the items,
+ * [autoQueued] were added by the player itself through "Auto-enqueue next stream" (QG plan 3.1).
+ */
 internal fun playing(
     kind: PlayerKind,
     queueSize: Int = 3,
     serviceId: Int = SERVICE,
     url: String? = CURRENT_URL,
-): PlayerState = PlayerState(kind = kind, queueSize = queueSize, currentServiceId = serviceId, currentUrl = url)
+    autoQueued: Int = 0,
+): PlayerState = PlayerState(
+    kind = kind,
+    queueSize = queueSize,
+    currentServiceId = serviceId,
+    currentUrl = url,
+    autoQueuedCount = autoQueued,
+)
 
 /** Something is playing in the player of [kind]: with a queue of one item and with a queue of several. */
 internal fun playingIn(kind: PlayerKind): List<PlayerState> =
@@ -70,6 +82,42 @@ internal fun playingIn(kind: PlayerKind): List<PlayerState> =
 
 /** Every state in which something is playing: each player, with a queue of one item and of several. */
 internal val SOMETHING_PLAYING: List<PlayerState> = ALL_KINDS.flatMap { playingIn(it) }
+
+/**
+ * "A queue worth guarding" (QG spec, Terms): "something is playing, except when the main player is in use
+ * and its queue holds at most one video the user put there. Videos the player added by itself through
+ * Auto-enqueue next stream never count". The states are those of plan section 6.1, written
+ * `queueSize`/`autoQueuedCount`: the background and the popup player with 1/0 and 3/0 (there every playing
+ * queue is worth guarding), the background player with 3/2 (one video of the user's and two auto-enqueued
+ * ones: still worth guarding there), and the main player with two or more videos of the user's: 3/0, 2/0,
+ * 3/1 and 5/3. Every state is on [CURRENT_URL].
+ */
+internal val WORTH_GUARDING: List<PlayerState> = listOf(
+    playing(PlayerKind.BACKGROUND, queueSize = 1),
+    playing(PlayerKind.BACKGROUND, queueSize = 3),
+    playing(PlayerKind.POPUP, queueSize = 1),
+    playing(PlayerKind.POPUP, queueSize = 3),
+    playing(PlayerKind.BACKGROUND, queueSize = 3, autoQueued = 2),
+    playing(PlayerKind.MAIN, queueSize = 3),
+    playing(PlayerKind.MAIN, queueSize = 2),
+    playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 1),
+    playing(PlayerKind.MAIN, queueSize = 5, autoQueued = 3),
+)
+
+/**
+ * "A single video in the main player" (spec AC-3, AC-4): something is playing and the queue is not worth
+ * guarding, i.e. the main player with at most one video the user put there (plan 4.2, "The main player
+ * with a single video, complete"). Written `queueSize`/`autoQueuedCount`: 1/0 (one video), 2/1 and 3/2
+ * (one video and what "Auto-enqueue next stream" put around it), 2/2 and 1/1 (only auto-enqueued videos
+ * left). Every state is on [CURRENT_URL].
+ */
+internal val SINGLE_IN_MAIN: List<PlayerState> = listOf(
+    playing(PlayerKind.MAIN, queueSize = 1),
+    playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 1),
+    playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 2),
+    playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 2),
+    playing(PlayerKind.MAIN, queueSize = 1, autoQueued = 1),
+)
 
 /**
  * Every state in which nothing is playing (plan 4.2: "false for `PlayerState.IDLE` and for any kind with
@@ -141,14 +189,15 @@ internal class FakeOpenActionSettings(
 }
 
 /**
- * P of plan section 6: `OpenActionPolicy(QueueGuardPolicy(GuardSettings { ask }), settings)`, the policy
- * the rule tables of plan 4.2 describe, with all three settings changeable. [policy] is built once: the
- * settings must be read on every call (plan 4.1), so changing them here must change its answers.
+ * P of plan section 6: `OpenActionPolicy(QueueGuardPolicy(g), g, settings)` with `g = GuardSettings { ask }`,
+ * the policy the rule tables of plan 4.2 describe, with all three settings changeable. One [askSwitch]
+ * serves the wrapped policy and the wrapper, as hook G1 wires it (plan section 2). [policy] is built once:
+ * the settings must be read on every call (plan 4.1, 4.2), so changing them here must change its answers.
  */
 internal class CombinedPolicy {
     val askSwitch = FakeAskSwitch(ask = true)
     val settings = FakeOpenActionSettings()
-    val policy: GuardPolicy = OpenActionPolicy(QueueGuardPolicy(askSwitch), settings)
+    val policy: GuardPolicy = OpenActionPolicy(QueueGuardPolicy(askSwitch), askSwitch, settings)
 
     /** Queue-guard's policy without this feature, on the same switch. The yardstick of AC-14 and AC-15. */
     val queueGuardAlone: GuardPolicy = QueueGuardPolicy(askSwitch)
