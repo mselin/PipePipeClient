@@ -53,3 +53,9 @@ case of letters outside the BMP (Deseret, Adlam) is not ignored. Is the UTF-16 u
 intended, and does AC-5 need a sentence for it? Until answered the tests follow section 5 as
 written: `ac5_charactersOutsideTheBmpCompareByUtf16Unit` expects the emoji name first, with the
 assumption in its KDoc. No other test depends on the answer (AC-5, and through it AC-3/AC-4).
+
+## A5 plan
+The plan stands: names are compared per UTF-16 unit. That is the intended reading of "by
+character code", and spec AC-5 now says so. The only names affected are those with emoji or
+other characters outside the basic plane, which sort after ordinary letters either way. The
+test stands.
