@@ -1,6 +1,6 @@
 # Keep position: plan
 
-How `spec.md` (AC-1..AC-14, as of `047cbbf`) is built. Paths are relative to
+How `spec.md` (AC-1..AC-14) is built. Paths are relative to
 `app/src/main/java/org/schabi/newpipe/` unless they start with `res/` (`app/src/main/res/`). Line
 numbers are those of `dev` at `cd87fc7`. `KP` stands for
 `org.schabi.newpipe.enhancements.keepposition.KeepPosition`; hooks spell it out in full so that no
@@ -48,7 +48,7 @@ All are calls of `Player.reloadPlayQueueManager()`, or a service restart (1.3 ro
 | `PlayerStartController.kt:208` | `initPlayback`: new ExoPlayer, new or re-opened queue | start |
 | `PlayerSourceController.kt:43`, `:59` | video source switched off/on | reload |
 | `PlayerMenuController.kt:452` | quality | reload |
-| `player/PlayerTracksController.kt:150` | audio track (not in the spec's list; A3 says all reloads) | reload |
+| `player/PlayerTracksController.kt:150` | audio track | reload |
 | `PlayerErrorHandler.kt:165`, `:200` | error recovery | reload |
 | `PlayerErrorHandler.kt:237`, `Player.java:560` | live window lost, live resumed | reload of a live stream |
 
@@ -297,14 +297,14 @@ and `git grep "ENH:keep-position"` lists 9 lines. 6. Section 7 on a device.
 
 ## 9. Assumptions and risks
 
-Planned with these assumptions; the questions are open in `questions.md`:
-- **Q4** (AC-12, AC-14): a timestamp link for the playing video inside a longer queue replaces
+Planned with these assumptions, all confirmed by the spec:
+- **Q4, A4** (AC-12, AC-14): a timestamp link for the playing video inside a longer queue replaces
   the queue and loads at the link's time, as today with always-start off; only a one-video queue
   is sought in place.
-- **Q5** (AC-12, AC-14): times written as text stay untouched.
-- **Q6** (AC-2, AC-7): after the popup's fullscreen button, if Autoplay does not start the main
+- **Q5, A5** (AC-12, AC-14): times written as text stay untouched.
+- **Q6, A6** (AC-2, AC-7): after the popup's fullscreen button, if Autoplay does not start the main
   player, pressing play continues at the kept position unless another video was started first.
-- **Q7** (AC-10, AC-12, AC-13): a live stream gets no timed mark.
+- **Q7, A7** (AC-10, AC-12, AC-13): a live stream gets no timed mark.
 
 Risks and edge cases:
 - Parity, not more: the position is the one upstream stores. Where upstream loses it with
