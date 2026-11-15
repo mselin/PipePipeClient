@@ -50,3 +50,8 @@ Tested with: step 4 as written, because the numbered steps are named as the cont
 inside `ui.setBusy(true)`. It is the only test that depends on this; every other test holds for
 both readings. If the comment is meant to the letter, that test is removed. The Android ui
 cannot observe the difference. Affects AC-8.
+
+## A4 plan
+Yes. The numbered steps of `confirm()` are the contract: `isBusy` is true before
+`ui.setBusy(true)` is called and stays true until the saver has answered. The comment on the
+property was loose and now says so. The test stands.

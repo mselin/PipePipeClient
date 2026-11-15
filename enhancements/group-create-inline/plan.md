@@ -107,7 +107,7 @@ class GroupCreateSession(
     private val ui: SelectionUi
 ) {
     val pending: List<PendingGroup>   // read-only snapshot, in the order added
-    val isBusy: Boolean               // true only while a createGroups call is unanswered
+    val isBusy: Boolean               // true from confirm() step 4 until the saver has answered
     fun submitName(raw: String): NameCheck
     fun setChecked(id: Long, checked: Boolean)
     fun confirm()
