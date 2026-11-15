@@ -17,7 +17,10 @@ Findings M1, M2 and M3 in `enhancements/FINDINGS.md`.
 - Channel banners are loaded at their full size. Every other image is limited in size.
 - Result: memory grows with every channel visited. The owner, with about 1600 subscriptions,
   saw choppy playback and then an out-of-memory crash while going from channel to channel.
-- Local playlists, history and bookmarks already release their views correctly.
+- The same happens, in smaller ways, on other pages: every page built on the common page
+  base keeps its destroyed view through its error panel; the Subscriptions tab and the main
+  page's tab bar keep earlier views each time they are built again; the search page keeps
+  its suggestion list.
 
 ## Terms
 
@@ -33,6 +36,8 @@ Findings M1, M2 and M3 in `enhancements/FINDINGS.md`.
   It keeps its data.
 - **AC-2** A left channel page holds no reference to any of its views: banner, avatars,
   header, tabs, buttons, lists. It keeps its data.
+- **AC-2a** The same holds for every other page built on the common page base, including
+  local playlists, history, bookmarks, the Subscriptions tab and the main page with its tabs.
 - **AC-3** Building a page's view again never leaves an earlier view of that page in memory,
   however often it happens.
 - **AC-4** Returning to a left page shows what it showed before: the same items, the same
