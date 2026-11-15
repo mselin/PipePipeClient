@@ -111,7 +111,7 @@ class PlayerStartController(private val player: Player) {
             ) {
                 player.simpleExoPlayer.prepare()
             }
-            if (player.shouldSeek()) {
+            if (org.schabi.newpipe.enhancements.keepposition.KeepPosition.shouldSeekInPlace(player, newQueue, oldPlayerType)) { // ENH:keep-position
                 player.simpleExoPlayer.seekTo(
                     playQueue.index,
                     newQueue.getRecoveryPosition(newQueue.getItem()!!),
