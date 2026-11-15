@@ -90,3 +90,16 @@ section 9 is in. Likewise the unit-test source set compiles only once all six pl
 exist: steps 1 to 3 each build `:app:assembleDebug` alone, but `:app:testDebugUnitTest` runs
 from step 4 on (earlier with `RowWatchState`'s helpers present and the others stubbed).
 Assumed: acceptable; the four commits are checked with the unit tests after the fourth.
+
+## A5 plan
+Per gated stream, as assumed.
+
+## A6 plan
+All three as the tests assume: the fully qualified name of `StreamInfoItem` where no import
+exists; `cancel()` anywhere inside `updateFromItem` before the first `cached`, which is after
+the `instanceof` guard; and an error of a row request is consumed without a callback (it is
+not logged, because the plain class may not use Android logging).
+
+## A7 plan
+Accepted: the linear-work bound on `ReusingMapper` is now part of the contract. "Each commit
+builds alone" is meant for the app; the code is delivered as one commit anyway.
