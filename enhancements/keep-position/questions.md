@@ -59,3 +59,35 @@ AC-10 says live streams behave as today. AC-12 and AC-13 say a timed start goes 
 whatever the switches are set to. Which holds for a timed start of a live stream? Planned with:
 AC-10. A live stream gets no exemption, so a link's time is ignored for it while "Always start
 play from beginning" is on, as today. Affects AC-10, AC-12, AC-13.
+
+## A4 spec
+Accepted as today: only a video that is alone in its queue is sought in place; in a longer
+queue the tap replaces the queue and loads the video at the link's time. AC-12 now says so.
+
+## A5 spec
+Accepted. Times written as text already work and stay untouched. "Today", the term
+"timestamp link" and "Not covered" now say that a timestamp link is a link whose address ends
+in a time.
+
+## A6 spec
+The end of the switch: pressing play continues at the kept position unless another video was
+started in between. AC-2 now says so.
+
+## A7 spec
+AC-10 holds. A live stream gets no exemption, also for a timed start. AC-10 now says so.
+
+## Q8 spec -> user
+From the code, a timestamp link for the playing video is ignored while "Always start play
+from beginning" is on. The first draft left that out as a separate fault. Fix it here too?
+
+## A8 user
+"Fix the timestamp link too."
+Applied: AC-12, with no setting of its own (AC-8).
+
+## Q9 spec -> user
+A start time carried by a link opened from another app (such as `?t=90`) is discarded the same
+way. Honour it too?
+
+## A9 user
+"That should be honored too."
+Applied: the term "timed start" with its two kinds, AC-13 and AC-14.
