@@ -33,6 +33,13 @@ point. F3, F4 and F5 are independent of each other and of F1/F2.
 Updating from upstream: fetch `dev`, rebase `enhancements/base`, then rebase each feature
 branch onto its parent. `enhancements/integration` is rebuilt, never rebased.
 
+Pull requests stay inside the fork. Each feature gets one pull request on
+`mselin/PipePipeClient`, from its branch into `enhancements/integration` (a nested feature
+into its parent's branch). Nothing is ever proposed to the upstream project
+(`InfinityLoop1308/PipePipeClient`) unless the owner of the fork asks for that explicitly.
+GitHub offers the upstream repository as the default target for a fork, so the target
+repository is always named explicitly when a pull request is created.
+
 ## Keeping upstream untouched
 
 - New code goes in `app/src/main/java/org/schabi/newpipe/enhancements/<package>/`.
