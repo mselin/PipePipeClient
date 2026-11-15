@@ -87,3 +87,21 @@ used, as `setAside` does with `.1`, `.2`); the first one keeps the plain name. A
 `newDir` exists when `migrate` is called (section 2 calls it after `getPendingDir`); the tests
 always create it, except one where it is a regular file and every copy must count as failed
 with nothing deleted.
+
+## A5 plan
+As assumed: `PendingStateFiles` serializes the writers of one target.
+
+## A6 plan
+No. `Object[]` is not on the list; if a device shows a real mission needs it, the log names
+the refused class and the list is extended then.
+
+## A7 plan
+Malformed. `bytes a-b/*` is treated like a missing range, which restarts from zero; that is
+the safe reading.
+
+## A8 plan
+Accepted as the tests fix them.
+
+## A9 plan
+Accepted: a name collision in `set_aside` never overwrites, and `newDir` exists when
+`migrate` is called.
