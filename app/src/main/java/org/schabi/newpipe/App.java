@@ -129,9 +129,11 @@ public class App extends MultiDexApplication {
         // Initialize Android Auto component state based on preference
         DeviceUtils.updateAndroidAutoComponentState(this);
 
+        org.schabi.newpipe.enhancements.tlschecks.TlsDefaults.capture(); // ENH:tls-checks
         NewPipe.init(getDownloader(),
             Localization.getPreferredLocalization(this),
             Localization.getPreferredContentCountry(this));
+        org.schabi.newpipe.enhancements.tlschecks.TlsDefaults.restore(); // ENH:tls-checks
         final AndroidWebViewAvailabilityChecker webViewAvailabilityChecker =
                 new AndroidWebViewAvailabilityChecker(this);
         NewPipe.setWebViewAvailabilityChecker(webViewAvailabilityChecker);

@@ -139,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // enable TLS1.1/1.2 for kitkat devices, to fix download and play for media.ccc.de sources
-        trustEveryone(); //Fix random certificate issue for BiliBili
+        // trustEveryone() is not called: certificates and host names are checked // ENH:tls-checks
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
                 .permitAll().build();
         StrictMode.setThreadPolicy(policy);
@@ -943,6 +943,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public static void trustEveryone() {
+        if (true) return; // inert, kept because upstream lines are not deleted // ENH:tls-checks
         try {
             HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier(){
                 public boolean verify(String hostname, SSLSession session) {
