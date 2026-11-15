@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- default-open-action: the setting "Default action when tapping a video" (Settings > Player) -->
+    <string name="enh_default_open_action_key" translatable="false">enh_default_open_action</string>
+    <string name="enh_default_open_action_title">Default action when tapping a video</string>
+    <string name="enh_default_open_action_play_now">Play now</string>
+    <!-- "Add to queue" and "Play next" are queue-guard's dialog choices of the same name -->
+    <string-array name="enh_default_open_action_entries">
+        <item>@string/enh_default_open_action_play_now</item>
+        <item>@string/enh_queue_guard_add_to_queue</item>
+        <item>@string/enh_queue_guard_play_next</item>
+    </string-array>
+    <string-array name="enh_default_open_action_values" translatable="false">
+        <item>play_now</item>
+        <item>add_to_queue</item>
+        <item>play_next</item>
+    </string-array>
+
+    <!-- default-open-action: the setting "Start playback in" (Settings > Player) -->
+    <string name="enh_default_open_action_start_in_key" translatable="false">enh_default_open_action_start_in</string>
+    <string name="enh_default_open_action_start_in_title">Start playback in</string>
+    <string name="enh_default_open_action_start_in_video_page">Video page</string>
+    <string name="enh_default_open_action_start_in_background">Background player</string>
+    <string name="enh_default_open_action_start_in_popup">Popup player</string>
+    <string-array name="enh_default_open_action_start_in_entries">
+        <item>@string/enh_default_open_action_start_in_video_page</item>
+        <item>@string/enh_default_open_action_start_in_background</item>
+        <item>@string/enh_default_open_action_start_in_popup</item>
+    </string-array>
+    <string-array name="enh_default_open_action_start_in_values" translatable="false">
+        <item>video_page</item>
+        <item>background_player</item>
+        <item>popup_player</item>
+    </string-array>
+
+    <!-- default-open-action: the checkbox in queue-guard's tap dialog -->
+    <string name="enh_default_open_action_remember">Remember my choice</string>
+</resources>

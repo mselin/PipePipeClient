@@ -61,6 +61,8 @@
             app:singleLineTitle="false"
             app:iconSpaceReserved="false" />
     <SwitchPreferenceCompat android:defaultValue="true" android:key="@string/enh_queue_guard_ask_key" android:title="@string/enh_queue_guard_ask_title" android:summary="@string/enh_queue_guard_ask_summary" app:singleLineTitle="false" app:iconSpaceReserved="false" /> <!-- ENH:queue-guard -->
+    <ListPreference android:defaultValue="play_now" android:entries="@array/enh_default_open_action_entries" android:entryValues="@array/enh_default_open_action_values" android:key="@string/enh_default_open_action_key" android:summary="%s" android:title="@string/enh_default_open_action_title" app:singleLineTitle="false" app:iconSpaceReserved="false" /> <!-- ENH:default-open-action -->
+    <ListPreference android:defaultValue="video_page" android:entries="@array/enh_default_open_action_start_in_entries" android:entryValues="@array/enh_default_open_action_start_in_values" android:key="@string/enh_default_open_action_start_in_key" android:summary="%s" android:title="@string/enh_default_open_action_start_in_title" app:singleLineTitle="false" app:iconSpaceReserved="false" /> <!-- ENH:default-open-action -->
 
     <ListPreference
             android:defaultValue="@string/minimize_on_exit_value"
