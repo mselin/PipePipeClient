@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enh_group_dialog_new_group">New group</string>
+    <string name="enh_group_dialog_add">Add</string>
+    <string name="enh_group_dialog_name_exists">A group with this name already exists</string>
+    <string name="enh_group_dialog_save_failed">Could not save. Nothing was changed.</string>
+    <string name="enh_group_dialog_load_failed">Could not load the groups.</string>
+</resources>

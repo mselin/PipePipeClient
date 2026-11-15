@@ -1,4 +1,4 @@
-package org.schabi.newpipe.enhancements.groupcreateinline
+package org.schabi.newpipe.enhancements.groupdialog
 
 /** What the name prompt says about a name. */
 enum class NameCheck { OK, EMPTY, DUPLICATE }

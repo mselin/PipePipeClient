@@ -1,4 +1,4 @@
-package org.schabi.newpipe.enhancements.groupcreateinline
+package org.schabi.newpipe.enhancements.groupdialog
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -24,14 +24,14 @@ class NamePrompt(
     fun show() {
         val builder = AlertDialog.Builder(context)
         val view = LayoutInflater.from(builder.context)
-            .inflate(R.layout.enhancements_group_create_inline_name_prompt, null)
-        val container: TextInputLayout = view.findViewById(R.id.enh_group_create_inline_name_container)
-        val input: EditText = view.findViewById(R.id.enh_group_create_inline_name_input)
+            .inflate(R.layout.enhancements_group_dialog_name_prompt, null)
+        val container: TextInputLayout = view.findViewById(R.id.enh_group_dialog_name_container)
+        val input: EditText = view.findViewById(R.id.enh_group_dialog_name_input)
 
         val dialog = builder
-            .setTitle(R.string.enh_group_create_inline_new_group)
+            .setTitle(R.string.enh_group_dialog_new_group)
             .setView(view)
-            .setPositiveButton(R.string.enh_group_create_inline_add, null)
+            .setPositiveButton(R.string.enh_group_dialog_add, null)
             .setNegativeButton(R.string.cancel, null)
             .create()
         this.dialog = dialog
@@ -46,7 +46,7 @@ class NamePrompt(
                 NameCheck.EMPTY ->
                     container.error = context.getString(R.string.feed_group_dialog_empty_name)
                 NameCheck.DUPLICATE ->
-                    container.error = context.getString(R.string.enh_group_create_inline_name_exists)
+                    container.error = context.getString(R.string.enh_group_dialog_name_exists)
             }
         }
 
