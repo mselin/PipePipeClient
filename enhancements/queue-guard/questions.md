@@ -101,3 +101,7 @@ performed? The `GuardUi` comment ("onChoice: at most once") covers both dialog f
 with: yes, the same rule (QueueGuardControllerTest:
 ac11_ac12_onlyTheFirstChoiceOfAListDialogCounts,
 ac13_nothingHappensAfterCancelEvenIfTheListDialogCallsBackAgain).
+
+## A10 plan
+Yes, the same rule: only the first call of the list dialog's callback is performed. Section
+3.2 now says so in the `onListPlay` paragraph too. The tests stand.
