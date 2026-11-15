@@ -1,6 +1,7 @@
 # Backlog
 
-Things to look at later. Nothing here has a spec yet.
+Reports as they came in. What to do about them is in `TODO.md`; what the code review found
+is in `FINDINGS.md`.
 
 ## Out-of-memory crash with many subscriptions and groups
 
@@ -32,3 +33,6 @@ not findings; whether they contribute to the crash is unknown:
   subscription data changes (`local/subscription/SubscriptionViewModel.kt`).
 - The app already requests a large heap (`android:largeHeap="true"` in the manifest), so the
   crash is not a matter of raising the limit.
+
+Update, 2026-11-15: the code review points to the channel pages, not the group writes:
+findings M1 and M2 in `FINDINGS.md`. Not yet confirmed on a device.
