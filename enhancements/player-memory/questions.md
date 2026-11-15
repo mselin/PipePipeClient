@@ -82,3 +82,16 @@ a running player service and a real session; device step D1 covers it.
 
 ## A6 plan
 Accepted. The code is delivered as one commit, and the tests run on it.
+
+## Q7 code -> plan
+Reported by the code author, not blocking. "The item ExoPlayer plays is never unloaded" has two
+exceptions in `onPlaybackSynchronize`, where the current item is set without a seek: the
+"may be desynchronized" branch (the same item object twice in the queue) and the "invalid
+index" branch (the timeline shorter than the queue). In either, the hook could unload the
+item still playing.
+
+## A7 plan
+Accepted as a known risk for now. Neither branch was found reachable from the two callers by
+message order. The fallback of section 8 (also protect ExoPlayer's own window index) stays
+available and needs a changed hook line and test. Device step D3 gains: put the same video in
+the queue twice and skip across both.
