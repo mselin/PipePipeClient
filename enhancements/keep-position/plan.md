@@ -268,6 +268,17 @@ and its result is that of the two `shouldSeek*` calls. Manual steps: section 7.
 | AC-13 | H8, `isTimedLinkStart` | Unit: (90,false,false) true; (0,false,false), (90,true,false) false; then as AC-12. Manual M8. |
 | AC-14 | consumption; nothing else sets TIMED | Unit: a second load of T -> false. The 17th timed uuid drops the first. After a timed load of T, `onReload(p,T,90000,false)` gives RELOAD, not TIMED. Manual M8. |
 
+Wiring on the JVM (added after the code review, finding F13): a test reads the seven upstream
+files as text (path `src/main/...`, else `app/src/main/...`) and expects these counts of lines
+containing `ENH:keep-position`: `player/Player.java` 2, `player/PlayerTransportController.kt` 2,
+`player/PlayerStartController.kt` 1, `player/PlayerClickController.kt` 1,
+`util/external_communication/InternalUrlsHandler.java` 1, `player/playqueue/SinglePlayQueue.java`
+1, `res/xml/advanced_settings.xml` 1. Each code hook line must name
+`org.schabi.newpipe.enhancements.keepposition.KeepPosition` in full and call the function section
+4 gives for it (`onReload`, `shouldSeekOnLoad`, `onSynchronize`, `shouldSeekOnSynchronize`,
+`shouldSeekInPlace`, `onSwitchToMainPlayer`, `onTimestampLink`, `onLinkStartPosition`). A hook
+lost in a rebase then fails the unit tests, as for the other features.
+
 ## 7. Manual device script
 
 Always-start on, keep on, a video of 10+ minutes at about 2:00, unless stated.

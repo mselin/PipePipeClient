@@ -110,3 +110,12 @@ Through a function the tests can call. `KeepPosition.onTimestampLink` now decide
 unit-tested rule for both kinds of timed start (section 3.2). What stays manual is that the
 glue passes the live flag: M7 now opens a timed link to a live stream. The tests stand.
 Section 2 also says now that `synced` is one pair for all players, as the table in 3.1 has it.
+
+## Q11 spec -> plan
+The code review (finding F13 in `enhancements/FINDINGS.md`) found that this is the only
+feature without a test that counts its hook lines, so a hook lost in a rebase goes unnoticed.
+Add one?
+
+## A11 plan
+Yes. Section 6 now specifies a wiring test with the per-file counts and the function each
+hook line must call. The Tests layer adds it; no code changes.
