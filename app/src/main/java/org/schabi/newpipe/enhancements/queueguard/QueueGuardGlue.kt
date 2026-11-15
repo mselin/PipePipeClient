@@ -25,6 +25,9 @@ internal object PrefsGuardSettings : GuardSettings {
     }
 }
 
+/** The one record of the process: written by [QueueGuard.noteAutoQueued], read by [HolderPlayerStateSource]. */
+internal val autoQueuedRecord = AutoQueuedRecord()
+
 /** The player as [PlayerHolder] sees it. */
 internal object HolderPlayerStateSource : PlayerStateSource {
     override fun current(): PlayerState {
@@ -35,12 +38,20 @@ internal object HolderPlayerStateSource : PlayerStateSource {
             PlayerService.PlayerType.POPUP -> PlayerKind.POPUP
             null -> null
         }
-        val current = holder.player?.playQueue?.item
+        val queue = holder.player?.playQueue
+        val current = queue?.item
+        // By index, not by iterating the list: hook Q1 can append on another thread meanwhile.
+        val uuids = if (queue == null) {
+            emptyList()
+        } else {
+            (0 until queue.size()).mapNotNull { queue.getItem(it)?.uuid }
+        }
         return PlayerState(
             kind = kind,
             queueSize = holder.queueSize,
             currentServiceId = current?.serviceId ?: -1,
             currentUrl = current?.url,
+            autoQueuedCount = autoQueuedRecord.countIn(uuids),
         )
     }
 }
