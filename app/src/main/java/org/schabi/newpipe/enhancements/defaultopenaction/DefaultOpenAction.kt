@@ -9,6 +9,7 @@ import org.schabi.newpipe.App
 import org.schabi.newpipe.R
 import org.schabi.newpipe.enhancements.queueguard.GuardChoice
 import org.schabi.newpipe.enhancements.queueguard.GuardPolicy
+import org.schabi.newpipe.enhancements.queueguard.GuardSettings
 import org.schabi.newpipe.enhancements.queueguard.TapDialogAddOn
 import org.schabi.newpipe.enhancements.queueguard.TapDialogExtension
 
@@ -19,8 +20,12 @@ import org.schabi.newpipe.enhancements.queueguard.TapDialogExtension
 /** What queue-guard's glue takes from this feature: the policy wrapper (G1) and the tap dialog's checkbox (G2). */
 object DefaultOpenAction {
 
-    /** Queue-guard's policy [base] with the default action and "Start playback in" on top. */
-    fun policy(base: GuardPolicy): GuardPolicy = OpenActionPolicy(base, PrefsOpenActionSettings)
+    /**
+     * Queue-guard's policy [base] with the default action and "Start playback in" on top.
+     * [guardSettings] is the switch [base] reads, so both judge "asking is on" the same way.
+     */
+    fun policy(base: GuardPolicy, guardSettings: GuardSettings): GuardPolicy =
+        OpenActionPolicy(base, guardSettings, PrefsOpenActionSettings)
 
     /** A new checkbox, so a new unchecked one, for every tap dialog (AC-7). */
     val tapDialogExtension: TapDialogExtension = TapDialogExtension { context ->
