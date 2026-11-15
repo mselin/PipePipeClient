@@ -41,3 +41,20 @@ network) for AC-1 to AC-6 and a device script with LeakCanary for AC-8, AC-7 and
 AC-5 that need a slow request. CI runs only JVM tests, so these run by hand. Is that accepted
 for definition of done items 3 and 4 ("unit tests green"), for this change?
 Planned with: yes; instrumented tests are the Tests layer, run locally before the code is merged.
+
+## A2 spec
+Yes. This is a defect fix inside upstream's own lifecycle methods, so its marked lines are
+the fix itself, not calls into `enhancements/`. Every added or changed line still carries
+`ENH:release-views`, and the layer check runs unchanged. `PROCESS.md` on the base branch now
+says so. Decided by the session on the owner's behalf; the owner can overrule it.
+
+## A3 spec
+Yes, in scope. The spec's claim that local lists already release their views was wrong; the
+plan showed that the common page base keeps the view for every page. "Today" is corrected and
+AC-2a names the other pages. They stay the last, separable steps of the plan.
+
+## A4 spec
+Yes. There is no decision logic to unit-test, so this change has no JVM tests. The Tests
+layer writes the plan's instrumented tests; here they can only be compiled, not run, because
+there is no device or emulator. They and the device script are run by the owner. Decided by
+the session on the owner's behalf; the owner can overrule it.
