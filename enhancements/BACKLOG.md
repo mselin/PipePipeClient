@@ -79,9 +79,13 @@ What the code shows:
   never told about the new pages, so it has fewer tabs than the adapter and `getTabAt(i)`
   returns null.
 
-Not known: what made the pager throw, and whether the release-views change (which rebuilds
-the adapter when a channel page is shown again) makes it more likely. The swallowed exception
-is printed to logcat under `System.err` just before the crash.
+Cause found on 2026-11-15 from the owner's logcat: the release-views change asked Picasso for
+`fit()` together with `onlyScaleDown()`, which Picasso refuses with an exception while the
+videos tab is being created. Every channel page crashed. Fixed on `feature/release-views`
+(questions.md, Q10). The swallowing in `TabAdapter` is upstream and still hides such errors.
+
+Also in the same log: a native abort (`SIGABRT` on an `RxCachedThreadScheduler` thread) at
+21:01:31, during the period of the import hang. Its stack is not in the log.
 
 ## App closes when a video is started
 
