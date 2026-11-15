@@ -105,3 +105,64 @@ Accepted as the tests fix them.
 ## A9 plan
 Accepted: a name collision in `set_aside` never overwrites, and `newDir` exists when
 `migrate` is called.
+
+## Q10 code -> plan
+Section 4's list refuses classes that real error objects hold, so a legitimate download can
+be set aside at a start instead of listed (the plan's first risk; now with concrete cases).
+`DownloadMissionRecover.java:76` stores whatever exception `tryRecover` threw as `errObject`
+without the mapping of `notifyError(Exception)`, and that includes the extractor's OkHttp
+errors and TLS failures. Checked on the desktop JVM against the classes in the Gradle cache:
+
+- `okhttp3.internal.http2.StreamResetException` (okhttp 5.4.0, an `IOException`) has the
+  field `errorCode` of the enum `okhttp3.internal.http2.ErrorCode`: refused.
+- `java.security.cert.CertPathValidatorException`, in the cause chain of a failed TLS trust
+  check, always holds a `java.security.cert.CertPathValidatorException$BasicReason` (enum):
+  refused. With a certificate path it also writes `java.security.cert.CertPath$CertPathRep`.
+  (53 of 54 other exception types tried are read; this was the one refused.)
+
+A state file written by the *previous* version with such an error object is set aside at the
+first start after the update: the download leaves the list (the file is kept, the toast
+says so). That part is as planned and not changed by the Code layer.
+
+For files written by *this* version the Code layer added one thing the plan does not have:
+`PendingStateFiles.writeAtomically` fails (and keeps the previous, readable state) when the
+state holds a class the reader would refuse; it asks the same list through
+`PendingStateAllowList.isAcceptedOnRead` from `ObjectOutputStream.annotateClass`, the bytes
+written are unchanged. Effect: after such an error the saved state is the one from before
+the error (the download is listed with its last progress, without the error), and
+`Utility.writeToFile` logs the refused class at every save until the error is cleared.
+Without it the download would vanish from the list at the next start.
+
+What would work, for the plan to choose: (a) add the named classes
+(`okhttp3.internal.http2.ErrorCode`, `java.security.cert.CertPathValidatorException$BasicReason`,
+`java.security.cert.PKIXReason`, `java.security.cert.CertPath$CertPathRep`); the tests do not
+forbid them but A6 reserves list changes for the plan. (b) Stop persisting arbitrary exception
+graphs (an upstream edit: store a plain `Exception` with the message). (c) Keep things as they
+are. Should the save-time check stay?
+
+## Q11 code -> plan
+Section 3 counts "the assembled array, the decrypted copy" for an encrypted segment, and the
+engine acquires the cipher text's size before `cipher.doFinal` as planned. `doFinal(byte[])`
+itself allocates an output array of the padded size and then returns a trimmed copy (PKCS5
+always removes at least one byte), so for the duration of one decrypt a third array of the
+segment's size exists that the budget does not see (JDK 25: measured, `doFinal` allocates
+2.00 times the cipher text; Android's Conscrypt: assumed to do the same, not run). Worst case the heap held is 1.5 times the
+budget (96 MiB), still fixed. Implemented as planned. If the bound is meant strictly: acquire
+twice the cipher text's size before decrypting and call `checkDeclared` with 3 copies, at the
+price of more segments falling back to streaming. Related, no action taken: a plain segment
+between 32 and 64 MiB passes `checkDeclared(…, 1)`, is received in chunks, is refused at the
+copy in `toByteArray()` (chunks + array > 64 MiB) and is then downloaded a second time by the
+writer; correct, but twice the traffic for such segments.
+
+## A10 plan
+(a), and the save-time check stays. Four named classes join the list of section 4, because
+real error objects hold them: `okhttp3.internal.http2.ErrorCode`,
+`java.security.cert.CertPathValidatorException$BasicReason`, `java.security.cert.PKIXReason`
+(three enums) and `java.security.cert.CertPath$CertPathRep` (the serialized form of a
+certificate path). Not persisting exception graphs at all (b) would be the cleaner fix but is
+a larger upstream edit; it is left for later. Class names on Android are still unverified;
+device step 4 and the log of refused classes decide whether more are needed.
+
+## A11 plan
+Accepted as implemented. The bound during a decrypt is 96 MiB, not 64 MiB, and still fixed.
+A plain segment between 32 and 64 MiB may be downloaded twice; accepted.

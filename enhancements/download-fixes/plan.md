@@ -347,6 +347,11 @@ only a loaded plugin defines (`MissionRecoveryInfo.deliveryMethodInfo` may be a 
 `giga/get/MissionRecoveryInfo.kt:25`; a plugin is code the user installed and already runs).
 Everything else is refused and the file is set aside and reported (section 2).
 
+Added after Q10: `okhttp3.internal.http2.ErrorCode`,
+`java.security.cert.CertPathValidatorException$BasicReason`, `java.security.cert.PKIXReason` and
+`java.security.cert.CertPath$CertPathRep`, which real error objects hold. Saving refuses a
+state the reader would refuse and keeps the previous one.
+
 Regressions to watch: a legitimate mission that holds a class outside the list is set aside
 at every start instead of loaded; the log names the class, the file is kept, and the list is
 extended. A downgrade to an older build finds no pending downloads. Backups are unchanged:
