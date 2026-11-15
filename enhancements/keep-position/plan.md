@@ -88,7 +88,7 @@ manifest). A mark names an item by uuid, which survives queue copies and service
 - **Reload mark** (at most one): item uuid + owner. Set inside `Player.reloadPlayQueueManager()`
   (H1), so by every present and future reload, owned by that `Player`; and by the popup's
   fullscreen button (H6) with owner "any player", because that reload continues in a new service.
-  Set only if all hold: the player's last synchronized item is the queue's current item (the
+  Set only if all hold: the last synchronization, of any player, was this player on the queue's current item (the
   ExoPlayer is on it), the ExoPlayer position is above 0, the item is not live. `initPlayback`
   and the reload right after it always fail this (new ExoPlayer, position 0): a start never sets
   a mark. A failed attempt changes nothing.
@@ -185,7 +185,7 @@ hook that only unwraps arguments:
 | `onSynchronize(player: Player, item: PlayerMediaItem)` | `tracker.onSynchronize(player, item.uuid)` |
 | `shouldSeekOnSynchronize(player: Player, item: PlayerMediaItem): Boolean` | `tracker.shouldSeekOnSynchronize(player, item.uuid)` |
 | `shouldSeekInPlace(player: Player, linkQueue: PlayQueue, oldPlayerType: PlayerService.PlayerType): Boolean` | `tracker.shouldSeekInPlace(player, linkQueue.item?.uuid, player.playQueue?.item?.uuid, oldPlayerType != player.playerType)` |
-| `onTimestampLink(queue: PlayQueue)` | `tracker.onTimedStart(uuid)`, unless the queue is empty or its item's `streamType` is live |
+| `onTimestampLink(queue: PlayQueue)` | nothing for an empty queue; else `tracker.onTimedStart(uuid)` if `isTimedLinkStart(queue.getRecoveryPosition(item) / 1000, false, live(item.streamType))`: the same rule function as the next row, so the live exception of AC-10 is one unit-tested rule for both kinds of timed start |
 | `onLinkStartPosition(queue: PlayQueue, info: StreamInfo)` | `tracker.onTimedStart(uuid)` if `isTimedLinkStart(info.startPosition, info.isRoundPlayStream, live(info.streamType))` |
 
 `isLive(player)` mirrors the private `Player.isCurrentStreamLive()` (`Player.java:563-570`):
@@ -262,7 +262,7 @@ and its result is that of the two `shouldSeek*` calls. Manual steps: section 7.
 | AC-7 | rule 4, consumption, owner, guards | Unit: no mark -> false. Reload mark for U, `sync(p,V)`, load U -> false. `peekMark(p,V)` during U's reload -> NONE. Mark of p1, load U in p2 -> false. Mark, `sync(p,U)` without the decision, `sync(p,V)`, load U -> false. Manual M5. |
 | AC-8 | rules 2-4 | Unit: keep off: the AC-2 sequences -> false, the AC-12 sequences -> true. Manual M6. |
 | AC-9 | rule 1 | Unit: always-start off: `shouldSeek` true for every mark and keep value; all three tracker decisions true without any mark. Manual M6. |
-| AC-10 | live guards | Unit: `onReload` / `onSwitch` with `live = true` -> NONE; `isTimedLinkStart(90,false,true)` false. Manual M7. |
+| AC-10 | live guards | Unit: `onReload` / `onSwitch` with `live = true` -> NONE; `isTimedLinkStart(90,false,true)` false (the rule both H7 and H8 go through). Manual M7 (that the glue passes the live flag). |
 | AC-11 | section 5 | Unit: the three names exist in `values/`; only the key has `translatable="false"`. |
 | AC-12 | H7, H5, H2-H4 | Unit, keep off: `onTimedStart(T)`, load T -> true. `shouldSeekInPlace(p,T,U,false)` true once, then false. `sync(p,U)`, `onTimedStart(T)`, `shouldSeekInPlace(p,T,U,true)`, `onReload(p,U,90000,false)`, load U -> true. Manual M8. |
 | AC-13 | H8, `isTimedLinkStart` | Unit: (90,false,false) true; (0,false,false), (90,true,false) false; then as AC-12. Manual M8. |
@@ -282,7 +282,9 @@ Always-start on, keep on, a video of 10+ minutes at about 2:00, unless stated.
   video from history with "Resume playback" on, close the player and press play: all at 0:00.
 - **M6** Keep off: M2-M4 restart at 0:00, M8 still goes to its time. Always-start off, keep on
   and off: M2-M5 and M8 behave as upstream.
-- **M7** A live stream: switch player and change quality: at the live edge, as before.
+- **M7** A live stream: switch player and change quality: at the live edge, as before. Open a
+  link to a live stream with a start time (`?t=90`), and tap an `&t=` link to one if a
+  description has one: at the live edge too.
 - **M8** A description with an `&t=` link: tap it for the playing video alone in its queue
   (jumps, no restart), inside a longer queue, and with nothing playing. Share
   `https://youtu.be/<id>?t=90` from a browser once per "open" action. Each goes to its time;

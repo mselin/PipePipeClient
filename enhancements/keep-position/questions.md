@@ -103,3 +103,10 @@ test and no manual step proves AC-10 for a timestamp link to a live stream. Writ
 unit tests prove the live exception through `isTimedLinkStart(90,false,true)` only, and say
 so in the KDoc of `ac10_startTimeOfALiveStreamIsNotATimedStart`. Should the H7 check go
 through a function the JVM tests can call, or get a manual step? Affects AC-10.
+
+## A10 plan
+Through a function the tests can call. `KeepPosition.onTimestampLink` now decides with
+`isTimedLinkStart`, the rule the video-link hook already uses, so the live exception is one
+unit-tested rule for both kinds of timed start (section 3.2). What stays manual is that the
+glue passes the live flag: M7 now opens a timed link to a live stream. The tests stand.
+Section 2 also says now that `synced` is one pair for all players, as the table in 3.1 has it.
