@@ -1,5 +1,6 @@
 package org.schabi.newpipe.sync
 
+import org.schabi.newpipe.enhancements.tlschecks.StrictHostnames // ENH:tls-checks
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -8,7 +9,6 @@ import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URI
-import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
@@ -57,7 +57,7 @@ object RawHttp {
                 val ssl = (SSLSocketFactory.getDefault() as SSLSocketFactory)
                     .createSocket(plain, host, port, true) as SSLSocket
                 ssl.startHandshake()
-                if (!HttpsURLConnection.getDefaultHostnameVerifier().verify(host, ssl.session)) {
+                if (!StrictHostnames.matches(host, ssl.session)) { // ENH:tls-checks
                     throw IOException("Certificate does not match $host")
                 }
                 ssl
