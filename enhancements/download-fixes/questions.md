@@ -28,3 +28,17 @@ directory. Two things stay as they are and are assumed out of scope: the app all
 backups without exclusions, so the saved state (with cookies) is part of a backup, as it was
 in the old location; and unfinished media files and HLS work files remain in the app's
 external directory. Should either be covered here?
+
+## A2 spec
+"Reported" means a log entry and one message per app start that says how many pending
+downloads could not be read and that their files were kept aside.
+
+## A3 spec
+64 MiB per transfer, as planned; a segment larger than that is not an error and is written
+straight to the file. The multi-threaded path keeps stopping with an error when the server
+does not honour a range request, since it never appends.
+
+## A4 spec
+Both out of scope here. Keeping download state out of Android's own backup belongs to
+backup-safety (its backup rules carry the database only). Partial media and HLS work files
+stay where they are.
