@@ -49,3 +49,44 @@ still counts as on screen, and the first load of a tab that was never shown is a
 ## A4 spec
 Accepted: the notification run keeps one small record per notification-enabled channel with
 new videos. AC-1 now says so.
+
+## Q5 tests -> plan
+Plan 5.1 says the gate lets the first load through while "off screen and nothing delivered
+yet", and 5.3 puts two streams (groups and channel list) through the one gate of
+`SubscriptionViewModel`. It does not say whether "nothing delivered yet" is kept per gate or
+per gated stream. Per gate, the stream that loads first would take the other's first load away
+on a tab that was never shown.
+Working assumption, pinned by `OnScreenGateTest.ac4_oneGateTwoStreams_*`: per stream returned
+by `gate(source)`. Each gets its own first load off screen.
+
+## Q6 tests -> plan
+Three places where section 4 cannot be taken literally. The wiring test accepts the reading
+given here.
+(a) `ComposeInfoItemHolder.kt`, last line: `if (infoItem is StreamInfoItem) ...`. The file does
+not import `StreamInfoItem` and section 2 allows no import lines. Assumed: the fully qualified
+name is written, as the file already does in its click handlers. The test asks for
+`if (infoItem is`, then `StreamInfoItem) watched.refresh(infoItem, historyRecordManager) { updateFromItem(infoItem, historyRecordManager) }`.
+(b) Java holders: "`cancel()` is the first statement of every bind" but the line goes "after
+`:53`", which is after the `instanceof` guard and its `return`. Assumed: the place is as the
+line number says. The test asks for `cancel()` inside `updateFromItem` and before the first
+`watched.cached`. In `ComposeInfoItemHolder.kt` it asks for the first line of the function.
+(c) "An error is logged", but `LatestRequest.start` has no error callback and `LatestRequest.kt`
+is a plain file that may not use `android.util.Log`. Assumed: `LatestRequest` consumes the
+error itself (no callback, nothing reaches RxJava's global error handler, the next `start`
+works); whether and how it is logged is left to Code and not tested.
+Also: the marked-line counts are asserted exactly (36 lines, per file as listed), so the two
+long lines of 5.3 (`channelItems`, `stateItemsDisposable`) must stay on one line each.
+
+## Q7 tests -> plan
+Two things the tests pin that the plan does not state.
+(a) Work of `ReusingMapper.map`: for 1600 rows at most 4 calls of `idOf` and 4 row comparisons
+(`equals`) per row and call, and at least one comparison per reused row. The plan gives no
+bound; the bound is there so that a per-row search through the previous list (about 1.28
+million comparisons per reload) does not pass. `sameNamesAndPictures` has no such test: its
+comparisons cannot be counted from outside.
+(b) `SubscriptionRowsQueryTest` (instrumented, the "optional" test of section 7) calls
+`SubscriptionDAO.getAllRows()`, so `:app:compileDebugAndroidTestKotlin` fails until step 4 of
+section 9 is in. Likewise the unit-test source set compiles only once all six plain files
+exist: steps 1 to 3 each build `:app:assembleDebug` alone, but `:app:testDebugUnitTest` runs
+from step 4 on (earlier with `RowWatchState`'s helpers present and the others stubbed).
+Assumed: acceptable; the four commits are checked with the unit tests after the fourth.
