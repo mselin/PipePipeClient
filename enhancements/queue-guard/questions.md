@@ -93,3 +93,11 @@ Today's behaviour, no dialog. AC-10 now says so.
 ## A9 spec
 Yes, exactly what a tap does today: the autoplay setting keeps deciding whether the video
 starts by itself. Terms now say so.
+
+## Q10 tests -> plan
+Section 3.2 says "A second call of `cb` is ignored" in the `onVideoTap` paragraph only. Is the
+callback handed to `ui.askForList` guarded the same way, so that only its first call is
+performed? The `GuardUi` comment ("onChoice: at most once") covers both dialog forms. Tested
+with: yes, the same rule (QueueGuardControllerTest:
+ac11_ac12_onlyTheFirstChoiceOfAListDialogCounts,
+ac13_nothingHappensAfterCancelEvenIfTheListDialogCallsBackAgain).
