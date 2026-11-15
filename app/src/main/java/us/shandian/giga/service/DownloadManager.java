@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+import org.schabi.newpipe.enhancements.downloadfixes.PendingStateAndroid; // ENH:download-fixes
 import us.shandian.giga.get.DownloadMission;
 import us.shandian.giga.get.FinishedMission;
 import us.shandian.giga.get.Mission;
@@ -72,12 +73,13 @@ public class DownloadManager {
         mMainStorageVideo = storageVideo;
         mMissionsFinished = loadFinishedMissions();
         mPendingMissionsDir = getPendingDir(context);
+        PendingStateAndroid.prepare(context, mPendingMissionsDir); // ENH:download-fixes
 
         loadPendingMissions(context);
     }
 
     private static File getPendingDir(@NonNull Context context) {
-        File dir = context.getExternalFilesDir(DOWNLOADS_METADATA_FOLDER);
+        File dir = null; // ENH:download-fixes (pending state is never stored externally; the old external directory is emptied by PendingStateAndroid.prepare)
         if (testDir(dir)) return dir;
 
         dir = new File(context.getFilesDir(), DOWNLOADS_METADATA_FOLDER);
@@ -147,10 +149,10 @@ public class DownloadManager {
             if (!sub.isFile()) continue;
             if (sub.getName().equals(".tmp")) continue;
 
-            DownloadMission mis = Utility.readFromFile(sub);
+            DownloadMission mis = PendingStateAndroid.readMission(sub); // ENH:download-fixes
             if (mis == null) {
                 //noinspection ResultOfMethodCallIgnored
-                sub.delete();
+                // no sub.delete() here: readMission moved the file to set_aside, and a failed move must not end in a delete // ENH:download-fixes
                 continue;
             }
 
@@ -214,6 +216,7 @@ public class DownloadManager {
 
             mMissionsPending.add(mis);
         }
+        PendingStateAndroid.reportSetAside(ctx); // ENH:download-fixes
 
         if (mMissionsPending.size() > 1)
             Collections.sort(mMissionsPending, Comparator.comparingLong(Mission::getTimestamp));
