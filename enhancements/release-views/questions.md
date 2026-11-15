@@ -167,3 +167,15 @@ the three paths the code found. The guards in the list page's sinks are the righ
 they mirror what the local list pages already do, and a late result still updates the
 adapter's data, which shows on return. Disposing the workers of left pages instead would
 drop results the user is waiting for.
+
+## Q10 device -> plan
+On the owner's device every channel page crashed (2026-11-15, logcat). Picasso throws
+`IllegalStateException: onlyScaleDown can not be applied without resize` at
+`ChannelVideosFragment.handleResult`, because `fit()` sets the size later and `onlyScaleDown()`
+checks it at once. The exception is thrown while the pager creates the videos tab;
+`TabAdapter.notifyDataSetChanged` swallows it, the tab bar is left without tabs, and
+`ChannelFragment.updateTabs` then fails on a null tab.
+
+## A10 plan
+The plan was wrong: `fit()` and `onlyScaleDown()` cannot be combined. Section 5 now specifies
+`.fit().centerCrop()` only. A unit test reads the source and fails if the combination returns.
