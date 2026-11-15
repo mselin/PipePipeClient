@@ -49,3 +49,40 @@ playlist and item both lack a thumbnail, the playlist takes the first remaining 
 As planned: the criterion is that the live stream resumes by itself with "resume on focus
 gain" on. With it off, one tap resuming is a regression check. The timestamp case is its
 own step.
+
+## Q5 tests -> plan
+Step 1c (`LateDelivery.kt`, one line in `SparseItemUtil.java`) is committed only if device step
+D1c reproduces the crash, so a test that names `LateDelivery` directly would not compile when the
+step is left out. Assumption used in the tests: `LateDeliveryTest` looks the class up by name and
+is skipped while it does not exist (so it does not fail before Code exists); the wiring test
+accepts `SparseItemUtil.java` with no marked line when `LateDelivery.kt` is absent and requires
+exactly one (`LateDelivery.deliver(callback, result);`) when it is present. Is that the intended
+reading, or should 1c be decided before the test commit?
+
+## Q6 tests -> plan
+Section 0 calls all line counts "about". The wiring test asserts the exact count only where the
+plan lists the lines one by one: `QueueItemMenuUtil` 5, `ChannelFragment` 9, `AudioReactor` 7,
+`PlayerBroadcastReceiver` 1, `DownloadMission` 2, `DownloadInitializer` 1,
+`LocalPlaylistFragment` 8. For three files it asserts only "at least one marked line", plus the
+calls the plan names (found in the marked lines with whitespace ignored, so wrapping is allowed):
+- `StreamDialogDefaultEntry`: "about 13", but the listed edits add up to 10 (`:64` 1, Enqueue
+  block 5, `:116`/`:121` 2, `:131`/`:135` 2).
+- `SearchFragment`: "9 marked lines", the code block has 5.
+- `Player`: "5 marked lines" for one statement, no line list.
+If a wrapped line pushes one of the exact files over its count, the count in the test is what has
+to change. Should the three files get exact counts (which ones)?
+
+## Q7 tests -> plan
+Tests beyond the plan's list, for review:
+(a) `LateDialogTest` (null fragment manager: `canShow` false, `ifCanShow` drops the action) and
+`LateDeliveryTest` (value delivered; ordinary exceptions, a plain `IllegalStateException`
+included, are rethrown). They cover only the branches that need no Android object. `LatePage`
+has no JVM test: every branch needs a `Fragment` with a view lifecycle. Assumption: all
+`Consumer`s in the three signatures are `java.util.function.Consumer`.
+(b) The instrumented test has a second case, playlist and items both without thumbnail (A3).
+It runs on the app's own database on the test device (the fragment reads no other one): it
+inserts one playlist and two streams with urls on `crashfixes.invalid` and deletes them again.
+(c) The wiring test also asserts that the faulty expressions are gone:
+`getMessage().contains(` in the two download files, `getPlaylistThumbnail(playlistId).equals(`
+in `LocalPlaylistFragment`, `enqueueOnPlayer(fragment.getContext(), singlePlayQueue)` in
+`StreamDialogDefaultEntry`.
