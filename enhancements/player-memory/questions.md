@@ -69,3 +69,16 @@ all four plain classes and `LazySeekbarPreviews.MAX_SHEET_BYTES` exist, so after
 alone no unit test of the app can run. The wiring tests also count all six marked lines at once.
 Working assumption: accepted; the tests are run after commit 3 (or the Code layer adds the new
 files of step 3 before the hook lines). The tests were not split to match the three commits.
+
+## A4 plan
+None. The media-session fix has no observable state an instrumented test could reach without
+a running player service and a real session; device step D1 covers it.
+
+## A5 plan
+1. Yes, a cached or in-flight request keeps the pending page.
+2. Yes. A failed download calls `onLoaded` like a successful one, with no sheet; the glue
+   logs the failure under the tag `PlayerMemory`.
+3. The seekbar's own progress.
+
+## A6 plan
+Accepted. The code is delivered as one commit, and the tests run on it.
