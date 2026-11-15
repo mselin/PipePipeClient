@@ -85,3 +85,13 @@ only the test names depend on the answer.
 AC-4. The dialog is queue-guard's "as before": neither setting changes what *Add to queue* and
 *Play next* do. Rows 14 to 16 now name AC-4 next to queue-guard's criteria. The test names
 stand.
+
+## Q8 spec -> user
+Queue-guard no longer asks for a single video in the main player. With asking on and the
+default action set to *Add to queue* or *Play next*, what should a tap do there?
+
+## A8 user
+"Open it as today."
+Applied: AC-4 (asking on: exactly queue-guard's behaviour, the default action is not used)
+and AC-3 (asking off: the default action applies, also on a single video). Plan, tests and
+code follow; queue-guard's plan section 6 describes what changes here.
