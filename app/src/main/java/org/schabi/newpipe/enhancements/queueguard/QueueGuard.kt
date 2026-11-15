@@ -50,8 +50,8 @@ import java.util.WeakHashMap
  * that one time.
  */
 object QueueGuard {
-    private val policy: GuardPolicy = QueueGuardPolicy(PrefsGuardSettings)
-    private val tapDialogExtension: TapDialogExtension? = null
+    private val policy: GuardPolicy = org.schabi.newpipe.enhancements.defaultopenaction.DefaultOpenAction.policy(QueueGuardPolicy(PrefsGuardSettings)) // ENH:default-open-action
+    private val tapDialogExtension: TapDialogExtension? = org.schabi.newpipe.enhancements.defaultopenaction.DefaultOpenAction.tapDialogExtension // ENH:default-open-action
 
     private val controller = QueueGuardController(policy, HolderPlayerStateSource)
 
