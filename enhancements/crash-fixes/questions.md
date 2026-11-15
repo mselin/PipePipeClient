@@ -35,3 +35,17 @@ The finding also names `PlayerBroadcastReceiver.kt:41`, which is not reached by 
 but by tapping a timestamp link while a live stream is paused.
 Assumption used in plan.md: the second half of AC-4 is a regression check; "with the setting on,
 the stream resumes by itself" is the criterion; the timestamp case is fixed as separate step 4b.
+
+## A2 spec
+Yes to both: the play queue's item menu is in scope as its own step, and a player start that
+Android refuses after the app was left is dropped without a crash. That last step is
+committed only if the device check reproduces the crash first, as planned.
+
+## A3 spec
+As planned: the null fix goes in all four places; the blocking read stays as it is. When
+playlist and item both lack a thumbnail, the playlist takes the first remaining item's.
+
+## A4 spec
+As planned: the criterion is that the live stream resumes by itself with "resume on focus
+gain" on. With it off, one tap resuming is a regression check. The timestamp case is its
+own step.
