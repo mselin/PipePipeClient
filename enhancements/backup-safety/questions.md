@@ -59,3 +59,52 @@ reported after the restart with the old data restored. AC-3's "behaves as today"
 successful case.
 
 A2 to A5 were decided by the session on the owner's behalf; the owner can overrule them.
+
+## Q6 tests -> plan
+Section 2, step 2: "`ZipInputStream` checks every entry's CRC, so a truncated or altered zip
+throws." That holds for a cut or change inside an entry's data. A streaming reader does not
+notice a cut exactly between two entries, or inside the directory at the end of the archive:
+the entries before the cut are complete and their CRCs are right. A backup cut right after
+`newpipe.db` would be imported as a database-only backup, without the settings question.
+Tested with: cuts and altered bytes inside entry data only (`ZipStagingTest`,
+`BackupStagingTest`); no test expects a refusal for a cut at an entry boundary or in the
+directory. Should the import also require the archive's end record?
+
+## Q7 tests -> plan
+Section 4, import: "keys that are absent now stay absent". `LoginData.keptOnImport` returns only
+entries to write back, so it cannot say "remove". If a backup without login data still holds a
+switch (for example `enable_proxy_key=true` in an edited file, or `proxy_token_key=""`, which
+every backup has) and the key is absent now, the backup's value stays after
+`LoginDataPrefs.keepCurrent` unless the glue also removes the login keys that are absent now.
+That removal is a decision made in Android code, which no JVM test reaches.
+Tested with: `keptOnImport` returns exactly the current entries of the login keys, nothing for
+absent keys (`LoginDataTest`). The removal is untested; it needs a device check.
+
+## Q8 tests -> plan
+Section 2, start-up step d and the table "Why each failure point leaves the old state": after a
+kill between "settings applied" and "marker renamed to `import.done`", the next start runs
+steps c and d again. If `verifyOpen` or `applySettings` fails on that second run, the database
+is rolled back while the settings on disk are already the backup's, and the snapshot of the old
+settings died with the first process. AC-1 does not hold for that sequence.
+Tested with: the second run succeeds (`ac1_killRightAfterTheSettingsWereApplied_nextStartCompletes`);
+no test demands the old settings after kill-then-failure, because `ImportJournal` as planned
+cannot provide them.
+
+## Q9 tests -> plan
+Section 4 says of the key lists "each resource's value equals its name". True for the 13 login
+keys (pinned by `ac6_everyLoginKeyEqualsItsValueInSettingsKeys`). Not true for the reviewed
+list: `clear_cookie_key` is a name whose value is `clear_cookie`, and
+`login_session_refresh_time`, `logout_keep_webview_session`, `sponsor_block_user_id` and
+`debug_sync_server` are values whose names end in `_key`. `REVIEWED_NOT_LOGIN` therefore mixes
+names and values. Tested with: the list as the plan writes it; the scan of `settings_keys.xml`
+accepts a key when its name or its value is listed. No effect on behaviour.
+
+## Q10 tests -> plan
+Section 7 proposes no instrumented tests, so none were written; `DatabaseProbe`, the editor
+order in `LoginDataPrefs.keepCurrent`, Room in `verifyOpen` and the backup rules are covered by
+the device script only. Two additions beyond section 7's list: `GlueSourceTest` reads the six
+glue files as text (staging on `Schedulers.io()`, the probe's own error handler, no call of
+upstream's in-place import, the calls into the logic classes), and `BackupSafetyStringsTest`
+reads the strings file. `HookLinesTest` asserts section 5's counts exactly (1, 3, 9, 2, 1); the
+9 of `ContentSettingsManager.kt` presumes `applyStagedSettings` is written on one line, as the
+plan words it.
