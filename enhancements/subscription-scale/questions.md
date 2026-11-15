@@ -37,3 +37,15 @@ that has new videos, the channel's name, address, picture address and its new it
 (plan section 3). That still grows with the number of such channels, but not with the number
 of channels refreshed or the size of their video lists. Showing each notification as soon as
 its batch is stored would remove the remainder and change when notifications appear.
+
+## A2 spec
+"Name or picture only", as planned. Subscriber counts shown on the tab catch up when the tab
+is returned to. AC-4 now says so.
+
+## A3 spec
+As planned: "not on screen" means the page is not resumed. A page under the expanded player
+still counts as on screen, and the first load of a tab that was never shown is allowed.
+
+## A4 spec
+Accepted: the notification run keeps one small record per notification-enabled channel with
+new videos. AC-1 now says so.
