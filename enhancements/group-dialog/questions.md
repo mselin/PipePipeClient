@@ -68,3 +68,18 @@ exists. Tests written with: one test for `groupcreateinline`, `ConcatAdapter` an
 section 7 does not list a test for that. Tests written with: one more test,
 `ac8_theResourceFilesOfGroupCreateInlineAreGone`. That the `<include>` comes after the
 RecyclerView is not tested.
+
+## A4 plan
+Accepted: carried-over tests are named `gci_ac<n>_` so they do not collide with this spec's
+AC numbers.
+
+## A5 plan
+Accepted: after a successful save the dialog is closed and the session's state is not part
+of the contract.
+
+## A6 plan
+AC-3: a confirm while the groups are still loading saves nothing, so nothing can be saved
+from an incomplete view of the groups.
+
+## A7 plan
+Accepted, both points.
