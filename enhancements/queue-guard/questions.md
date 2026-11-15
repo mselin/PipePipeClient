@@ -161,3 +161,19 @@ spec, plan (row 6 of its rule table and how it detects "ask is off"), tests and 
 amendment for that state; left as built, its code would carry out the default action there even
 with the switch on. Which behaviour is wanted with the switch on and the default action *Add to
 queue* or *Play next*: today's tap (as planned), or the default action?
+
+## A12 spec
+Yes. A read-only accessor added to an upstream class on one marked line is accepted as a
+hook form.
+
+## A13 user
+"Don't ask."
+Applied: videos the player added by itself never count, also after they have played. The
+term "a queue worth guarding" now says so. The plan must track them beyond the one video
+upstream marks; a second small hook is accepted for that.
+
+## A14 user
+"Open it as today."
+Applied: with asking on and a single video in the main player, a tap opens the video as
+today and the default action is not used; it applies once asking is off. This is recorded in
+default-open-action's spec as well.

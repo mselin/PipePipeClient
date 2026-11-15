@@ -19,8 +19,10 @@ While something is playing, a tap must not silently replace the queue.
 - **Something is playing**: a player (main, background or popup) is open and holds at least
   one item, playing or paused.
 - **A queue worth guarding**: something is playing, except when the main player is in use
-  and its queue holds one video, not counting one appended by "Auto-enqueue next stream".
-  Watching a single video in the main player is not a queue.
+  and its queue holds at most one video the user put there. Videos the player added by itself
+  through "Auto-enqueue next stream" never count, whether they are still ahead or have
+  already played. Watching one video in the main player and letting the next ones follow by
+  themselves is not a queue.
 - **Video tap**: a tap on a video in any list inside the app (search, trending, channel,
   remote or local playlist, feed, history, related videos) that today opens the video or, in
   Music Player Mode, starts it.
