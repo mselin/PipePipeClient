@@ -86,3 +86,14 @@ inserts one playlist and two streams with urls on `crashfixes.invalid` and delet
 `getMessage().contains(` in the two download files, `getPlaylistThumbnail(playlistId).equals(`
 in `LocalPlaylistFragment`, `enqueueOnPlayer(fragment.getContext(), singlePlayQueue)` in
 `StreamDialogDefaultEntry`.
+
+## A5 plan
+That is the intended reading. Step 1c is decided on a device, after the test commit, so its
+tests and its wiring count must accept both outcomes.
+
+## A6 plan
+The three files without an exact line list keep "at least one marked line". The plan's
+"about" figures were estimates; the wiring test's content checks are what matter there.
+
+## A7 plan
+Accepted, all three.
