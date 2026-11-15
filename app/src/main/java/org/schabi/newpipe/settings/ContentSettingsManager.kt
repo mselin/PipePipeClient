@@ -5,6 +5,8 @@ import android.util.Log
 import com.grack.nanojson.JsonArray
 import com.grack.nanojson.JsonParser
 import com.grack.nanojson.JsonWriter
+import org.schabi.newpipe.enhancements.backupsafety.LoginData // ENH:backup-safety
+import org.schabi.newpipe.enhancements.backupsafety.LoginDataPrefs // ENH:backup-safety
 import org.schabi.newpipe.streams.io.SharpInputStream
 import org.schabi.newpipe.streams.io.SharpOutputStream
 import org.schabi.newpipe.streams.io.StoredFileHelper
@@ -22,6 +24,7 @@ class ContentSettingsManager(private val fileLocator: NewPipeFileLocator) {
     companion object {
         const val TAG = "ContentSetManager"
     }
+    var includeLoginData = false // ENH:backup-safety
 
     /**
      * Exports given [SharedPreferences] to the file in given outputPath.
@@ -36,7 +39,7 @@ class ContentSettingsManager(private val fileLocator: NewPipeFileLocator) {
 
                 try {
                     ObjectOutputStream(FileOutputStream(fileLocator.settings)).use { output ->
-                        output.writeObject(preferences.all)
+                        output.writeObject(LoginData.forExport(preferences.all, includeLoginData)) // ENH:backup-safety
                         output.flush()
                     }
                 } catch (e: IOException) {
@@ -115,10 +118,11 @@ class ContentSettingsManager(private val fileLocator: NewPipeFileLocator) {
             Log.e(TAG, "Unable to loadSharedPreferences", e)
         }
     }
+    @Throws(Exception::class) fun applyStagedSettings(preferences: SharedPreferences, file: java.io.File, legacy: Boolean) = FileInputStream(file).use { if (legacy) applyLegacy(preferences, it) else applyJson(preferences, it) } // ENH:backup-safety
 
     private fun writePreferencesJson(preferences: SharedPreferences, out: OutputStream) {
         out.buffered().use {
-            JsonWriter.indent("").on(it).`object`(preferences.all).done()
+            JsonWriter.indent("").on(it).`object`(LoginData.forExport(preferences.all, includeLoginData)).done() // ENH:backup-safety
         }
     }
 
@@ -139,6 +143,7 @@ class ContentSettingsManager(private val fileLocator: NewPipeFileLocator) {
                 )
             }
         }
+        LoginDataPrefs.keepCurrent(preferences, editor, json) // ENH:backup-safety
         if (!editor.commit()) {
             throw IOException("Unable to commit preferences")
         }
@@ -166,7 +171,8 @@ class ContentSettingsManager(private val fileLocator: NewPipeFileLocator) {
                     }
                 }
             }
-            editor.commit()
+            LoginDataPrefs.keepCurrent(preferences, editor, entries) // ENH:backup-safety
+            if (!editor.commit()) throw IOException("Unable to commit preferences") // ENH:backup-safety
         }
     }
 }
