@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources> <!-- ENH:backup-safety -->
+    <string name="enh_backup_safety_checking">Checking the backup…</string>
+    <string name="enh_backup_safety_refused_title">Backup not imported</string>
+    <string name="enh_backup_safety_refused_not_a_backup">This file is not a PipePipe backup: it contains no database.</string>
+    <string name="enh_backup_safety_refused_damaged">The backup file is damaged or incomplete, or there is not enough free storage to unpack it.</string>
+    <string name="enh_backup_safety_refused_not_a_database">The database in this backup is damaged or incomplete.</string>
+    <string name="enh_backup_safety_refused_version">The database in this backup has version %1$d. This version of the app cannot open it.</string>
+    <string name="enh_backup_safety_refused_settings">The settings in this backup cannot be read.</string>
+    <string name="enh_backup_safety_nothing_changed">Nothing was changed.</string>
+    <string name="enh_backup_safety_rolled_back">Import failed: the backup could not be opened. Your previous data was restored.</string>
+    <string name="enh_backup_safety_export_title">Export</string>
+    <string name="enh_backup_safety_include_login">Include login data</string>
+    <string name="enh_backup_safety_include_login_warning">Login cookies and the proxy token are written to the file in clear text. Anyone with the file can use your accounts.</string>
+    <string name="enh_backup_safety_export_button">Export</string>
+    <string name="enh_backup_safety_plugin_confirm_title">Install plugins from these addresses?</string>
+    <string name="enh_backup_safety_plugin_confirm_intro">A plugin runs inside the app and can read your logins. Install only from addresses you trust.</string>
+    <string name="enh_backup_safety_plugin_refused">Not installed, because the address is not https:</string>
+</resources>

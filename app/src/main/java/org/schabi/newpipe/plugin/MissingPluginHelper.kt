@@ -13,6 +13,7 @@ import io.reactivex.rxjava3.schedulers.Schedulers
 import org.schabi.newpipe.NewPipeDatabase
 import org.schabi.newpipe.R
 import org.schabi.newpipe.database.plugin.PluginServiceEntity
+import org.schabi.newpipe.enhancements.backupsafety.PluginInstallConfirm // ENH:backup-safety
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.settings.SettingsActivity
 import org.schabi.newpipe.util.NavigationHelper
@@ -155,7 +156,7 @@ object MissingPluginHelper {
             .setMessage(message)
         if (installable.isNotEmpty()) {
             builder.setPositiveButton(R.string.install) { _, _ ->
-                ensureEnabled(activity) { install(activity, installable.map { it.plugin!! }) }
+                PluginInstallConfirm.show(activity, installable.map { it.plugin!! }) { ok -> ensureEnabled(activity) { install(activity, ok) } } // ENH:backup-safety
             }
             builder.setNeutralButton(R.string.settings) { _, _ -> openPluginSettings(activity) }
         } else {
