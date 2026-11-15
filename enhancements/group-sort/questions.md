@@ -40,3 +40,16 @@ contain symbols are affected (AC-5, and through it AC-3/AC-4).
 Yes. "By character" (A3) means plain character-code order after ignoring case, symbols and
 spaces included, exactly as the plan assumed. AC-5 now says so and has an example with a
 leading symbol. The plan's algorithm and fixture F4 stand.
+
+## Q5 tests -> plan
+AC-5 says names are compared "by character code". Section 5 compares per UTF-16 unit, so a
+character outside the BMP is ordered by its first unit and not by its code point: an emoji such
+as U+1F3B5 (units 0xD83C 0xDFB5) sorts before every character from U+E000 to U+FFFF, for
+example before fullwidth letters (U+FF21 and up), although its code is higher. A group named
+U+1F3B5 " Music" comes before one named U+FF2D U+FF36 (fullwidth "MV"); by code point it is the
+other way round. Only that order differs between the two readings (a character outside the BMP
+against one from U+E000 to U+FFFF); every other pair sorts the same. For the same reason the
+case of letters outside the BMP (Deseret, Adlam) is not ignored. Is the UTF-16 unit order
+intended, and does AC-5 need a sentence for it? Until answered the tests follow section 5 as
+written: `ac5_charactersOutsideTheBmpCompareByUtf16Unit` expects the emoji name first, with the
+assumption in its KDoc. No other test depends on the answer (AC-5, and through it AC-3/AC-4).
