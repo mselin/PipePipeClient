@@ -20,6 +20,8 @@ abstract class SubscriptionDAO : BasicDAO<SubscriptionEntity> {
 
     @Query("SELECT * FROM subscriptions ORDER BY name COLLATE NOCASE ASC")
     abstract override fun getAll(): Flowable<List<SubscriptionEntity>>
+    @Query(org.schabi.newpipe.enhancements.subscriptionscale.SUBSCRIPTION_ROWS_QUERY) // ENH:subscription-scale
+    abstract fun getAllRows(): Flowable<List<org.schabi.newpipe.enhancements.subscriptionscale.SubscriptionRow>> // ENH:subscription-scale
 
     @Query(
         """

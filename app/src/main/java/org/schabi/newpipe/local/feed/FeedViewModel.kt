@@ -39,6 +39,7 @@ class FeedViewModel(
 
     private val mutableStateLiveData = MutableLiveData<FeedState>()
     val stateLiveData: LiveData<FeedState> = mutableStateLiveData
+    private val onScreenGate = org.schabi.newpipe.enhancements.subscriptionscale.OnScreenGate() // ENH:subscription-scale
 
     private var combineDisposable = Flowable
         .combineLatest(
@@ -52,6 +53,7 @@ class FeedViewModel(
                 return@Function4 CombineResultEventHolder(t1, t2, t3, t4.firstOrNull())
             }
         )
+        .let { onScreenGate.gate(it) } // ENH:subscription-scale
         .throttleLatest(DEFAULT_THROTTLE_TIMEOUT, TimeUnit.MILLISECONDS)
         .subscribeOn(Schedulers.io())
         .observeOn(Schedulers.io())
@@ -103,6 +105,7 @@ class FeedViewModel(
     fun togglePlayedItems(showPlayedItems: Boolean) {
         toggleShowPlayedItems.onNext(showPlayedItems)
     }
+    fun setOnScreen(onScreen: Boolean) = onScreenGate.setOnScreen(onScreen) // ENH:subscription-scale
 
     fun saveShowPlayedItemsToPreferences(showPlayedItems: Boolean) =
         PreferenceManager.getDefaultSharedPreferences(applicationContext).edit {

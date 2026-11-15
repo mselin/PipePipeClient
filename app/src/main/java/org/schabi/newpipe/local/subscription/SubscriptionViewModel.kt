@@ -16,6 +16,8 @@ import java.util.concurrent.TimeUnit
 class SubscriptionViewModel(application: Application) : AndroidViewModel(application) {
     private var feedDatabaseManager: FeedDatabaseManager = FeedDatabaseManager(application)
     private var subscriptionManager = SubscriptionManager(application)
+    private val onScreenGate = org.schabi.newpipe.enhancements.subscriptionscale.OnScreenGate() // ENH:subscription-scale
+    private val channelItems = org.schabi.newpipe.enhancements.subscriptionscale.ReusingMapper<org.schabi.newpipe.enhancements.subscriptionscale.SubscriptionRow, ChannelItem>({ it.uid }) { ChannelItem(it.toChannelInfoItem(), it.uid, ChannelItem.ItemVersion.MINI) } // ENH:subscription-scale
 
     private val mutableStateLiveData = MutableLiveData<SubscriptionState>()
     private val mutableFeedGroupsLiveData = MutableLiveData<List<Group>>()
@@ -48,6 +50,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
     fun getCurrentSearchQuery(): String {
         return searchQuery.value ?: ""
     }
+    fun setOnScreen(onScreen: Boolean) = onScreenGate.setOnScreen(onScreen) // ENH:subscription-scale
 
     private fun applyFilter(subscriptions: List<Group>, query: String?) {
         if (query.isNullOrBlank()) {
@@ -70,6 +73,7 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
 
 
     private var feedGroupItemsDisposable = feedDatabaseManager.groups()
+        .let { onScreenGate.gate(it) } // ENH:subscription-scale
         .throttleLatest(DEFAULT_THROTTLE_TIMEOUT, TimeUnit.MILLISECONDS)
         .map { it.map(::FeedGroupCardItem) }
         .subscribeOn(Schedulers.io())
@@ -78,9 +82,9 @@ class SubscriptionViewModel(application: Application) : AndroidViewModel(applica
             { mutableStateLiveData.postValue(SubscriptionState.ErrorState(it)) }
         )
 
-    private var stateItemsDisposable = subscriptionManager.subscriptions()
+    private var stateItemsDisposable = org.schabi.newpipe.enhancements.subscriptionscale.SubscriptionRows.listing(subscriptionManager.subscriptionTable().getAllRows(), onScreenGate) // ENH:subscription-scale
         .throttleLatest(DEFAULT_THROTTLE_TIMEOUT, TimeUnit.MILLISECONDS)
-        .map { it.map { entity -> ChannelItem(entity.toChannelInfoItem(), entity.uid, ChannelItem.ItemVersion.MINI) } }
+        .map { rows -> channelItems.map(rows) } // ENH:subscription-scale
         .subscribeOn(Schedulers.io())
         .subscribe(
             { mutableStateLiveData.postValue(SubscriptionState.LoadedState(it)) },
