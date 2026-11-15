@@ -27,7 +27,8 @@ The user can keep channel groups sorted by name instead of in manual order.
   first. This gives: space and most punctuation, then digits, then letters A-Z, then letters
   outside A-Z (such as "Ä"). Numbers are not compared by value and no language-specific
   alphabet rules apply. Examples: "- Top" < "001 - First" < "Mix 10" < "Mix 2" < "music" <
-  "ZZZ - Last" < "ZZZZ - Last of last" < "Äpfel".
+  "ZZZ - Last" < "ZZZZ - Last of last" < "Äpfel". A character is what the app stores as one
+  (a UTF-16 unit), so an emoji compares by its two halves and sorts after ordinary letters.
 - **AC-6** Groups with equal names keep their manual order relative to each other, in both
   directions.
 - **AC-7** Entries that are not groups keep their place: "All" stays first and "New" stays
