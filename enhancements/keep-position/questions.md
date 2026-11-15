@@ -91,3 +91,15 @@ way. Honour it too?
 ## A9 user
 "That should be honored too."
 Applied: the term "timed start" with its two kinds, AC-13 and AC-14.
+
+## Q10 tests -> plan
+AC-10 says "a timed start of a live stream is not exempt either". A timed start has two entry
+points. For a video link with a start time (H8) the live check is `isTimedLinkStart`, which
+the unit tests cover. For a timestamp link (H7) it is inside the glue
+(`KeepPosition.onTimestampLink`, section 3.2: "unless the queue is empty or its item's
+`streamType` is live"), which section 3.2 keeps out of the unit tests; the tracker cannot
+tell, because `onTimedStart` takes only a uuid; and M7 does not tap a timestamp link. So no
+test and no manual step proves AC-10 for a timestamp link to a live stream. Written with: the
+unit tests prove the live exception through `isTimedLinkStart(90,false,true)` only, and say
+so in the KDoc of `ac10_startTimeOfALiveStreamIsNotATimedStart`. Should the H7 check go
+through a function the JVM tests can call, or get a manual step? Affects AC-10.
