@@ -102,3 +102,17 @@ and a device or emulator at run time, neither of which the test layer had, so it
 run even once. Should it be written unrun, or stay a manual device step?
 Assumption: left out; AC-1/AC-2 on Android are covered by device steps D3 and D6 until D1
 exists.
+
+## A5 plan
+Yes, reflection is accepted, so the whole source set compiles before the code exists and
+each test gets a fresh `TlsDefaults`.
+
+## A6 plan
+Yes, the extra checks are wanted. If an exception list for named hosts is ever built, the
+per-connection check of the source scan is revised in that round.
+
+## A7 plan
+Accepted as assumed.
+
+## A8 plan
+The check against public bad-certificate hosts stays a manual device step.
