@@ -105,3 +105,14 @@ ac13_nothingHappensAfterCancelEvenIfTheListDialogCallsBackAgain).
 ## A10 plan
 Yes, the same rule: only the first call of the list dialog's callback is performed. Section
 3.2 now says so in the `onListPlay` paragraph too. The tests stand.
+
+## Q11 spec -> user
+The code review (finding F4 in `enhancements/FINDINGS.md`) found that the guard asks on every
+tap of a related video while one video is being watched. Narrow it?
+
+## A11 user
+"Option 1. Don't ask in the main player when the queue holds one video, not counting an
+auto-queued one. Tapping related videos while watching then behaves as upstream; a real
+queue is still protected."
+Applied: the term "a queue worth guarding" and AC-1, AC-7, AC-10, AC-14 and AC-16. This
+changes answer A1 for the main player only. Plan, tests and code follow.
