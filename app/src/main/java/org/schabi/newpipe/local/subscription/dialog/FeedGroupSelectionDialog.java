@@ -73,6 +73,7 @@ public class FeedGroupSelectionDialog extends DialogFragment {
 
         setupRecyclerView(view);
         setupButtons(view);
+        org.schabi.newpipe.enhancements.groupcreateinline.GroupCreateInline.attach(this, view, subscriptionId, allGroups, this::saveChanges); // ENH:group-create-inline
         loadDataSynchronously();
 
         return new AlertDialog.Builder(requireContext())
