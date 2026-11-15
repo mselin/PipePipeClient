@@ -52,6 +52,10 @@ repository is always named explicitly when a pull request is created.
   `enhancements/` on its own line, or one XML element where code cannot be called.
   `git grep "ENH:"` lists every touch point in the fork, and `check-layers.sh` rejects a code
   commit that changes an upstream file in any other way.
+- A defect fix inside upstream's own code is the exception: there the marked lines are the
+  fix itself. Every line it adds or changes still carries `ENH:<name>`, and the same check
+  applies. Where it has no decision logic, instrumented tests and a device script take the
+  place of unit tests.
 - With every new setting at its default, behaviour equals upstream, except where the spec
   explicitly says otherwise (F1's confirmation).
 
