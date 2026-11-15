@@ -22,7 +22,7 @@ While something is playing
 
 - **AC-3** With "Ask before replacing the queue" off, a video tap on anything but the current
   item carries out the default action directly, also on a single video in the main player
-  (this is how a queue is started by tapping),, without a dialog. Each action gives the same
+  (this is how a queue is started by tapping), without a dialog. Each action gives the same
   result as the queue-guard dialog choice of the same name.
 - **AC-4** With "Ask before replacing the queue" on, a video tap behaves exactly as
   queue-guard specifies and the default action is not used: with a queue worth guarding the
