@@ -58,3 +58,56 @@ Yes. There is no decision logic to unit-test, so this change has no JVM tests. T
 layer writes the plan's instrumented tests; here they can only be compiled, not run, because
 there is no device or emulator. They and the device script are run by the owner. Decided by
 the session on the owner's behalf; the owner can overrule it.
+
+## Q5 tests -> plan
+`detachedViewsHeldBy` as worded in plan 6 (instance fields up to `BaseFragment`; a `View` or
+`ViewBinding` root that is not attached; a `RecyclerView.Adapter` with observers) cannot see
+three things the plan's own table says the tests fail on. (1) `BaseStateFragment.errorPanelHelper`
+is neither a view nor a binding, it is an `ErrorPanelHelper` that holds the root view. (2)
+`ChannelFragment.tabAdapter` is a `PagerAdapter`, which has no `hasObservers()`. (3) The header
+the list adapter keeps is behind its header supplier, and the tabs of a channel page are child
+fragments. Is this extension of the walker accepted?
+Written with: yes. The walker also follows fields that hold one of the app's own objects (class
+name under `org.schabi.newpipe.`, not the extractor, not a fragment or context) two levels deep;
+reports a `PagerAdapter` whose private androidx fields `mViewPagerObserver` / `mObservable` show
+a registered pager or observer (not reported if those fields cannot be read); and walks the
+page's child fragments. The plan's three checks are unchanged. Stated in the helper's KDoc.
+
+## Q6 tests -> plan
+`ac2_leftChannelPage_holdsNoDetachedView`: the plan hosts `ChannelFragment.getInstance(...)` and
+lets its load run ("result of the load does not matter"). That starts a real channel request,
+and the Tests layer was told to use no network. May the test avoid the request?
+Written with: yes. The test writes a hand-built `ChannelInfo` into the private field
+`ChannelFragment.currentInfo` by reflection before the page is shown, so `doInitialLoadLogic`
+takes the `handleResult(currentInfo)` branch, the branch of a page restored from saved state.
+The page then has a Videos and an Info tab, which the walker covers as child fragments. If Code
+renames that field the test fails with a message naming this question. Stated in the test's KDoc.
+
+## Q7 tests -> plan
+`ac5_subscriptionChangeWhileLeft_isShownOnReturn`: the plan's steps are "insert the subscription
+while left, idle (no crash), return: button reads subscribed" and its reason for failing today
+is "the monitors write into the detached header". From the code, those steps also hold today:
+writing to the detached header does not crash, and `handleResult` on return clears and
+re-creates the monitors, which emit the current state. As written the test would pass on the
+unfixed app. How is the plan's reason to be observed?
+Written with: the test keeps the subscribe button of the header it is about to leave and
+asserts that for five seconds after the insert its text still reads "Subscribe"; then the plan's
+steps follow. Today the monitor is expected to set "Subscribed" on that old button, so the test
+is expected to fail there; with plan 4.3 nothing writes to it. Stated in the test's KDoc.
+
+## Q8 tests -> plan
+Four smaller departures from plan 6, none of which changes what is proved. Accepted?
+(1) Pages are stacked with `replace` + `addToBackStack` like `NavigationHelper`, but without its
+fade animators, so a page's view is destroyed inside the transaction and the tests do not depend
+on the device's animation setting. The second page is an empty test fragment. (2) The banner url
+of `ac6` is `android.resource://<application id>/<numeric id of R.drawable.channel_banner>`
+instead of `.../drawable/channel_banner`: same drawable, no lookup by name (the application id
+differs from the code namespace). The header layout shows the same drawable as placeholder, so
+the test waits for Picasso's own drawable class before it measures. (3) `ac3` is three methods,
+one per page, each named `ac3_viewRebuiltFiveTimes_earlierViewsAreCollected_<page>`. (4) The fake
+channel urls are on `releaseviews.invalid`; `ac5` removes its subscription row before and after
+the test. The items have no upload date, so subscribing writes no stream rows.
+Also for the owner: none of AC-2a's other pages (local playlists, history, bookmarks,
+Subscriptions tab alone) has a walker test in plan 6; they are reached only through
+`ac3_..._mainPage` and the device script.
+Written with: yes to all four.
