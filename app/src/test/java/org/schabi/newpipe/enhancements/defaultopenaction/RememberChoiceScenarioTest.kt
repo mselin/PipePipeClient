@@ -26,7 +26,7 @@ class RememberChoiceScenarioTest {
 
     /** One run of the app: preferences, policy and controller, with something playing in [kind]. */
     private class Run(kind: PlayerKind, val preferences: InMemoryPreferences = InMemoryPreferences()) {
-        val policy: GuardPolicy = OpenActionPolicy(QueueGuardPolicy(preferences), preferences)
+        val policy: GuardPolicy = OpenActionPolicy(QueueGuardPolicy(preferences), preferences, preferences)
         val scene = Scene(policy, playing(kind))
 
         /** The user taps a video and the dialog opens, as it must with ask on (AC-4). */
@@ -199,6 +199,41 @@ class RememberChoiceScenarioTest {
                 assertEquals("$label: calls", before + expectedCalls, run.scene.log.all)
                 assertEquals("$label: taken over", expectedTakenOver, takenOver)
             }
+        }
+    }
+
+    /**
+     * Plan section 6, AC-8: "The remembered action also applies once the main player is down to a single
+     * video (AC-3)." The dialog opens for a queue worth guarding (three videos in the main player); the
+     * remembered choice switches asking off; when a single video is left, the next tap carries the
+     * remembered action out without a dialog (rows 7 and 8), instead of opening the video as it does there
+     * while asking is on (row 6b).
+     */
+    @Test
+    fun ac3_ac8_aRememberedActionAlsoAppliesToASingleVideoInTheMainPlayer() {
+        val remembered = mapOf(
+            GuardChoice.ADD_TO_QUEUE to (DefaultTapAction.ADD_TO_QUEUE to "enqueue"),
+            GuardChoice.PLAY_NEXT to (DefaultTapAction.PLAY_NEXT to "enqueueNext"),
+        )
+        for ((choice, outcome) in remembered) {
+            val (action, call) = outcome
+            val run = Run(PlayerKind.MAIN)
+            run.tapAndGetTheDialog()
+
+            run.clickRow(choice, checked = true)
+
+            assertEquals("$choice: the choice is carried out", listOf(asked, call), run.scene.log.all)
+            assertEquals("$choice: default action", action, run.preferences.action)
+            assertFalse("$choice: \"Ask before replacing the queue\" must be off", run.preferences.ask)
+
+            run.scene.player.state = playing(PlayerKind.MAIN, queueSize = 1)
+
+            assertTrue("$choice: the tap on a single video in the main player is taken over", run.scene.tap(nextVideo))
+            assertEquals(
+                "$choice: the tap on a single video in the main player does the remembered action without a dialog",
+                listOf(asked, call, call),
+                run.scene.log.all,
+            )
         }
     }
 
