@@ -29,7 +29,7 @@ interface GuardPolicy {
 class QueueGuardPolicy(private val settings: GuardSettings) : GuardPolicy {
 
     override fun onTap(tap: TapRequest, player: PlayerState): TapEffect = when {
-        !player.somethingPlaying -> TapEffect.OPEN_AS_TODAY // AC-7
+        !player.worthGuarding -> TapEffect.OPEN_AS_TODAY // AC-7
         player.isCurrent(tap) -> TapEffect.OPEN_AS_TODAY // AC-8
         settings.askBeforeReplacing() -> TapEffect.ASK // AC-1
         else -> playNow(tap, player) // AC-16
@@ -45,7 +45,7 @@ class QueueGuardPolicy(private val settings: GuardSettings) : GuardPolicy {
         }
 
     override fun onListPlay(player: PlayerState): ListEffect =
-        if (!player.somethingPlaying || !settings.askBeforeReplacing()) {
+        if (!player.worthGuarding || !settings.askBeforeReplacing()) {
             ListEffect.PLAY_AS_TODAY // AC-14, AC-16
         } else {
             ListEffect.ASK // AC-10

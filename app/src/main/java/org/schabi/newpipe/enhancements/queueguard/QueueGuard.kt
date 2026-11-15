@@ -6,6 +6,7 @@ import androidx.fragment.app.Fragment
 import org.schabi.newpipe.R
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.info_list.dialog.StreamDialogEntry
+import org.schabi.newpipe.player.mediaitem.PlayerMediaItem
 import org.schabi.newpipe.player.playqueue.PlayQueue
 import org.schabi.newpipe.util.NavigationHelper
 
@@ -14,7 +15,8 @@ import org.schabi.newpipe.util.NavigationHelper
  *
  * Video taps (T1-T4) call [onVideoTap]. The play buttons (B1-B5) call `playOn…` with the same arguments
  * as the [NavigationHelper] method of the same name, which runs unchanged whenever nothing is to be asked
- * and for *Replace queue*. The long-press menu (M1) calls [addStreamDetailsEntry].
+ * and for *Replace queue*. The long-press menu (M1) calls [addStreamDetailsEntry]. The play queue (Q1)
+ * calls [noteAutoQueued].
  */
 object QueueGuard {
     private val policy: GuardPolicy = QueueGuardPolicy(PrefsGuardSettings)
@@ -95,6 +97,15 @@ object QueueGuard {
                 )
             },
         )
+    }
+
+    /**
+     * Hook Q1: [items] were added to a queue by the player itself ("Auto-enqueue next stream"). Called on
+     * any thread, inside the queue's lock: a plain insertion into the record, nothing else.
+     */
+    @JvmStatic
+    fun noteAutoQueued(items: List<PlayerMediaItem>) {
+        autoQueuedRecord.add(items.map { it.uuid })
     }
 
     /** A play button that would run [asToday] with [queue]. */
