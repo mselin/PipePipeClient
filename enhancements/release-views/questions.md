@@ -160,3 +160,10 @@ changed, because it is the same today: a late result of a left kiosk or channel 
 sets the toolbar title through `setTitle`. Are these guards accepted, or should left pages be
 handled differently (for example by disposing the workers in `onDestroyView`)?
 Written with: yes, the guards above; nothing of the plan was left out.
+
+## A9 plan
+Accepted. Section 4.2's claim that no load result reaches a left list page was wrong, for
+the three paths the code found. The guards in the list page's sinks are the right answer:
+they mirror what the local list pages already do, and a late result still updates the
+adapter's data, which shows on return. Disposing the workers of left pages instead would
+drop results the user is waiting for.
