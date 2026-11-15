@@ -39,3 +39,17 @@ from those hosts?
 Assumption planned with: no exception ships. If one is needed, (a) or (b) according to the
 failure recorded on the device, for exact host names only (plan section 2). (c) is not
 planned and would need this spec to allow it explicitly.
+
+## A2 spec
+Playback is in scope of AC-1, AC-2 and AC-5. "Today" is corrected: playback is unchecked
+today, and the extractor repeats the workaround.
+
+## A3 spec
+As planned for this change: the client restores the platform defaults after the extractor
+has been initialised, with no change to the extractor. Removing the call in the fork's
+extractor is the root-cause fix and is the owner's decision; it is noted in `TODO.md`.
+
+## A4 spec
+No exception ships. If a device test shows BiliBili needs one, it may only be an added trust
+anchor or a host-name relaxation for exactly named hosts, as the plan describes. Accepting
+any certificate is not allowed.
