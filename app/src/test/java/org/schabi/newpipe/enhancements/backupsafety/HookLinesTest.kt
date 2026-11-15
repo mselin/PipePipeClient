@@ -216,7 +216,7 @@ class HookLinesTest {
     @Test
     fun ac6_ac9_wiring_exportsWriteTheFilteredPreferences() {
         contentManager("AC-6")
-            .expectCode("import $PACKAGE.LoginData")
+            .expectCode("import $PACKAGE.LoginData", 2) // also matches the LoginDataPrefs import
             .expectCode("var includeLoginData = false")
             .expectCode("output.writeObject(LoginData.forExport(preferences.all, includeLoginData))")
             .expectCode("`object`(LoginData.forExport(preferences.all, includeLoginData))")
