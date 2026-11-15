@@ -80,3 +80,8 @@ playback in" changes its *Add to queue* and *Play next*, also after the player w
 (OpenActionPolicyTest: ac4_row14_..., ac4_row15_..., ac4_row16_...; OpenActionPolicyDelegationTest:
 ac4_delegation_aDialogChoiceGetsTheWrappedPolicysAnswer). The expected values are the table's;
 only the test names depend on the answer.
+
+## A7 plan
+AC-4. The dialog is queue-guard's "as before": neither setting changes what *Add to queue* and
+*Play next* do. Rows 14 to 16 now name AC-4 next to queue-guard's criteria. The test names
+stand.

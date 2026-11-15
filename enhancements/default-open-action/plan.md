@@ -129,9 +129,9 @@ playlist with Music Player Mode on); kind = `player.kind`; "any" = no influence 
 | # | choice | playing | start playback in | MPM | kind | Result | AC |
 |---|---|---|---|---|---|---|---|
 | 13 | `CANCEL` | any | any | any | any | `NONE` | 9 (QG 6) |
-| 14 | `ADD_TO_QUEUE` | any | any | any | any | `ENQUEUE` | QG 3, QG 9 |
-| 15 | `PLAY_NEXT` | yes | any | any | any | `ENQUEUE_NEXT` | QG 4 |
-| 16 | `PLAY_NEXT` | no | any | any | any | `ENQUEUE` | QG 9 |
+| 14 | `ADD_TO_QUEUE` | any | any | any | any | `ENQUEUE` | 4 (QG 3, QG 9) |
+| 15 | `PLAY_NEXT` | yes | any | any | any | `ENQUEUE_NEXT` | 4 (QG 4) |
+| 16 | `PLAY_NEXT` | no | any | any | any | `ENQUEUE` | 4 (QG 9) |
 | 17 | `PLAY_NOW` | yes | any | yes | any | `OPEN_AS_TODAY` | 2 (QG 5) |
 | 18 | `PLAY_NOW` | yes | any | no | `MAIN` / `BACKGROUND` / `POPUP` | `OPEN_AS_TODAY` / `START_BACKGROUND` / `START_POPUP` | 2 (QG 5) |
 | 19 | `PLAY_NOW` | no | as rows 1-4 | as rows 1-4 | any | the result of rows 1-4 | 13 (through row 1: 6) |
