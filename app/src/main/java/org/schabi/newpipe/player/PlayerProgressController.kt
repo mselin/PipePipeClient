@@ -15,7 +15,7 @@ import org.schabi.newpipe.ktx.AnimationType
 import org.schabi.newpipe.ktx.animate
 import org.schabi.newpipe.player.helper.PlayerHelper
 import org.schabi.newpipe.player.seekbarpreview.SeekbarPreviewThumbnailHelper
-import org.schabi.newpipe.player.seekbarpreview.SeekbarPreviewThumbnailHolder
+import org.schabi.newpipe.enhancements.playermemory.LazySeekbarPreviews // ENH:player-memory
 import org.schabi.newpipe.util.StreamTypeUtil
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.function.IntSupplier
@@ -33,7 +33,7 @@ class PlayerProgressController(private val player: Player) : SeekBar.OnSeekBarCh
 
     private val progressUpdateDisposable = SerialDisposable()
 
-    private val seekbarPreviewThumbnailHolder = SeekbarPreviewThumbnailHolder()
+    private val seekbarPreviewThumbnailHolder = LazySeekbarPreviews(player, ::onProgressChanged) // ENH:player-memory
 
     /** Whether playback was running before the user started dragging the seekbar. */
     var wasPlaying = false
@@ -258,6 +258,7 @@ class PlayerProgressController(private val player: Player) : SeekBar.OnSeekBarCh
         }
 
         saveWasPlaying()
+        seekbarPreviewThumbnailHolder.onSeekbarTouched(seekBar.progress) // ENH:player-memory
         if (player.isPlaying) {
             player.simpleExoPlayer.pause()
         }
