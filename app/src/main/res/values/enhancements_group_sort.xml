@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enh_group_sort_key" translatable="false">enh_group_sort</string>
+    <string name="enh_group_sort_title">Channel group order</string>
+    <string name="enh_group_sort_manual">Manual</string>
+    <string name="enh_group_sort_name_asc">Name (A-Z)</string>
+    <string name="enh_group_sort_name_desc">Name (Z-A)</string>
+    <string name="enh_group_sort_reorder_notice">Groups are currently sorted by name, so this manual order is not in effect. It applies again when Channel group order in the Appearance settings is set to Manual.</string>
+
+    <string-array name="enh_group_sort_entries">
+        <item>@string/enh_group_sort_manual</item>
+        <item>@string/enh_group_sort_name_asc</item>
+        <item>@string/enh_group_sort_name_desc</item>
+    </string-array>
+
+    <string-array name="enh_group_sort_values" translatable="false">
+        <item>manual</item>
+        <item>name_asc</item>
+        <item>name_desc</item>
+    </string-array>
+</resources>

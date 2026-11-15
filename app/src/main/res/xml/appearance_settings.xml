@@ -68,6 +68,7 @@
         android:title="@string/grid_columns_landscape_title"
         app:singleLineTitle="false"
         app:iconSpaceReserved="false" />
+    <ListPreference android:key="@string/enh_group_sort_key" android:title="@string/enh_group_sort_title" android:summary="%s" android:entries="@array/enh_group_sort_entries" android:entryValues="@array/enh_group_sort_values" android:defaultValue="manual" app:singleLineTitle="false" app:iconSpaceReserved="false" /> <!-- ENH:group-sort -->
 
     <PreferenceScreen
         android:fragment="org.schabi.newpipe.settings.tabs.ChooseTabsFragment"
