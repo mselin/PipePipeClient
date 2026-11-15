@@ -40,3 +40,22 @@ settings entry cannot be read is refused as a whole (today the settings are skip
 and the database is imported); (c) the database is exchanged during the restart, so a backup
 that passes the checks but cannot be opened is reported by a message after the restart, with
 the previous data restored. Are these acceptable?
+
+## A2 spec
+Accepted: Android's own backup and device transfer carry the database only, no settings.
+That meets AC-8; losing the other settings there is the price of whole-file rules.
+
+## A3 spec
+Accepted: the SponsorBlock private user id and the sync server address are not login data.
+
+## A4 spec
+Accepted: a backup is "without login data" when it has no non-empty cookie or token value.
+A backup with login data replaces all logins, as today.
+
+## A5 spec
+Accepted, all three: Back on the settings question cancels the whole import; unreadable
+settings refuse the whole import; a backup that passes the checks but cannot be opened is
+reported after the restart with the old data restored. AC-3's "behaves as today" means the
+successful case.
+
+A2 to A5 were decided by the session on the owner's behalf; the owner can overrule them.
