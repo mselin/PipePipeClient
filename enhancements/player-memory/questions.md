@@ -29,3 +29,13 @@ of what is actually playing. (3) AC-5 names next and previous only: picking an i
 that was played earlier loads it again (today it starts at once until its source expires). Is
 that the intended cost of AC-4?
 Planned with: (1) yes, wraps; (2) yes, at the next synchronization; (3) yes, accepted.
+
+## A2 spec
+On-demand loading with a limit of 8 MiB of decoded sheets per item, as planned. A newly
+reached part of a long video shows its preview one download later than today; AC-7 means the
+previews look the same once shown.
+
+## A3 spec
+Yes to all three: "the next two" wrap at the end of the queue as the player's own order
+does; an item pushed out of the window by a queue edit may stay loaded until the next
+synchronization; picking a far item that was played earlier loads it again.
