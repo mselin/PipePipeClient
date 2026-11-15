@@ -116,3 +116,48 @@ auto-queued one. Tapping related videos while watching then behaves as upstream;
 queue is still protected."
 Applied: the term "a queue worth guarding" and AC-1, AC-7, AC-10, AC-14 and AC-16. This
 changes answer A1 for the main player only. Plan, tests and code follow.
+
+## Q12 plan -> spec
+"Not counting one appended by Auto-enqueue next stream" (Terms) needs to know which queue item
+was auto-enqueued. Upstream keeps that in a private field with no getter
+(PlayQueue.java:70, `autoQueuedUuid`), and no public member tells an auto-enqueued second video
+from one the user enqueued (both appends emit the same event, the item carries no flag). The
+plan therefore adds one marked line to PlayQueue.java, an accessor
+(`enhAutoQueuedUuid()`, plan section 2, hook Q1). PROCESS.md lists three hook forms (an added
+call into enhancements/, a redirected call, an XML element) and an accessor is none of them;
+check-layers.sh accepts it because it tests only for the marker. Is this fourth form accepted?
+Planned with: yes. The alternatives are reading the private field by reflection (no hook, but
+the release build is minified and a rename would fail silently) or not discounting the
+auto-enqueued video at all (then the guard asks on every related-video tap whenever
+"Auto-enqueue next stream" is on, which is what A11 set out to remove).
+
+## Q13 plan -> spec
+"Its queue holds one video, not counting one appended by Auto-enqueue next stream": what about
+a queue that grew only through auto-enqueue? Watch video A in the main player with
+auto-enqueue on; A ends, the auto-enqueued B plays and C is auto-enqueued. The queue is A, B,
+C. The user never enqueued anything, but without the one auto-enqueued video (C) it holds two.
+Does a tap on a related video ask now? Upstream marks one video only, the latest auto-enqueued
+one, and the mark stays on it after playback has moved on to it. Planned with the words of the
+spec: only the one video upstream marks is not counted, so A, B, C is worth guarding and the
+tap asks ("3 items in the queue"); A alone, A with auto-enqueued B, and A with B while B plays
+and nothing new was auto-enqueued are not. If instead every video that came from auto-enqueue
+should be left out, the model stays as planned (it takes a count) and the glue has to keep its
+own record of those videos, which needs a second hook.
+
+## Q14 plan -> spec
+Conflict with default-open-action's spec, which uses this spec's term "something is playing"
+and was written before A11. State: main player, one video, tap on another video.
+- Its AC-4: with "Ask before replacing the queue" on, "a video tap opens the queue-guard dialog
+  as before. The default action is not used." This spec's AC-7 now says no dialog, the tap
+  behaves as today. Both cannot hold.
+- Its AC-3: with the switch off the tap carries out the default action "while something is
+  playing", so *Add to queue* enqueues and a queue can be started by tapping from a single
+  video. This spec's AC-7 says a tap "behaves as today" without a queue worth guarding. Here
+  its AC-3 is taken to override, as it already overrides AC-16.
+Planned with: default-open-action keeps "something is playing" for its AC-3, AC-5, AC-11 and
+AC-13 (not "a queue worth guarding"); in the state above with the switch on the tap behaves as
+today and the default action is not used; with the switch off the default action applies. Its
+spec, plan (row 6 of its rule table and how it detects "ask is off"), tests and code need an
+amendment for that state; left as built, its code would carry out the default action there even
+with the switch on. Which behaviour is wanted with the switch on and the default action *Add to
+queue* or *Play next*: today's tap (as planned), or the default action?
