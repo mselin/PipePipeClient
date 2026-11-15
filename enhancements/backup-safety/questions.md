@@ -133,3 +133,41 @@ Accepted. The wording "value equals name" applies to the 13 login keys only.
 
 ## A10 plan
 Accepted, including the two extra test classes and the one-line presumption.
+
+## Q11 code -> tests
+`HookLinesTest.ac6_ac9_wiring_exportsWriteTheFilteredPreferences` expects the marked lines of
+`ContentSettingsManager.kt` to contain `import org.schabi.newpipe.enhancements.backupsafety.LoginData`
+exactly 1 time. Plan section 5 and the test's own table ask for two imports, `LoginData` and
+`LoginDataPrefs`, and the second contains the first as a prefix, so the count is 2 and cannot
+be 1 while `ac7_wiring_importsKeepTheCurrentLogins` also expects the `LoginDataPrefs` import.
+Written as the plan says (both imports, 9 marked lines); this one test fails at that assertion.
+Its other assertions hold (checked by hand: `var includeLoginData = false` 1, both
+`LoginData.forExport(preferences.all, includeLoginData)` calls 1 each, `preferences.all` 2 in
+the file, `includeLoginData = true` 0). Not done: a wildcard import or an alias that would
+make the count 1. Should the expectation be `times = 2`, or the lookup be per line?
+
+## Q12 code -> plan
+Section 7, device step 4: "Database with version 902 but one table dropped: accepted, app
+restarts, toast 'previous data was restored'". Room 2.8.4 does not do that. Read from the
+bytecode of `androidx.room.BaseRoomConnectionManager`: `onOpen` calls only `checkIdentity`,
+which compares the hash stored in `room_master_table` and validates the schema only when that
+table is missing; `onValidateSchema` runs after `onCreate` and after a migration, not for a
+database that already has the current version. A version-902 database with the right hash and
+a missing table therefore passes step c, the import completes, and the app fails later at the
+first query of that table. A database of an older version is validated after its migrations.
+Implemented as planned (`openHelper.writableDatabase`); step c does not compare tables itself,
+because the expected schema is reachable only through Room's restricted `RoomOpenDelegate`.
+Is that limit accepted (and device step 4 changed to a database with a wrong identity hash or
+an older version), or should step c validate the schema through that restricted class?
+
+## A11 tests
+The assertion was wrong: the snippet for the `LoginData` import is a prefix of the
+`LoginDataPrefs` import, so the plan's two imports count as two. The test now expects two.
+
+## A12 plan
+Accepted as a known limit. A backup at the current schema version with the right identity
+hash but a missing table passes every check and fails later, at the first query of that
+table. Such a file does not come from the app's own export. Upstream's import has no check at
+all, so this is no worse than before. Device step 4 is to be done with a backup of an older
+version, which Room validates after its migrations. Recorded in the plan's risks; the pull
+request states it.
