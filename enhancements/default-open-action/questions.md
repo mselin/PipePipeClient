@@ -70,3 +70,13 @@ is needed in the tap request.
 ## A6 spec
 Answered by queue-guard's plan, which now says the add-on is called only for a row click that
 is then carried out, never for a dropped click (its section 3.3). The assumption stands.
+
+## Q7 tests -> plan
+Rows 14, 15 and 16 of the `onTapChoice` table (plan 4.2) name only queue-guard criteria in
+their AC column (QG 3, QG 4, QG 9), and section 6 lists these rows under no AC of this
+feature. A test is named after the AC it proves: which one is it for these rows? Tested with:
+AC-4, since the dialog is queue-guard's "as before" and neither the default action nor "Start
+playback in" changes its *Add to queue* and *Play next*, also after the player was closed
+(OpenActionPolicyTest: ac4_row14_..., ac4_row15_..., ac4_row16_...; OpenActionPolicyDelegationTest:
+ac4_delegation_aDialogChoiceGetsTheWrappedPolicysAnswer). The expected values are the table's;
+only the test names depend on the answer.
