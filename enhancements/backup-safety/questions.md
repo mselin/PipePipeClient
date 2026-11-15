@@ -108,3 +108,28 @@ upstream's in-place import, the calls into the logic classes), and `BackupSafety
 reads the strings file. `HookLinesTest` asserts section 5's counts exactly (1, 3, 9, 2, 1); the
 9 of `ContentSettingsManager.kt` presumes `applyStagedSettings` is written on one line, as the
 plan words it.
+
+## A6 plan
+No. The import reads a stream, and requiring the end record would mean copying the whole
+archive to a file first. A zip cut exactly after a complete, CRC-correct database entry is
+imported as a database-only backup: the database is whole and passes every check, and the
+current settings are kept. Recorded as a known limit; the pull request states it.
+
+## A7 plan
+The glue removes them: `LoginDataPrefs.keepCurrent` writes back the entries `keptOnImport`
+returns and calls `remove` for every login key that is absent now. The rule "which keys" stays
+in `LoginData` (its key list); only the `remove` calls are in Android code. Untested on the
+JVM; it becomes a device step (import a backup without login data that was edited to hold a
+proxy switch, check the switch is off afterwards).
+
+## A8 plan
+Accepted as a known limit. The sequence needs a kill in the few milliseconds between two
+steps and then a failure of a database that had just opened successfully. Closing it would
+mean journalling the old settings to disk as well. Recorded in the plan's risks; the pull
+request states it.
+
+## A9 plan
+Accepted. The wording "value equals name" applies to the 13 login keys only.
+
+## A10 plan
+Accepted, including the two extra test classes and the one-line presumption.
