@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The hooks of plan section 2, checked on the JVM by reading the 8 upstream files as text (plan
+ * The hooks of plan section 2, checked on the JVM by reading the 9 upstream files as text (plan
  * section 5, "Wiring on the JVM"). The glue itself cannot run without Android, but a hook that is
  * missing can be seen: each file must hold the planned number of lines marked `ENH:queue-guard`.
  *
@@ -102,6 +102,30 @@ class QueueGuardWiringTest {
             "B2",
             total = 3,
             taps = 0,
+        )
+    }
+
+    // ---- The videos the player added by itself: Q1 (AC-1, AC-7, AC-10, AC-14) ----
+
+    /**
+     * Q1: `PlayQueue.appendInternal` reports every auto-enqueued video to the guard's record, which is
+     * what lets "a queue worth guarding" leave those videos out (answer A13). Plan section 5: the file
+     * holds one marked line; it names `QueueGuard` in full like the other code hooks and contains
+     * `if (autoQueued)` and `.noteAutoQueued(itemList)`.
+     */
+    @Test
+    fun ac1_ac7_hookQ1_playQueueReportsEveryAutoQueuedVideoOnOneMarkedLine() {
+        val path = "java/org/schabi/newpipe/player/playqueue/PlayQueue.java"
+        assertCodeHooks(path, "Q1", total = 1, taps = 0)
+        val line = hookLines(path).single()
+        assertTrue(
+            "Q1: the hook line in ${shown(path)} must report only auto-enqueued videos, " +
+                "i.e. start with `if (autoQueued)`: ${line.trim()}",
+            "if (autoQueued)" in line,
+        )
+        assertTrue(
+            "Q1: the hook line in ${shown(path)} must call $queueGuard.noteAutoQueued(itemList): ${line.trim()}",
+            "$queueGuard.noteAutoQueued(itemList)" in line,
         )
     }
 

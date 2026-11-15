@@ -174,7 +174,8 @@ class QueueGuardResourcesTest {
     fun ac15_switchHasItsTitleSummaryAndPreferenceKey() {
         assertEquals("Ask before replacing the queue", string("enh_queue_guard_ask_title"))
         assertEquals(
-            "While something is playing, tapping a video or a play button asks what to do with the queue",
+            "Tapping a video or a play button asks what to do with the queue that is playing. " +
+                "A single video in the main player is replaced without asking",
             string("enh_queue_guard_ask_summary"),
         )
         assertEquals("enh_queue_guard_ask", string("enh_queue_guard_ask_key"))

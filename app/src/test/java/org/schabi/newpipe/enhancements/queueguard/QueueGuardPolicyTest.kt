@@ -10,6 +10,12 @@ import org.junit.Test
  * The rule table of plan 3.2 for [QueueGuardPolicy], row by row. Expected values are the table's and the
  * spec's (AC in each test name), for every player kind and every "nothing is playing" state a row
  * covers. Where a row does not mention the switch, the test runs with the switch on and off.
+ *
+ * Since answers A11 and A13 the first row of `onTap` and of `onListPlay` asks for "a queue worth
+ * guarding" instead of "something is playing". Tests that expect a dialog run over [WORTH_GUARDING];
+ * the last section covers the states in between, [SINGLE_IN_MAIN]. The choice, switch-off and
+ * "Show stream details" tests keep running over [SOMETHING_PLAYING], the main player with one video
+ * included: those rows still look at "playing" only.
  */
 class QueueGuardPolicyTest {
 
@@ -59,10 +65,10 @@ class QueueGuardPolicyTest {
         }
     }
 
-    /** Plan section 5, AC-8: "same url on another service still asks". */
+    /** Plan section 5, AC-8: "same url on another service still asks", with a queue worth guarding. */
     @Test
     fun ac8_sameUrlOnAnotherServiceIsNotTheCurrentItemAndAsks() {
-        for (state in SOMETHING_PLAYING) {
+        for (state in WORTH_GUARDING) {
             val tap = tapOn(url = CURRENT_URL, serviceId = OTHER_SERVICE)
             assertEquals("$state", TapEffect.ASK, policy.onTap(tap, state))
         }
@@ -92,18 +98,23 @@ class QueueGuardPolicyTest {
         assertEquals(TapEffect.ASK, policy.onTap(plainTap, playing(PlayerKind.POPUP)))
     }
 
-    /** Plan section 5, AC-1: "and for startsListInBackground". */
+    /** Plan section 5, AC-1: "and for startsListInBackground", in every state worth guarding. */
     @Test
     fun ac1_tapInAListWithMusicPlayerModeAsksInEveryPlayer() {
-        for (state in SOMETHING_PLAYING) {
+        for (state in WORTH_GUARDING) {
             assertEquals("$state", TapEffect.ASK, policy.onTap(musicModeTap, state))
         }
     }
 
-    /** Answer A1: anything loaded in the player is protected, a single item included, playing or paused. */
+    /**
+     * Answer A1: anything loaded in the player is protected, a single item included, playing or paused.
+     * Answer A11 overrides it for the main player, so this holds for the background and the popup player
+     * only (plan 3.1, table of `worthGuarding`, second line). The main player with one video is
+     * [ac7_tapWithASingleVideoInTheMainPlayerOpensAsToday].
+     */
     @Test
     fun ac1_queueOfOneItemIsProtectedToo() {
-        for (kind in ALL_KINDS) {
+        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
             assertEquals("$kind", TapEffect.ASK, policy.onTap(plainTap, playing(kind, queueSize = 1)))
         }
     }
@@ -384,10 +395,10 @@ class QueueGuardPolicyTest {
         }
     }
 
-    /** Row "otherwise -> ASK". */
+    /** Row "otherwise -> ASK": every state with a queue worth guarding. */
     @Test
     fun ac10_playButtonWhileSomethingIsPlayingAsksInEveryPlayer() {
-        for (state in SOMETHING_PLAYING) {
+        for (state in WORTH_GUARDING) {
             assertEquals("$state", ListEffect.ASK, policy.onListPlay(state))
         }
     }
@@ -562,10 +573,10 @@ class QueueGuardPolicyTest {
         assertTrue(ASK_BEFORE_REPLACING_DEFAULT)
     }
 
-    /** AC-15: the switch "covers video taps and play buttons together". */
+    /** AC-15: the switch "covers video taps and play buttons together", wherever there is something to ask. */
     @Test
     fun ac15_oneSwitchCoversVideoTapsAndPlayButtons() {
-        for (state in SOMETHING_PLAYING) {
+        for (state in WORTH_GUARDING) {
             settings.ask = true
             assertEquals("switch on, tap, $state", TapEffect.ASK, policy.onTap(plainTap, state))
             assertEquals("switch on, play button, $state", ListEffect.ASK, policy.onListPlay(state))
@@ -604,5 +615,259 @@ class QueueGuardPolicyTest {
         val state = playing(PlayerKind.POPUP)
         assertEquals(TapEffect.ASK, QueueGuardPolicy { true }.onTap(plainTap, state))
         assertEquals(TapEffect.START_POPUP, QueueGuardPolicy { false }.onTap(plainTap, state))
+    }
+
+    // =============================================================================================
+    // A queue worth guarding (answers A11 and A13)
+    // =============================================================================================
+    //
+    // SINGLE_IN_MAIN: the main player with at most one video the user put there, alone or with videos
+    // the player added by itself. Something is playing, but there is no queue to guard (plan 3.2, the
+    // four paragraphs below the table).
+
+    private fun main(queueSize: Int, autoQueued: Int = 0) =
+        playing(PlayerKind.MAIN, queueSize = queueSize, autoQueued = autoQueued)
+
+    /**
+     * Row "not worth guarding -> OPEN_AS_TODAY": "switch on or off, Music Player Mode or not: no dialog,
+     * upstream's own statements run".
+     */
+    @Test
+    fun ac7_tapWithASingleVideoInTheMainPlayerOpensAsToday() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN) {
+                for (tap in bothTaps) {
+                    assertEquals("$switch, $state, $tap", TapEffect.OPEN_AS_TODAY, policy.onTap(tap, state))
+                }
+            }
+        }
+    }
+
+    /** The first row comes before the current-item row, and both give the same: AC-8 holds in every state. */
+    @Test
+    fun ac8_tapOnTheCurrentItemOpensAsTodayWhetherTheQueueIsWorthGuardingOrNot() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN + WORTH_GUARDING) {
+                for (music in listOf(false, true)) {
+                    val tap = tapOnCurrent(startsListInBackground = music)
+                    assertEquals("$switch, $state, $tap", TapEffect.OPEN_AS_TODAY, policy.onTap(tap, state))
+                }
+            }
+        }
+    }
+
+    /** With a single video in the main player not even the same url on another service asks. */
+    @Test
+    fun ac7_ac8_sameUrlOnAnotherServiceOpensAsTodayWithASingleVideoInTheMainPlayer() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN) {
+                val tap = tapOn(url = CURRENT_URL, serviceId = OTHER_SERVICE)
+                assertEquals("$switch, $state", TapEffect.OPEN_AS_TODAY, policy.onTap(tap, state))
+            }
+        }
+    }
+
+    /**
+     * Row "askBeforeReplacing() -> ASK" for the main player: two videos the user put there make a queue,
+     * with and without auto-enqueued ones (2/0, 3/1, 5/3).
+     */
+    @Test
+    fun ac1_mainPlayerWithTwoVideosOfTheUsersAsksWithAndWithoutAutoQueuedOnes() {
+        for (state in listOf(main(2), main(3, autoQueued = 1), main(5, autoQueued = 3))) {
+            for (tap in bothTaps) {
+                assertEquals("$state, $tap", TapEffect.ASK, policy.onTap(tap, state))
+            }
+        }
+    }
+
+    /** Row "askBeforeReplacing() -> ASK" over the whole fixture, both kinds of tap. */
+    @Test
+    fun ac1_tapAsksForEveryQueueWorthGuarding() {
+        for (state in WORTH_GUARDING) {
+            for (tap in bothTaps) {
+                assertEquals("$state, $tap", TapEffect.ASK, policy.onTap(tap, state))
+            }
+        }
+    }
+
+    /** Plan 3.2: "The moment the user has enqueued a second video the rows below the first apply". */
+    @Test
+    fun ac1_ac7_theSecondVideoOfTheUsersMakesTheTapAsk() {
+        assertEquals("1/0", TapEffect.OPEN_AS_TODAY, policy.onTap(plainTap, main(1)))
+        assertEquals("2/0", TapEffect.ASK, policy.onTap(plainTap, main(2)))
+
+        assertEquals("2/1", TapEffect.OPEN_AS_TODAY, policy.onTap(plainTap, main(2, autoQueued = 1)))
+        assertEquals("3/1", TapEffect.ASK, policy.onTap(plainTap, main(3, autoQueued = 1)))
+
+        assertEquals("3/2", TapEffect.OPEN_AS_TODAY, policy.onTap(plainTap, main(3, autoQueued = 2)))
+        assertEquals("4/2", TapEffect.ASK, policy.onTap(plainTap, main(4, autoQueued = 2)))
+
+        assertEquals("2/2, no video of the user's", TapEffect.OPEN_AS_TODAY, policy.onTap(plainTap, main(2, 2)))
+    }
+
+    /** Answer A13: however long playback has moved on by itself, the tap does not ask (plan section 8). */
+    @Test
+    fun ac7_videosThePlayerAddedByItselfNeverMakeTheTapAsk() {
+        withSwitchOnAndOff { switch ->
+            for (autoQueued in listOf(1, 2, 10, 200)) {
+                val watchedOneAndLetItRun = main(autoQueued + 1, autoQueued)
+                assertEquals(
+                    "$switch, $watchedOneAndLetItRun",
+                    TapEffect.OPEN_AS_TODAY,
+                    policy.onTap(plainTap, watchedOneAndLetItRun),
+                )
+                assertEquals(
+                    "$switch, play button, $watchedOneAndLetItRun",
+                    ListEffect.PLAY_AS_TODAY,
+                    policy.onListPlay(watchedOneAndLetItRun),
+                )
+            }
+        }
+    }
+
+    /** In the background and the popup player the auto-enqueued videos change nothing: the tap asks. */
+    @Test
+    fun ac1_ac10_backgroundAndPopupPlayerAskWhateverWasAutoQueued() {
+        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
+            for ((queueSize, autoQueued) in listOf(1 to 1, 2 to 1, 3 to 2, 3 to 3)) {
+                val state = playing(kind, queueSize = queueSize, autoQueued = autoQueued)
+                assertEquals("tap, $state", TapEffect.ASK, policy.onTap(plainTap, state))
+                assertEquals("play button, $state", ListEffect.ASK, policy.onListPlay(state))
+            }
+        }
+    }
+
+    /** Row "not worth guarding, or switch off -> PLAY_AS_TODAY", first half, for the main player. */
+    @Test
+    fun ac14_playButtonWithASingleVideoInTheMainPlayerPlaysAsToday() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN) {
+                assertEquals("$switch, $state", ListEffect.PLAY_AS_TODAY, policy.onListPlay(state))
+            }
+        }
+    }
+
+    /** Row "otherwise -> ASK" for the main player with two videos of the user's, and the step up to it. */
+    @Test
+    fun ac10_playButtonAsksInTheMainPlayerFromTheSecondVideoOfTheUsersOn() {
+        for (state in listOf(main(2), main(3, autoQueued = 1), main(5, autoQueued = 3), main(3))) {
+            assertEquals("$state", ListEffect.ASK, policy.onListPlay(state))
+        }
+        assertEquals("1/0", ListEffect.PLAY_AS_TODAY, policy.onListPlay(main(1)))
+        assertEquals("2/1", ListEffect.PLAY_AS_TODAY, policy.onListPlay(main(2, autoQueued = 1)))
+        assertEquals("3/2", ListEffect.PLAY_AS_TODAY, policy.onListPlay(main(3, autoQueued = 2)))
+    }
+
+    /**
+     * AC-16 where nothing is worth guarding: with the switch off a single video in the main player is
+     * neither asked about nor played in another player. Plan 3.2: "With the switch off this equals
+     * *playNow* for `MAIN`".
+     */
+    @Test
+    fun ac16_switchOff_singleVideoInTheMainPlayerNeitherAsksNorStartsAnotherPlayer() {
+        settings.ask = false
+        val taps = bothTaps + tapOnCurrent() + tapOn(url = CURRENT_URL, serviceId = OTHER_SERVICE)
+        for (state in SINGLE_IN_MAIN) {
+            for (tap in taps) {
+                val effect = policy.onTap(tap, state)
+                assertNotEquals("$state, $tap", TapEffect.ASK, effect)
+                assertNotEquals("$state, $tap", TapEffect.START_BACKGROUND, effect)
+                assertNotEquals("$state, $tap", TapEffect.START_POPUP, effect)
+                assertEquals("$state, $tap", TapEffect.OPEN_AS_TODAY, effect)
+            }
+            assertEquals("play button, $state", ListEffect.PLAY_AS_TODAY, policy.onListPlay(state))
+        }
+    }
+
+    /** AC-16 with a queue worth guarding: Play now directly, by the player in use; play buttons as today. */
+    @Test
+    fun ac16_switchOff_tapPlaysNowDirectlyForEveryQueueWorthGuarding() {
+        settings.ask = false
+        for (state in WORTH_GUARDING) {
+            val expected = when (state.kind) {
+                PlayerKind.BACKGROUND -> TapEffect.START_BACKGROUND
+                PlayerKind.POPUP -> TapEffect.START_POPUP
+                else -> TapEffect.OPEN_AS_TODAY
+            }
+            assertEquals("$state", expected, policy.onTap(plainTap, state))
+            assertEquals("Music Player Mode, $state", TapEffect.OPEN_AS_TODAY, policy.onTap(musicModeTap, state))
+            assertEquals("play button, $state", ListEffect.PLAY_AS_TODAY, policy.onListPlay(state))
+        }
+    }
+
+    /**
+     * Plan 3.2: "What a choice does is decided by `playing`, as before." If the main player is down to
+     * one video when the user chooses, the choice is still carried out: `ENQUEUE`, `ENQUEUE_NEXT`, and
+     * *playNow* by kind, which is `OPEN_AS_TODAY` for the main player.
+     */
+    @Test
+    fun ac3_ac4_ac5_choiceIsCarriedOutWithASingleVideoInTheMainPlayer() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN) {
+                for (tap in bothTaps + tapOnCurrent()) {
+                    val case = "$switch, $state, $tap"
+                    assertEquals(case, TapEffect.ENQUEUE, policy.onTapChoice(GuardChoice.ADD_TO_QUEUE, tap, state))
+                    assertEquals(case, TapEffect.ENQUEUE_NEXT, policy.onTapChoice(GuardChoice.PLAY_NEXT, tap, state))
+                    assertEquals(case, TapEffect.OPEN_AS_TODAY, policy.onTapChoice(GuardChoice.PLAY_NOW, tap, state))
+                    assertEquals(case, TapEffect.NONE, policy.onTapChoice(GuardChoice.CANCEL, tap, state))
+                }
+            }
+        }
+    }
+
+    /** The choice rows do not look at the auto-enqueued videos in any player. */
+    @Test
+    fun ac3_ac4_ac5_choiceIsCarriedOutForEveryQueueWorthGuarding() {
+        withSwitchOnAndOff { switch ->
+            for (state in WORTH_GUARDING) {
+                val case = "$switch, $state"
+                val playNow = when (state.kind) {
+                    PlayerKind.BACKGROUND -> TapEffect.START_BACKGROUND
+                    PlayerKind.POPUP -> TapEffect.START_POPUP
+                    else -> TapEffect.OPEN_AS_TODAY
+                }
+                assertEquals(case, TapEffect.ENQUEUE, policy.onTapChoice(GuardChoice.ADD_TO_QUEUE, plainTap, state))
+                assertEquals(case, TapEffect.ENQUEUE_NEXT, policy.onTapChoice(GuardChoice.PLAY_NEXT, plainTap, state))
+                assertEquals(case, playNow, policy.onTapChoice(GuardChoice.PLAY_NOW, plainTap, state))
+            }
+        }
+    }
+
+    /** As above for the list dialog: `ENQUEUE_ALL`, `ENQUEUE_ALL_NEXT`, `PLAY_AS_TODAY`. */
+    @Test
+    fun ac11_ac12_listChoiceIsCarriedOutWithASingleVideoInTheMainPlayer() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN) {
+                val case = "$switch, $state"
+                assertEquals(case, ListEffect.ENQUEUE_ALL, policy.onListChoice(GuardChoice.ADD_TO_QUEUE, state))
+                assertEquals(case, ListEffect.ENQUEUE_ALL_NEXT, policy.onListChoice(GuardChoice.PLAY_NEXT, state))
+                assertEquals(case, ListEffect.PLAY_AS_TODAY, policy.onListChoice(GuardChoice.PLAY_NOW, state))
+                assertEquals(case, ListEffect.NONE, policy.onListChoice(GuardChoice.CANCEL, state))
+            }
+        }
+    }
+
+    /** `offersStreamDetails` stays on "playing": `false` for the main player, whatever its queue. */
+    @Test
+    fun ac17_streamDetailsAreNotOfferedWithASingleVideoInTheMainPlayer() {
+        withSwitchOnAndOff { switch ->
+            for (state in SINGLE_IN_MAIN) {
+                assertFalse("$switch, $state", policy.offersStreamDetails(state))
+            }
+            assertFalse("$switch, 3/1", policy.offersStreamDetails(main(3, autoQueued = 1)))
+        }
+    }
+
+    /** `offersStreamDetails` does not look at `autoQueuedCount`: background and popup player always offer it. */
+    @Test
+    fun ac17_streamDetailsAreOfferedInTheBackgroundAndPopupPlayerWhateverWasAutoQueued() {
+        withSwitchOnAndOff { switch ->
+            for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
+                for ((queueSize, autoQueued) in listOf(2 to 1, 3 to 2, 1 to 1)) {
+                    val state = playing(kind, queueSize = queueSize, autoQueued = autoQueued)
+                    assertTrue("$switch, $state", policy.offersStreamDetails(state))
+                }
+            }
+        }
     }
 }
