@@ -367,11 +367,11 @@ public class PlaylistFragment extends BaseListInfoFragment<StreamInfoItem, Playl
                 .subscribe(getPlaylistBookmarkSubscriber());
 
         playlistControlBinding.playlistCtrlPlayAllButton.setOnClickListener(view ->
-                NavigationHelper.playOnMainPlayer(activity, getPlayQueue()));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnMainPlayer(activity, getPlayQueue())); // ENH:queue-guard
         playlistControlBinding.playlistCtrlPlayPopupButton.setOnClickListener(view ->
-                NavigationHelper.playOnPopupPlayer(activity, getPlayQueue(), false));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnPopupPlayer(activity, getPlayQueue(), false)); // ENH:queue-guard
         playlistControlBinding.playlistCtrlPlayBgButton.setOnClickListener(view ->
-                NavigationHelper.
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard. // ENH:queue-guard
                         playOnBackgroundPlayer(activity, getPlayQueue(), false));
     }
 
