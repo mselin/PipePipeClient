@@ -135,3 +135,14 @@ covers only the first row of the table under C2 (app in background, view alive, 
 checks the neighbouring line where the plan gives a position. Only the text of the log message
 in `TabAdapter` is free. It also fails on any file under
 `app/src/main/java/org/schabi/newpipe/enhancements/crashfixesmore` (plan section 0: no new file).
+
+## A7 plan
+(a) Use the six-argument constructor. (b) Agreed: the forced layout pass and the
+`onFragmentViewCreated` variant are the better check. (c) A failure of the stop/start/Back
+test alone, with the other two passing, is the tab's own code running against made-up data
+and is outside AC-5; report it with the stack trace all the same. (d) Accepted; the test
+relies on the same order the app does.
+
+## A8 plan
+No objection. The behaviour test of `TabAdapter`, the AC-2 instrumented test and the strict
+wiring test are part of the contract.
