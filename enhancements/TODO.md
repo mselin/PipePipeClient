@@ -40,3 +40,12 @@ session's proposals from the findings; the owner has not reviewed them yet.
 7. The remaining findings in `FINDINGS.md`: S5, D4, J4, C7, and the two the crash-fixes plan
    noticed (a blocked channel's result arriving in the background; a thumbnail read on a
    deleted playlist).
+
+## Issues
+
+Filed on 2026-11-16 in the `mselin/PipePipe` fork (the only one of the three with Issues
+switched on), numbers 1 to 19: one per fix package, one per finding without a fix, one for
+device verification and one for the unexplained memory use during import. Not filed, waiting
+for the owner's decision on publishing them: the security findings S1 to S5 and the
+extractor's certificate switch-off.
+
