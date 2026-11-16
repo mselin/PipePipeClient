@@ -49,8 +49,8 @@ public final class StreamSelectionActions {
 
         if (id == R.id.action_selection_add_to_playlist) {
             disposables.add(PlaylistDialog.createCorrespondingDialog(fragment.requireContext(),
-                    streams, dialog -> dialog.show(fragment.getParentFragmentManager(),
-                            "StreamSelectionActions@playlist")));
+                    streams, org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(fragment, dialog -> dialog.show(fragment.getParentFragmentManager(), // ENH:crash-fixes-more
+                            "StreamSelectionActions@playlist")))); // ENH:crash-fixes-more
         } else if (id == R.id.action_selection_enqueue) {
             NavigationHelper.enqueueOnPlayer(fragment.requireContext(),
                     new SinglePlayQueue(infoItems, 0));
