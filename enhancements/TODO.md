@@ -45,7 +45,7 @@ session's proposals from the findings; the owner has not reviewed them yet.
 
 Filed on 2026-11-16 in the `mselin/PipePipe` fork (the only one of the three with Issues
 switched on), numbers 1 to 19: one per fix package, one per finding without a fix, one for
-device verification and one for the unexplained memory use during import. Not filed, waiting
-for the owner's decision on publishing them: the security findings S1 to S5 and the
-extractor's certificate switch-off.
+device verification and one for the unexplained memory use during import. The security findings S1 to
+S4 were filed as numbers 20 to 23 at the owner's word. Not filed: S5, which has no fix and
+is better reported to the upstream maintainer privately first.
 
