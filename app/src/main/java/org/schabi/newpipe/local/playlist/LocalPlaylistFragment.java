@@ -1013,7 +1013,7 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
                     disposables.add(PlaylistDialog.createCorrespondingDialog(
                             getContext(),
                             streamEntities,
-                            dialog -> dialog.show(getParentFragmentManager(), TAG)
+                            org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(this, dialog -> dialog.show(getParentFragmentManager(), TAG)) // ENH:crash-fixes-more
                     ));
                 }, throwable -> showError(new ErrorInfo(throwable, UserAction.REQUESTED_BOOKMARK,
                         "Loading local playlist for append to other playlist"))));
