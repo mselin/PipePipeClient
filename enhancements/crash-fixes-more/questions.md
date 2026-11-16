@@ -86,3 +86,52 @@ Done as a `test(crash-fixes)` commit on `feature/crash-fixes`: its wiring test n
 (a) Agreed, and stated in AC-3. (b) Agreed: the `finishUpdate` override is in scope; AC-5 now
 describes what the user sees after such a failure. Instrumented test I2 must be run on a
 device before the pull request is merged.
+
+## Q7 tests -> plan
+Instrumented tests I1 and I2 could not be written exactly as the plan words them. None of this
+changes an edit of the plan. The tests are compiled, not run.
+(a) I2, `ChannelInfo(0, id, url, url, name)`: the constructor of the extractor this branch
+builds against takes a sixth argument, a `ListLinkHandler`. Assumption used: a handler with the
+same url and id, no filters.
+(b) I2 throws in `onFragmentPreCreated`, where the tab fragment has no view yet. C5b's reasoning
+("the failed tab's view was added to the pager before the fragment threw, so a layout pass is
+pending") and the crash on the device are about a tab that fails in or after `onViewCreated`.
+With the failure before creation nothing guarantees a pending layout pass, so the test would
+not reliably reach the `finishUpdate` that C5b is about. Assumption used: the test asks for the
+layout itself (`requestLayout()` and one `measure(..)` of the pager on the main thread, so a
+`Fragment already added` there is a test failure with a stack trace and not a dead process),
+then waits a second of real frames; and there is a second test,
+`ac5_tabFailingInViewCreated_channelPageSurvives`, that throws in `onFragmentViewCreated`, the
+stage of the device crash. In that one the first tab's own code runs up to `onViewCreated`
+against a made-up channel.
+(c) The plan's row "The page survives the further lifecycle of a half-created tab fragment:
+assumed; test I2" is a separate test, `ac5_failingTab_pageSurvivesStopStartAndLeaving` (stop,
+start, Back). Read from the fragment library, not observed: at the stop the child fragment
+manager moves the half-created tab on through `onCreate`..`onViewCreated`, so from there the
+tab's own upstream code runs against the made-up channel. If this test fails on a device while
+the two above pass, is that inside AC-5 ("the page does not crash") or the tab's own code, which
+the spec excludes?
+(d) I1 "expect one more join row": `onPlaylistSelected` starts the write and dismisses the
+dialog at once, and the dialog's `onDestroyView` disposes that subscription. Upstream relies on
+the write having started by then. Assumption used: the test waits up to five seconds for the
+row; if only that assertion fails, without an exception, it is this upstream race and not C3a.
+
+## Q8 tests -> plan
+Tests beyond the plan's list ("there is one class, the source scan"). Say if any of them pins
+more than the plan intends; the Code layer cannot change them.
+(a) `TabAdapterFinishUpdateTest` (JVM) runs the real `TabAdapter.finishUpdate` on the real
+`FragmentPagerAdapter` with a pending transaction that throws. Beyond the text of the 12 lines
+it requires: an `IllegalStateException` never leaves `finishUpdate`; it is passed to
+`Log.e("TabAdapter", .., e)` for the first failure only; any other exception still leaves the
+method; `super.finishUpdate` is still called on every later pass (the plan's "self-healing").
+A real `ViewPager` or `FragmentManager` cannot be built on the JVM (the unit-test `android.jar`
+has no implementation), so the chain "one failed tab, then `Fragment already added` on every
+pass" stays with I2.
+(b) `ChannelPageLateBlockedResultTest` (instrumented, AC-2): blocked channel, activity stopped,
+`handleResult` called, activity resumed. It reads the field `lateBlockedResult` by name and
+covers only the first row of the table under C2 (app in background, view alive, without
+`release-views`).
+(c) The wiring test compares every marked line with the plan's line (whitespace ignored) and
+checks the neighbouring line where the plan gives a position. Only the text of the log message
+in `TabAdapter` is free. It also fails on any file under
+`app/src/main/java/org/schabi/newpipe/enhancements/crashfixesmore` (plan section 0: no new file).
