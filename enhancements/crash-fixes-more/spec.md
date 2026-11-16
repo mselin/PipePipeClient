@@ -28,14 +28,18 @@ on `feature/crash-fixes` and may use its helpers.
 - **AC-1** "Add to playlist" and "Download", from the player, the video detail page, the
   share menu, a selection and a playlist page, never crash when the screen was left or the
   app went to the background before the dialog could be shown. The dialog is dropped then.
-- **AC-2** A channel result that arrives after its page is gone never crashes; it is ignored,
-  or shown when the page is returned to, as today for a result that arrives in time.
-- **AC-3** Adding a video to a local playlist works when the playlist has no thumbnail.
-  Reading the thumbnail of a playlist that no longer exists gives "no thumbnail", not a crash.
-- **AC-4** After seeking in a live stream that has gone idle, playback resumes live when the
-  stream was playing before the seek.
-- **AC-5** When the pager fails while a channel page builds its tabs, the page does not
-  crash: it shows the tabs that exist. The failure is written to the log, as today.
+  From the share menu the share screen closes with it, and the link has to be shared again.
+- **AC-2** A channel result that arrives while its page cannot navigate never crashes. For a
+  blocked channel the result is kept, and the message and the step back happen when the page
+  is returned to.
+- **AC-3** Adding a video to a local playlist works when the playlist has no thumbnail. The
+  playlist stays without a thumbnail, as before the add.
+- **AC-4** Dragging the seek bar to its end on a paused live stream that has gone idle
+  resumes it live.
+- **AC-5** When a tab fails while a channel page builds its tabs, the page does not crash,
+  now or at the next layout. It shows the tab bar; the failed tab is shown as far as it got
+  and other tabs may stay empty until the page is reopened. The failure is written to the
+  log once.
 - **AC-6** Nothing else changes for the user: no setting, no text.
 
 ## Not covered

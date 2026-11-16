@@ -65,3 +65,24 @@ tab adapter also swallows and logs the failure outside its existing catch (12 li
 `TabAdapter.java`). The page then shows the tab bar with all titles, the failed tab as far as
 it got and the other tabs empty until the page is reopened. This is derived from the compiled
 library and not observed; instrumented test I2 is its only check.
+
+## A1 spec
+Agreed, no edit. AC-3's second sentence is removed from the spec.
+
+## A2 spec
+Agreed. AC-4 now names the real trigger: a paused, idle live stream dragged to the end.
+
+## A3 spec
+Agreed: the share screen closes with the dropped dialog. AC-1 says so.
+
+## A4 spec
+Agreed: the late blocked-channel result is kept and handled on return. AC-2 says so.
+
+## A5 spec
+Done as a `test(crash-fixes)` commit on `feature/crash-fixes`: its wiring test now counts
+`ENH:crash-fixes` only when no `-` or word character follows. This branch is rebased onto it.
+
+## A6 spec
+(a) Agreed, and stated in AC-3. (b) Agreed: the `finishUpdate` override is in scope; AC-5 now
+describes what the user sees after such a failure. Instrumented test I2 must be run on a
+device before the pull request is merged.
