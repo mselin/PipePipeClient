@@ -1,0 +1,48 @@
+# More crash fixes
+
+A follow-up to `crash-fixes`. The code author of that package found more places with the same
+defects, by reading; one more comes from a crash on the owner's device. This branch is built
+on `feature/crash-fixes` and may use its helpers.
+
+## Today
+
+- **Dialogs shown after a wait.** "Add to playlist" and "Download" from the player, from the
+  video detail page and from the share menu, and "Add to playlist" from a selection or from a
+  playlist page, show a dialog after loading something first. If the screen was left or the
+  app went to the background in between, showing the dialog can crash.
+- **A late channel result.** A channel's data that arrives after its page is gone reads the
+  page's context and, for a blocked channel, navigates back. Both can crash.
+- **Playlists without a thumbnail.** Adding a video to a local playlist that has no thumbnail
+  compares against a missing value and crashes. Reading the thumbnail of a playlist that was
+  deleted in the meantime crashes too.
+- **An idle live stream.** After seeking, the player can call "play" directly on a live
+  stream that has gone idle, which does nothing; `crash-fixes` closed the same gap for
+  resuming after a call and from the notification.
+- **Swallowed tab errors.** The tab adapter catches an error from the pager and only prints
+  it. The channel page then assumes one tab per page and crashes on a missing tab. On the
+  owner's device this turned an error inside one tab into a crash of every channel page
+  (2026-11-15; the error itself is fixed in `release-views`).
+
+## Acceptance criteria
+
+- **AC-1** "Add to playlist" and "Download", from the player, the video detail page, the
+  share menu, a selection and a playlist page, never crash when the screen was left or the
+  app went to the background before the dialog could be shown. The dialog is dropped then.
+- **AC-2** A channel result that arrives after its page is gone never crashes; it is ignored,
+  or shown when the page is returned to, as today for a result that arrives in time.
+- **AC-3** Adding a video to a local playlist works when the playlist has no thumbnail.
+  Reading the thumbnail of a playlist that no longer exists gives "no thumbnail", not a crash.
+- **AC-4** After seeking in a live stream that has gone idle, playback resumes live when the
+  stream was playing before the seek.
+- **AC-5** When the pager fails while a channel page builds its tabs, the page does not
+  crash: it shows the tabs that exist. The failure is written to the log, as today.
+- **AC-6** Nothing else changes for the user: no setting, no text.
+
+## Not covered
+
+- The cause of any pager failure. This package only stops such a failure from crashing the
+  channel page.
+- The video detail page's own use of the tab adapter, unless the plan finds the same crash
+  there.
+- Moving the blocking database read of the multi-delete in local playlists off the main
+  thread.
