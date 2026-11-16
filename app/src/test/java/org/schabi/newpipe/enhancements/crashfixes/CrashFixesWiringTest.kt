@@ -44,6 +44,9 @@ class CrashFixesWiringTest {
 
     private companion object {
         const val MARKER = "ENH:crash-fixes"
+
+        /** The marker of this package only: `ENH:crash-fixes-more` belongs to the follow-up package. */
+        val OWN_MARKER = Regex("ENH:crash-fixes(?![-\\w])")
         const val HELPERS = "java/org/schabi/newpipe/enhancements/crashfixes"
 
         const val STREAM_DIALOG_ENTRY = "java/org/schabi/newpipe/info_list/dialog/StreamDialogDefaultEntry.java"
@@ -77,7 +80,7 @@ class CrashFixesWiringTest {
 
     /** The marked lines of a file. */
     private inner class Marked(val ac: String, val path: String) {
-        val lines: List<String> = lines(ac, path).filter { it.contains(MARKER) }
+        val lines: List<String> = lines(ac, path).filter { OWN_MARKER.containsMatchIn(it) }
 
         /** Marked lines joined, without the marker comment and without whitespace. */
         val code: String = squeeze(
