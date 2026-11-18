@@ -157,3 +157,24 @@ videos added by "auto-enqueue next stream".
   those paths behave as today. AM-4 applies whatever the switch says.
 - **AM-8** The long-press entries "Start playing in background" and "Start playing in popup"
   and the multi-select actions stay as they are: they are explicit choices.
+
+### Added after the plan's questions (Q15 to Q20)
+
+- **AM-9** On the video page of the current item, the page's controls never replace a longer
+  queue with that one video. When the page holds a queue of its own that differs from the
+  player's (the page was reopened from a list, "Show stream details" or "Details"), its
+  play, Background and Popup controls and its thumbnail act on the player's queue: they
+  resume it or move it to the other player, as they do on a page that never left the player.
+- **AM-10** A link to a time in the current item seeks in place and keeps the queue, also
+  when the queue is longer than that one video.
+- **AM-4, made precise** With the background or popup player, "Details" opens the page and
+  touches nothing. With the main player, the page is the player: "Details" on the playing
+  item shows its page without a restart; on another item it moves playback to that item
+  inside the queue and shows its page. The queue is kept in every case.
+- **AM-5 and AM-6, one rule** A dialog appears exactly where the queue would be replaced.
+  A link, a typed address or a "show info" action that only opens the page beside the
+  background or popup player opens it as today.
+- For a link or a typed address the dialog shows the address where it shows a title for a
+  list item.
+- Not covered: a channel or playlist opened from another app with a player action still
+  replaces the queue without asking.
