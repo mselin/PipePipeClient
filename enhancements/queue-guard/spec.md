@@ -122,3 +122,38 @@ These keep today's behaviour:
 - The play, background and popup buttons on a video's page.
 - Links opened from other apps (they have their own "Preferred 'open' action").
 - Taps inside the queue screen, and casting.
+
+## Amendment 2, 2026-11-18
+
+After the owner's device test of build 5 (issue mselin/PipePipe#24). Where this section
+contradicts the text above or an answer in `questions.md` (A11, A13), this section holds.
+
+### Changed term
+
+**A queue worth guarding**: the player (main, popup or background) holds at least one item,
+playing or paused. How the items got there no longer matters: one video counts, and so do
+videos added by "auto-enqueue next stream".
+
+### Changed and new criteria
+
+- **AM-1** (replaces AC-7 and AC-14) Without a queue worth guarding, that is, while the
+  player holds nothing, video taps and play buttons behave as today and no dialog appears.
+- **AM-2** One exception: a video tap in the list of related videos on the video page of the
+  current item opens the video as today, without a dialog.
+- **AM-3** On the video page of a video that is not the current item, with a queue worth
+  guarding, the page's play button, its Background and Popup buttons, a tap on its thumbnail
+  and the mini player's play button open the video-tap dialog for that video. *Play now* does
+  what the pressed control does today. On the page of the current item these controls behave
+  as today.
+- **AM-4** "Details" in a queue item's menu opens that video's page and leaves the queue as
+  it is, in every player.
+- **AM-5** With a queue worth guarding, a link to another video in a description or a
+  comment (with or without a time), and a video address entered in search, open the
+  video-tap dialog for that video. A link to a time in the current item seeks as today.
+- **AM-6** With a queue worth guarding, a video opened from another app (shared or "open
+  with") opens the video-tap dialog when the action chosen for it would replace the queue.
+  Actions that only add to the queue, download or show information behave as today.
+- **AM-7** With "Ask before replacing the queue" off, AM-3, AM-5 and AM-6 do not apply and
+  those paths behave as today. AM-4 applies whatever the switch says.
+- **AM-8** The long-press entries "Start playing in background" and "Start playing in popup"
+  and the multi-select actions stay as they are: they are explicit choices.
