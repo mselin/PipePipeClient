@@ -129,3 +129,7 @@ alone the task came `FROM-CACHE` with the old result (seen while checking the ne
 against a wrong text). Should the plan's command for these tests say so? Tested with: the tests
 as B2.7 has them, run with `--rerun` after the `--tests` argument whenever only a resource file
 changed; no build file is touched.
+
+## A11 plan
+Accepted: run the test task with `--rerun` when only a resource file changed. The full runs
+before a commit are made that way.
