@@ -3,18 +3,25 @@ package org.schabi.newpipe.enhancements.defaultopenaction
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.schabi.newpipe.enhancements.queueguard.GuardPolicy
+import org.schabi.newpipe.enhancements.queueguard.OpenWay
 import org.schabi.newpipe.enhancements.queueguard.PlayerKind
 import org.schabi.newpipe.enhancements.queueguard.PlayerState
 import org.schabi.newpipe.enhancements.queueguard.QueueGuardPolicy
+import org.schabi.newpipe.enhancements.queueguard.TapRequest
 
 /**
  * AC-14: "With both settings on their defaults the app behaves exactly as with queue-guard alone."
  *
- * Plan section 6 names the proof: over the whole grid "(kind incl. `null`, queue size 0, 1 and 3, the
- * queues with auto-enqueued videos of both fixtures, current or not, ask, MPM, every `GuardChoice`), P with
- * default settings equals `QueueGuardPolicy` alone in all five functions". One test per function. The
+ * Plan section 6 names the proof, plan B2.7 its grid since amendment 2: "the grid loses the states with
+ * auto-enqueued videos (13 states: four kinds with 0, 1 and 3 items, and `IDLE`) and gains, per state, the
+ * taps of every `OpenWay` and the related tap ... The five comparisons stay": over the whole grid, P with
+ * default settings equals `QueueGuardPolicy` alone in all five functions. One test per function. The
  * yardstick is queue-guard's own policy on the same switch, whose rules queue-guard's tests pin down;
  * nothing here repeats them.
+ *
+ * Before amendment 2 the grid had 21 states (8 of them with `autoQueuedCount`, which queue-guard's model no
+ * longer has) and 4 taps; the asserted case counts were 168, 672, 42, 168 and 42. They are now those of 13
+ * states and 14 taps.
  *
  * "Default settings" are the enums' `DEFAULT` (what the glue falls back to while nothing is stored, plan
  * 4.4); that these are *Play now* and *Video page* is checked in [OpenActionModelTest].
@@ -29,50 +36,48 @@ class DefaultSettingsEqualQueueGuardTest {
         FakeOpenActionSettings(action = DefaultTapAction.DEFAULT, startIn = StartPlaybackIn.DEFAULT),
     )
 
-    /** "kind incl. `null`". */
+    /** "four kinds": the three players and `null`. */
     private val kinds: List<PlayerKind?> = listOf<PlayerKind?>(null) + ALL_KINDS
 
-    /** "queue size 0, 1 and 3". */
+    /** "with 0, 1 and 3 items". */
     private val queueSizes = listOf(0, 1, 3)
 
     /**
-     * "the queues with auto-enqueued videos of both fixtures" ([WORTH_GUARDING], [SINGLE_IN_MAIN]): the
-     * eight states of the two fixtures that the kinds and queue sizes above do not give, i.e. those with
-     * auto-enqueued videos or with two videos (plan section 6.1), written `queueSize`/`autoQueuedCount`.
-     */
-    private val statesOfTheFixtures: List<PlayerState> = listOf(
-        playing(PlayerKind.BACKGROUND, queueSize = 3, autoQueued = 2),
-        playing(PlayerKind.MAIN, queueSize = 2),
-        playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 1),
-        playing(PlayerKind.MAIN, queueSize = 5, autoQueued = 3),
-        playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 1),
-        playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 2),
-        playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 2),
-        playing(PlayerKind.MAIN, queueSize = 1, autoQueued = 1),
-    )
-
-    /**
-     * Every kind with every queue size (12), each on the item [CURRENT_URL], `PlayerState.IDLE`, and
-     * [statesOfTheFixtures] (8). 21 states; something is playing in 14 of them, and in 5 of those the main
-     * player holds a single video (plan section 6.1).
+     * Every kind with every queue size (12), each on the item [CURRENT_URL], and `PlayerState.IDLE`. 13
+     * states; something is playing in 6 of them ([SOMETHING_PLAYING]), one of which is the single video in
+     * the main player.
      */
     private val states: List<PlayerState> =
         kinds.flatMap { kind ->
             queueSizes.map { size ->
                 PlayerState(kind = kind, queueSize = size, currentServiceId = SERVICE, currentUrl = CURRENT_URL)
             }
-        } + PlayerState.IDLE + statesOfTheFixtures
+        } + PlayerState.IDLE
 
-    /** The grid is the one plan section 6.1 counts: 21 different states that hold both fixtures. */
+    /**
+     * Per state: the list taps of before ("current or not" and "MPM": the url the states are on and
+     * another one, each with both modes, 4), "the taps of every `OpenWay`" (each other way for another
+     * video and for the current item, 8), and "the related tap" (in the related list of the current item's
+     * page and of another video's page, 2). 14 requests.
+     */
+    private val taps: List<TapRequest> =
+        tapsOnBothUrls(musicPlayerMode = false) + tapsOnBothUrls(musicPlayerMode = true) +
+            REQUESTS_BY_OTHER_WAYS + relatedTap() + relatedTap(pageOf = OTHER_VIDEO)
+
+    /** The grid is the one plan B2.7 describes: 13 different states, 14 different requests of all five ways. */
     private fun assertTheGridIsComplete() {
-        assertEquals("states of the grid", 21, states.size)
-        assertEquals("different states of the grid", 21, states.toSet().size)
-        val missing = (WORTH_GUARDING + SINGLE_IN_MAIN).filterNot { it in states }
-        assertEquals("states of the two fixtures that the grid lacks", emptyList<PlayerState>(), missing)
-    }
+        assertEquals("states of the grid", 13, states.size)
+        assertEquals("different states of the grid", 13, states.toSet().size)
+        val missing = (SOMETHING_PLAYING + ONE_IN_MAIN + PlayerState.IDLE).filterNot { it in states }
+        assertEquals("playing states of the fixtures that the grid lacks", emptyList<PlayerState>(), missing)
+        assertEquals("states of the grid in which something is playing", 6, states.count { it.somethingPlaying })
 
-    /** "current or not" and "MPM": a tap on the url the states are on and on another one, each with both modes. */
-    private val taps = tapsOnBothUrls(musicPlayerMode = false) + tapsOnBothUrls(musicPlayerMode = true)
+        assertEquals("requests of the grid", 14, taps.size)
+        assertEquals("different requests of the grid", 14, taps.toSet().size)
+        assertEquals("ways of the requests", ALL_WAYS.toSet(), taps.map { it.way }.toSet())
+        assertEquals("requests of another way than the list tap", 8, taps.count { it.way != OpenWay.LIST_TAP })
+        assertEquals("taps in a related list", 2, taps.count { it.relatedTo != null })
+    }
 
     /** Runs [compare] with the ask switch on, then off, and returns how often [compare] counted a comparison. */
     private fun withAskOnAndOff(compare: (ask: String, count: () -> Unit) -> Unit): Int {
@@ -99,7 +104,7 @@ class DefaultSettingsEqualQueueGuardTest {
                 }
             }
         }
-        assertEquals("cases of the grid: 2 ask x 21 states x 4 taps", 168, compared)
+        assertEquals("cases of the grid: 2 ask x 13 states x 14 requests", 364, compared)
     }
 
     @Test
@@ -119,7 +124,7 @@ class DefaultSettingsEqualQueueGuardTest {
                 }
             }
         }
-        assertEquals("cases of the grid: 2 ask x 21 states x 4 taps x 4 choices", 672, compared)
+        assertEquals("cases of the grid: 2 ask x 13 states x 14 requests x 4 choices", 1456, compared)
     }
 
     @Test
@@ -135,7 +140,7 @@ class DefaultSettingsEqualQueueGuardTest {
                 count()
             }
         }
-        assertEquals("cases of the grid: 2 ask x 21 states", 42, compared)
+        assertEquals("cases of the grid: 2 ask x 13 states", 26, compared)
     }
 
     @Test
@@ -153,7 +158,7 @@ class DefaultSettingsEqualQueueGuardTest {
                 }
             }
         }
-        assertEquals("cases of the grid: 2 ask x 21 states x 4 choices", 168, compared)
+        assertEquals("cases of the grid: 2 ask x 13 states x 4 choices", 104, compared)
     }
 
     @Test
@@ -169,6 +174,6 @@ class DefaultSettingsEqualQueueGuardTest {
                 count()
             }
         }
-        assertEquals("cases of the grid: 2 ask x 21 states", 42, compared)
+        assertEquals("cases of the grid: 2 ask x 13 states", 26, compared)
     }
 }

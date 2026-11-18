@@ -16,6 +16,13 @@ import org.junit.Test
  *
  * Until the Code layers of queue-guard and of this feature have written the lines, every test here fails:
  * `QueueGuard.kt` does not exist, or the count of marked lines is 0.
+ *
+ * Amendment 2 (plan "Amendment 2", summary): "no hook is added, changed or removed. Lines marked
+ * `ENH:default-open-action` stay at `enhancements/queueguard/QueueGuard.kt` 2 and
+ * `res/xml/video_audio_settings.xml` 2", so the six tests of before stand unchanged. New are the text
+ * checks of AM-1 (plan B2.6: "`DefaultOpenAction.kt` names `R.string.enh_default_open_action_asking_off`
+ * (read as text)"): the glue that shows the notice cannot run without Android, but that it shows the
+ * notice only for a saved choice, with the three names of plan B2.4, can be read.
  */
 class DefaultOpenActionWiringTest {
 
@@ -26,6 +33,8 @@ class DefaultOpenActionWiringTest {
     // below app/src/main
     private val queueGuardPath = "java/org/schabi/newpipe/enhancements/queueguard/QueueGuard.kt"
     private val settingsPath = "res/xml/video_audio_settings.xml"
+    private val gluePath = "java/org/schabi/newpipe/enhancements/defaultopenaction/DefaultOpenAction.kt"
+    private val rememberPath = "java/org/schabi/newpipe/enhancements/defaultopenaction/RememberChoice.kt"
 
     // the same files as failure messages name them
     private val queueGuardFile = "app/src/main/$queueGuardPath"
@@ -163,6 +172,127 @@ class DefaultOpenActionWiringTest {
             "S2 comes first, then S3: ${marked.map { it.value }.shown()}",
             "enh_default_open_action_key" in marked[0].value &&
                 "enh_default_open_action_start_in_key" in marked[1].value,
+        )
+    }
+
+    // ---- AM-1: the notice after a remembered choice (plan B2.4) ----
+
+    private val glueFile = "app/src/main/$gluePath"
+
+    /** A Kotlin source without its comments, all whitespace removed: the code as the compiler sees it, on one line. */
+    private fun codeOf(path: String, whatItIs: String): String =
+        MainFiles.file(path, whatItIs).readText()
+            .replace(Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL), "")
+            .lines()
+            .joinToString("") { it.substringBefore("//") }
+            .replace(Regex("\\s+"), "")
+
+    private fun glueCode(): String = codeOf(gluePath, "this feature's Android glue (plan 4.4, B2.4)")
+
+    /** The code of `class RememberChoiceAddOn`, from its declaration to the end of the file. */
+    private fun addOnCode(): String {
+        val code = glueCode()
+        val start = code.indexOf("classRememberChoiceAddOn(")
+        assertTrue("$glueFile must declare class RememberChoiceAddOn (plan 4.4)", start >= 0)
+        return code.substring(start)
+    }
+
+    private fun String.count(part: String): Int = split(part).size - 1
+
+    /**
+     * AM-1, plan B2.6: "`DefaultOpenAction.kt` names `R.string.enh_default_open_action_asking_off`", once,
+     * in the checkbox add-on, in a toast (plan B2.4, questions.md A10: "a toast with that text"), and the
+     * toast is shown (`.show()`), for a long time (`Toast.LENGTH_LONG`): the text is two short sentences
+     * with a path in it.
+     */
+    @Test
+    fun am1_glueShowsTheNoticeAsOneLongToastFromTheCheckboxAddOn() {
+        val notice = "R.string.enh_default_open_action_asking_off"
+        assertEquals("references to $notice in $glueFile", 1, glueCode().count(notice))
+
+        val addOn = addOnCode()
+        assertEquals("references to $notice in RememberChoiceAddOn", 1, addOn.count(notice))
+        assertEquals("Toast.makeText( in RememberChoiceAddOn", 1, addOn.count("Toast.makeText("))
+        assertEquals("Toast.makeText( in $glueFile", 1, glueCode().count("Toast.makeText("))
+        val toast = addOn.substring(addOn.indexOf("Toast.makeText("))
+        assertTrue("the toast must be built with $notice: $toast", notice in toast)
+        assertTrue("the toast must be a long one (Toast.LENGTH_LONG): $toast", "Toast.LENGTH_LONG" in toast)
+        assertTrue(
+            "the toast must be shown: .show() after Toast.LENGTH_LONG in $toast",
+            ".show()" in toast.substringAfter("Toast.LENGTH_LONG"),
+        )
+    }
+
+    /**
+     * AM-1, plan B2.4: the notice's three places are filled with `R.string.settings`,
+     * `R.string.settings_category_player_title` and `R.string.enh_queue_guard_ask_title`, in that order
+     * ("%1$s > %2$s > %3$s": Settings > Player > Ask before replacing the queue), each read with
+     * `context.getString`, "so the text is in the app's language".
+     */
+    @Test
+    fun am1_glueFillsTheNoticeWithSettingsPlayerAndTheSwitchsTitleInThatOrder() {
+        val addOn = addOnCode()
+        val expected = "context.getString(R.string.enh_default_open_action_asking_off," +
+            "context.getString(R.string.settings)," +
+            "context.getString(R.string.settings_category_player_title)," +
+            "context.getString(R.string.enh_queue_guard_ask_title)"
+        assertTrue(
+            "RememberChoiceAddOn must build the notice as plan B2.4 has it, $expected (whitespace and a " +
+                "trailing comma aside); its code is: $addOn",
+            expected in addOn,
+        )
+    }
+
+    /**
+     * AM-1 with AC-9, plan B2.4: `if (remember.onChoice(choice, checkBox.isChecked)) { Toast... }`. The
+     * notice is shown only when `RememberChoice.onChoice` returned `true`, i.e. only when the choice was
+     * saved (plan B2.3): "the message comes with every remembered choice and with no other click", not for
+     * an unchecked box and not for *Cancel*. Read as text: `onChoice` is called once, as the condition of
+     * an `if`, with the checkbox as it is at that moment, and the one toast of the file comes after that
+     * condition, inside the add-on's `onChoice`; the `if` has no `else`.
+     */
+    @Test
+    fun am1_ac9_glueShowsTheNoticeOnlyWhenRememberChoiceSaidTheChoiceWasSaved() {
+        val addOn = addOnCode()
+        val condition = "if(remember.onChoice(choice,checkBox.isChecked)){"
+        assertEquals("calls of remember.onChoice( in RememberChoiceAddOn", 1, addOn.count("remember.onChoice("))
+        assertEquals(
+            "RememberChoiceAddOn must decide about the notice with `if (remember.onChoice(choice, " +
+                "checkBox.isChecked)) {` (plan B2.4); occurrences in: $addOn",
+            1,
+            addOn.count(condition),
+        )
+        val override = addOn.indexOf("overridefunonChoice(choice:GuardChoice)")
+        val conditionAt = addOn.indexOf(condition)
+        val toastAt = addOn.indexOf("Toast.makeText(")
+        assertTrue("RememberChoiceAddOn must override onChoice(choice: GuardChoice)", override >= 0)
+        assertTrue(
+            "the condition must stand in the add-on's onChoice and the toast must come after it, inside " +
+                "the if: $addOn",
+            override in 0 until conditionAt && conditionAt < toastAt,
+        )
+        assertTrue(
+            "the if of the notice has no else branch: no toast when nothing was saved: $addOn",
+            "else" !in addOn.substring(conditionAt),
+        )
+    }
+
+    /**
+     * AM-1, plan B2.3 ("plain Kotlin") and PROCESS.md ("Decision logic is plain Kotlin with no Android
+     * imports"): when the notice is due is decided in `RememberChoice.kt`, which must stay free of Android
+     * so that [RememberChoiceTest] can pin it; showing it is the glue's part.
+     */
+    @Test
+    fun am1_rememberChoiceDecidesAboutTheNoticeWithoutAndroid() {
+        val imports = MainFiles.file(rememberPath, "RememberChoice (plan 4.3, B2.3)").readLines()
+            .map { it.trim() }
+            .filter { it.startsWith("import ") }
+        val android = imports.filter { it.startsWith("import android.") || it.startsWith("import androidx.") }
+        assertTrue("app/src/main/$rememberPath must not import Android: ${android.shown()}", android.isEmpty())
+        assertTrue(
+            "RememberChoice.onChoice must return Boolean (plan B2.3)",
+            "funonChoice(choice:GuardChoice,checked:Boolean):Boolean" in
+                codeOf(rememberPath, "RememberChoice (plan 4.3, B2.3)"),
         )
     }
 }

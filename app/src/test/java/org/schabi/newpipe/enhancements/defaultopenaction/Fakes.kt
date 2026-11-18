@@ -7,6 +7,7 @@ import org.schabi.newpipe.enhancements.queueguard.GuardSettings
 import org.schabi.newpipe.enhancements.queueguard.GuardUi
 import org.schabi.newpipe.enhancements.queueguard.ListActions
 import org.schabi.newpipe.enhancements.queueguard.ListEffect
+import org.schabi.newpipe.enhancements.queueguard.OpenWay
 import org.schabi.newpipe.enhancements.queueguard.PlayerKind
 import org.schabi.newpipe.enhancements.queueguard.PlayerState
 import org.schabi.newpipe.enhancements.queueguard.PlayerStateSource
@@ -15,11 +16,13 @@ import org.schabi.newpipe.enhancements.queueguard.QueueGuardPolicy
 import org.schabi.newpipe.enhancements.queueguard.TapActions
 import org.schabi.newpipe.enhancements.queueguard.TapEffect
 import org.schabi.newpipe.enhancements.queueguard.TapRequest
+import org.schabi.newpipe.enhancements.queueguard.VideoRef
 
 /*
  * Hand-written fakes and fixtures of the default-open-action tests. JDK, Kotlin stdlib and JUnit only:
  * no Android, no mocking library. Nothing here comes from queue-guard's test package; of queue-guard only
- * the types of its plan (sections 3.1 and 3.2) are used, which its Code layer delivers in `app/src/main`.
+ * the types of its plan (sections 3.1 and 3.2 as its Amendment 2 changed them, A2.1 and A2.2) are used, which
+ * its Code layer delivers in `app/src/main`.
  *
  * The letters P, D, C, M used in the test files are those of plan section 6:
  *   P = the combined policy `OpenActionPolicy(QueueGuardPolicy(g), g, settings)` on one ask switch `g`
@@ -59,65 +62,41 @@ internal val ALL_START_INS: List<StartPlaybackIn> =
 internal val ASK_ON_AND_OFF: List<Boolean> = listOf(true, false)
 
 /**
- * A player of [kind] that holds [queueSize] items and is on the item [url] of [serviceId]. Of the items,
- * [autoQueued] were added by the player itself through "Auto-enqueue next stream" (QG plan 3.1).
+ * A player of [kind] that holds [queueSize] items and is on the item [url] of [serviceId]. Since queue-guard's
+ * amendment 2 the model does not know how an item got into the queue (plan B2.1: `PlayerState` has no
+ * `autoQueuedCount` and no `worthGuarding`), so a queue of three stands for three chosen videos as well as
+ * for one chosen video and two that "Auto-enqueue next stream" added.
  */
 internal fun playing(
     kind: PlayerKind,
     queueSize: Int = 3,
     serviceId: Int = SERVICE,
     url: String? = CURRENT_URL,
-    autoQueued: Int = 0,
 ): PlayerState = PlayerState(
     kind = kind,
     queueSize = queueSize,
     currentServiceId = serviceId,
     currentUrl = url,
-    autoQueuedCount = autoQueued,
 )
 
 /** Something is playing in the player of [kind]: with a queue of one item and with a queue of several. */
 internal fun playingIn(kind: PlayerKind): List<PlayerState> =
     listOf(playing(kind, queueSize = 1), playing(kind, queueSize = 3))
 
-/** Every state in which something is playing: each player, with a queue of one item and of several. */
+/**
+ * Every state in which something is playing: each player, with a queue of one item and of several. Since
+ * amendment 2 this is also every state with "a queue worth guarding" (spec AM-2: "any loaded item is worth
+ * guarding"; plan B2.1: it is `somethingPlaying`), so it is the fixture of every test that expects the
+ * dialog. It replaces the fixtures `WORTH_GUARDING` and `SINGLE_IN_MAIN` of before the amendment (plan B2.7).
+ */
 internal val SOMETHING_PLAYING: List<PlayerState> = ALL_KINDS.flatMap { playingIn(it) }
 
 /**
- * "A queue worth guarding" (QG spec, Terms): "something is playing, except when the main player is in use
- * and its queue holds at most one video the user put there. Videos the player added by itself through
- * Auto-enqueue next stream never count". The states are those of plan section 6.1, written
- * `queueSize`/`autoQueuedCount`: the background and the popup player with 1/0 and 3/0 (there every playing
- * queue is worth guarding), the background player with 3/2 (one video of the user's and two auto-enqueued
- * ones: still worth guarding there), and the main player with two or more videos of the user's: 3/0, 2/0,
- * 3/1 and 5/3. Every state is on [CURRENT_URL].
+ * "A single video in the main player" (spec AC-3): the main player with one item. Before amendment 2 this
+ * state was not worth guarding and had rules of its own (row 6b of plan 4.2); now it is one of
+ * [SOMETHING_PLAYING] and is kept as a fixture for the tests that name it. On [CURRENT_URL].
  */
-internal val WORTH_GUARDING: List<PlayerState> = listOf(
-    playing(PlayerKind.BACKGROUND, queueSize = 1),
-    playing(PlayerKind.BACKGROUND, queueSize = 3),
-    playing(PlayerKind.POPUP, queueSize = 1),
-    playing(PlayerKind.POPUP, queueSize = 3),
-    playing(PlayerKind.BACKGROUND, queueSize = 3, autoQueued = 2),
-    playing(PlayerKind.MAIN, queueSize = 3),
-    playing(PlayerKind.MAIN, queueSize = 2),
-    playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 1),
-    playing(PlayerKind.MAIN, queueSize = 5, autoQueued = 3),
-)
-
-/**
- * "A single video in the main player" (spec AC-3, AC-4): something is playing and the queue is not worth
- * guarding, i.e. the main player with at most one video the user put there (plan 4.2, "The main player
- * with a single video, complete"). Written `queueSize`/`autoQueuedCount`: 1/0 (one video), 2/1 and 3/2
- * (one video and what "Auto-enqueue next stream" put around it), 2/2 and 1/1 (only auto-enqueued videos
- * left). Every state is on [CURRENT_URL].
- */
-internal val SINGLE_IN_MAIN: List<PlayerState> = listOf(
-    playing(PlayerKind.MAIN, queueSize = 1),
-    playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 1),
-    playing(PlayerKind.MAIN, queueSize = 3, autoQueued = 2),
-    playing(PlayerKind.MAIN, queueSize = 2, autoQueued = 2),
-    playing(PlayerKind.MAIN, queueSize = 1, autoQueued = 1),
-)
+internal val ONE_IN_MAIN: List<PlayerState> = listOf(playing(PlayerKind.MAIN, queueSize = 1))
 
 /**
  * Every state in which nothing is playing (plan 4.2: "false for `PlayerState.IDLE` and for any kind with
@@ -152,6 +131,64 @@ internal fun tapOnCurrent(startsListInBackground: Boolean = false): TapRequest =
  */
 internal fun tapsOnBothUrls(musicPlayerMode: Boolean): List<TapRequest> =
     listOf(tapOn(startsListInBackground = musicPlayerMode), tapOnCurrent(startsListInBackground = musicPlayerMode))
+
+/** The video the players of [playing] are on, as `PlayerState.isCurrent` compares it. */
+internal val CURRENT_VIDEO = VideoRef(SERVICE, CURRENT_URL)
+
+/** A video no player of [playing] is on, and not the tapped one either. */
+internal val OTHER_VIDEO = VideoRef(SERVICE, "https://video.example/watch?v=other-page")
+
+/** The five ways of QG plan A2.1, spelled out so that no test depends on the enum's own order. */
+internal val ALL_WAYS: List<OpenWay> = listOf(
+    OpenWay.LIST_TAP,
+    OpenWay.PAGE_CONTROL,
+    OpenWay.VIDEO_PAGE,
+    OpenWay.BACKGROUND_PLAYER,
+    OpenWay.POPUP_PLAYER,
+)
+
+/**
+ * Every way but the video tap in a list: the paths queue-guard's amendment adds (the video page's controls,
+ * links, an address typed in search, a video from another app). Spec AM-3, plan B2.2: neither the default
+ * action nor "Start playback in" applies to a request of one of these ways.
+ */
+internal val NOT_LIST_WAYS: List<OpenWay> = ALL_WAYS - OpenWay.LIST_TAP
+
+/**
+ * A request that reaches the guard by [way], for a video that is not the current item of [playing] (unless
+ * [url] and [serviceId] say so). `requestBy(OpenWay.LIST_TAP)` equals [tapOn].
+ */
+internal fun requestBy(
+    way: OpenWay,
+    url: String = TAPPED_URL,
+    serviceId: Int = SERVICE,
+    title: String = TAPPED_TITLE,
+): TapRequest = TapRequest(serviceId = serviceId, url = url, title = title, way = way)
+
+/** A request by [way] for the very item the players of [playing] are on. */
+internal fun requestForCurrentBy(way: OpenWay): TapRequest = requestBy(way, url = CURRENT_URL, serviceId = SERVICE)
+
+/** Requests by each of [NOT_LIST_WAYS], each for another video and for the current item: 8 requests. */
+internal val REQUESTS_BY_OTHER_WAYS: List<TapRequest> =
+    NOT_LIST_WAYS.flatMap { listOf(requestBy(it), requestForCurrentBy(it)) }
+
+/**
+ * A tap in the list of related videos on the page of [pageOf], by default the page of the current item
+ * (queue-guard's AM-2; row 6c of plan B2.2). The tapped video itself is another one. It is a list tap
+ * (`way == LIST_TAP`).
+ */
+internal fun relatedTap(
+    pageOf: VideoRef = CURRENT_VIDEO,
+    url: String = TAPPED_URL,
+    title: String = TAPPED_TITLE,
+    startsListInBackground: Boolean = false,
+): TapRequest = TapRequest(
+    serviceId = SERVICE,
+    url = url,
+    title = title,
+    startsListInBackground = startsListInBackground,
+    relatedTo = pageOf,
+)
 
 // ---------------------------------------------------------------------------------------------
 // Settings

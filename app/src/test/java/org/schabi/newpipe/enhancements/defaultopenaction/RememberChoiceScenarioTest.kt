@@ -8,7 +8,9 @@ import org.schabi.newpipe.enhancements.queueguard.GuardChoice
 import org.schabi.newpipe.enhancements.queueguard.GuardPolicy
 import org.schabi.newpipe.enhancements.queueguard.PlayerKind
 import org.schabi.newpipe.enhancements.queueguard.PlayerState
+import org.schabi.newpipe.enhancements.queueguard.OpenWay
 import org.schabi.newpipe.enhancements.queueguard.QueueGuardPolicy
+import org.schabi.newpipe.enhancements.queueguard.TapRequest
 
 /**
  * "Remember my choice" from the tap to the tap after it: the scenario of plan section 6, AC-8, "with one
@@ -19,25 +21,50 @@ import org.schabi.newpipe.enhancements.queueguard.QueueGuardPolicy
  * add-on is called "right before it" with the choice, then the choice goes to the controller; for
  * *Cancel* and every other dismissal the add-on is not called. [clickRow] plays the first, a bare
  * `dialog.choose(CANCEL)` or no call at all the second.
+ *
+ * Amendment 2 (spec AM-1, plan B2.3, B2.4): the add-on shows the notice "asking is now off" exactly when
+ * `RememberChoice.onChoice` returns `true`. [Run.clickRow] counts those results in [Run.noticesDue], which
+ * stands for the toasts shown. The ten tests of before stay; where they remember a choice or do not, they
+ * now also say how many notices were due. New: `am1_...`.
  */
 class RememberChoiceScenarioTest {
 
     private val nextVideo = tapOn(url = "https://video.example/watch?v=next", title = "Next video")
 
-    /** One run of the app: preferences, policy and controller, with something playing in [kind]. */
-    private class Run(kind: PlayerKind, val preferences: InMemoryPreferences = InMemoryPreferences()) {
+    /**
+     * One run of the app: preferences, policy and controller, with something playing in [kind] and
+     * [queueSize] items in its queue.
+     */
+    private class Run(
+        kind: PlayerKind,
+        val preferences: InMemoryPreferences = InMemoryPreferences(),
+        private val queueSize: Int = 3,
+    ) {
         val policy: GuardPolicy = OpenActionPolicy(QueueGuardPolicy(preferences), preferences, preferences)
-        val scene = Scene(policy, playing(kind))
+        val scene = Scene(policy, playing(kind, queueSize = queueSize))
 
-        /** The user taps a video and the dialog opens, as it must with ask on (AC-4). */
-        fun tapAndGetTheDialog() {
-            assertTrue("the first tap must be taken over", scene.tap(tapOn()))
-            assertEquals("the first tap must only open the dialog", listOf(askedForTap(queueSize = 3)), scene.log.all)
+        /** How often the notice "asking is now off" was due: the `true` results of `onChoice` (AM-1). */
+        var noticesDue = 0
+            private set
+
+        /** The user makes [request] and the dialog opens, as it must with ask on (AC-4, AM-2). */
+        fun tapAndGetTheDialog(request: TapRequest = tapOn()) {
+            assertTrue("the first tap must be taken over", scene.tap(request))
+            assertEquals(
+                "the first tap must only open the dialog",
+                listOf(askedForTap(queueSize = queueSize)),
+                scene.log.all,
+            )
         }
 
-        /** The user clicks the row [choice] with the checkbox [checked]: add-on first, then it is carried out. */
+        /**
+         * The user clicks the row [choice] with the checkbox [checked]: add-on first, which shows the notice
+         * if `onChoice` says so (plan B2.4), then the choice is carried out.
+         */
         fun clickRow(choice: GuardChoice, checked: Boolean) {
-            RememberChoice(preferences).onChoice(choice, checked)
+            if (RememberChoice(preferences).onChoice(choice, checked)) {
+                noticesDue++
+            }
             scene.dialog.choose(choice)
         }
     }
@@ -66,6 +93,7 @@ class RememberChoiceScenarioTest {
             assertEquals("$kind: default action", DefaultTapAction.PLAY_NEXT, run.preferences.action)
             assertFalse("$kind: \"Ask before replacing the queue\" must be off", run.preferences.ask)
             assertEquals("$kind: saved once", 1, run.preferences.saves)
+            assertEquals("$kind: the notice \"asking is now off\" is due once (AM-1)", 1, run.noticesDue)
 
             assertTrue("$kind: the second tap is taken over", run.scene.tap(nextVideo))
             assertEquals(
@@ -89,6 +117,7 @@ class RememberChoiceScenarioTest {
             assertEquals("$kind: default action", DefaultTapAction.ADD_TO_QUEUE, run.preferences.action)
             assertFalse("$kind: \"Ask before replacing the queue\" must be off", run.preferences.ask)
             assertEquals("$kind: saved once", 1, run.preferences.saves)
+            assertEquals("$kind: the notice \"asking is now off\" is due once (AM-1)", 1, run.noticesDue)
 
             assertTrue("$kind: the second tap is taken over", run.scene.tap(nextVideo))
             assertEquals(
@@ -116,6 +145,7 @@ class RememberChoiceScenarioTest {
             assertEquals("$kind: default action", DefaultTapAction.PLAY_NOW, run.preferences.action)
             assertFalse("$kind: \"Ask before replacing the queue\" must be off", run.preferences.ask)
             assertEquals("$kind: saved once", 1, run.preferences.saves)
+            assertEquals("$kind: the notice \"asking is now off\" is due once (AM-1)", 1, run.noticesDue)
 
             assertTrue("$kind: the second tap is taken over", run.scene.tap(nextVideo))
             assertEquals(
@@ -141,6 +171,7 @@ class RememberChoiceScenarioTest {
         assertEquals("default action", DefaultTapAction.PLAY_NOW, run.preferences.action)
         assertFalse("\"Ask before replacing the queue\" must be off", run.preferences.ask)
         assertEquals("saved once", 1, run.preferences.saves)
+        assertEquals("the notice \"asking is now off\" is due once (AM-1)", 1, run.noticesDue)
 
         assertFalse("the second tap is left to today's tap handler", run.scene.tap(nextVideo))
         assertEquals("the second tap calls nothing, no dialog either", listOf(asked, "openAsToday"), run.scene.log.all)
@@ -204,10 +235,10 @@ class RememberChoiceScenarioTest {
 
     /**
      * Plan section 6, AC-8: "The remembered action also applies once the main player is down to a single
-     * video (AC-3)." The dialog opens for a queue worth guarding (three videos in the main player); the
-     * remembered choice switches asking off; when a single video is left, the next tap carries the
-     * remembered action out without a dialog (rows 7 and 8), instead of opening the video as it does there
-     * while asking is on (row 6b).
+     * video (AC-3)." The dialog opens for three videos in the main player; the remembered choice switches
+     * asking off; when a single video is left, the next tap carries the remembered action out without a
+     * dialog (rows 7 and 8), instead of asking as it does there while asking is on (row 6, AM-2; before
+     * amendment 2: instead of opening the video, row 6b).
      */
     @Test
     fun ac3_ac8_aRememberedActionAlsoAppliesToASingleVideoInTheMainPlayer() {
@@ -257,6 +288,7 @@ class RememberChoiceScenarioTest {
 
             assertEquals("$choice: the choice is carried out", listOf(asked, call), run.scene.log.all)
             assertEquals("$choice: nothing is saved", 0, run.preferences.saves)
+            assertEquals("$choice: no notice, asking is still on (AM-1)", 0, run.noticesDue)
             assertTrue("$choice: \"Ask before replacing the queue\" stays on", run.preferences.ask)
             assertEquals("$choice: default action stays", DefaultTapAction.PLAY_NOW, run.preferences.action)
 
@@ -281,6 +313,7 @@ class RememberChoiceScenarioTest {
 
             assertEquals("$how: nothing is carried out", listOf(asked), run.scene.log.all)
             assertEquals("$how: nothing is saved", 0, run.preferences.saves)
+            assertEquals("$how: no notice (AM-1)", 0, run.noticesDue)
             assertTrue("$how: \"Ask before replacing the queue\" stays on", run.preferences.ask)
             assertEquals("$how: default action stays", DefaultTapAction.PLAY_NOW, run.preferences.action)
 
@@ -302,7 +335,104 @@ class RememberChoiceScenarioTest {
 
         assertEquals("nothing is carried out", listOf(asked), run.scene.log.all)
         assertEquals("nothing is saved", 0, run.preferences.saves)
+        assertEquals("no notice (AM-1)", 0, run.noticesDue)
         assertTrue("\"Ask before replacing the queue\" stays on", run.preferences.ask)
         assertEquals("default action stays", DefaultTapAction.PLAY_NEXT, run.preferences.action)
+    }
+
+    // =============================================================================================
+    // AM-1: the notice "asking is now off"
+    // =============================================================================================
+
+    /**
+     * AM-1 ("shown for every remembered choice, *Play now* included") with AM-2, the scenario of plan B2.7:
+     * "main player with one video, asking on: tap -> dialog; *Play now* with the box checked -> notice due,
+     * asking off saved; the next tap opens as today without a dialog". The dialog opens for the single
+     * video (AM-2) and shows a queue of 1; *Play now* in the main player is today's tap; the notice is due
+     * exactly once in the whole run: the second tap opens no dialog, so no choice and no notice follow.
+     */
+    @Test
+    fun am1_am2_rememberPlayNowOnASingleVideoInTheMainPlayerThenTapAgain() {
+        val run = Run(PlayerKind.MAIN, InMemoryPreferences(ask = true), queueSize = 1)
+        val asked1 = askedForTap(queueSize = 1)
+        run.tapAndGetTheDialog()
+        assertEquals("opening the dialog: no notice yet", 0, run.noticesDue)
+
+        run.clickRow(GuardChoice.PLAY_NOW, checked = true)
+
+        assertEquals("the choice is carried out", listOf(asked1, "openAsToday"), run.scene.log.all)
+        assertEquals("the notice is due", 1, run.noticesDue)
+        assertEquals("default action", DefaultTapAction.PLAY_NOW, run.preferences.action)
+        assertFalse("\"Ask before replacing the queue\" must be off", run.preferences.ask)
+        assertEquals("saved once", 1, run.preferences.saves)
+
+        assertFalse("the second tap is left to today's tap handler", run.scene.tap(nextVideo))
+        assertEquals("the second tap calls nothing, no dialog either", listOf(asked1, "openAsToday"), run.scene.log.all)
+        assertEquals("the notice was due exactly once", 1, run.noticesDue)
+        assertEquals("nothing more was saved", 1, run.preferences.saves)
+    }
+
+    /**
+     * AM-1 over a whole session, device script B2.8 step 1: remember *Play now* (notice), switch asking on
+     * again in Settings, remember *Add to queue* (notice again), then tap: enqueued without a dialog and
+     * without a further notice. One notice per remembered choice, none for anything else.
+     */
+    @Test
+    fun am1_everyRememberedChoiceIsAnnouncedOnceAlsoAfterAskingWasSwitchedOnAgain() {
+        val run = Run(PlayerKind.BACKGROUND)
+        run.tapAndGetTheDialog()
+        run.clickRow(GuardChoice.PLAY_NOW, checked = true)
+        assertEquals("after remembering Play now", 1, run.noticesDue)
+        assertFalse("asking is off", run.preferences.ask)
+
+        run.preferences.ask = true // the user switches it on again in Settings > Player
+        assertTrue("asking on again: the tap is taken over", run.scene.tap(nextVideo))
+        assertEquals(
+            "asking on again: the tap asks",
+            listOf(asked, "startInBackground", askedForNextVideo),
+            run.scene.log.all,
+        )
+        assertEquals("opening a dialog announces nothing", 1, run.noticesDue)
+
+        run.clickRow(GuardChoice.ADD_TO_QUEUE, checked = true)
+        assertEquals("after remembering Add to queue", 2, run.noticesDue)
+        assertFalse("asking is off again", run.preferences.ask)
+        assertEquals("default action", DefaultTapAction.ADD_TO_QUEUE, run.preferences.action)
+
+        assertTrue("the next tap is taken over", run.scene.tap(nextVideo))
+        assertEquals(
+            "the next tap enqueues without a dialog",
+            listOf(asked, "startInBackground", askedForNextVideo, "enqueue", "enqueue"),
+            run.scene.log.all,
+        )
+        assertEquals("a tap that carries out the default action announces nothing", 2, run.noticesDue)
+    }
+
+    /**
+     * AM-1 with questions.md Q9/A9: "Remember my choice" in the dialog of a video page control. The choice
+     * is "saved like one from a list tap ... the same two settings (AC-8) and the same message (AM-1). The
+     * saved default action then applies to video taps in lists only, and with asking off those paths
+     * behave as today (AM-3)": afterwards the same control is left to today's handler, and a list tap
+     * enqueues.
+     */
+    @Test
+    fun am1_am3_aChoiceRememberedInTheDialogOfAPageControlIsSavedAnnouncedAndUsedForListTapsOnly() {
+        val control = requestBy(OpenWay.PAGE_CONTROL)
+        val run = Run(PlayerKind.BACKGROUND)
+        run.tapAndGetTheDialog(control)
+
+        run.clickRow(GuardChoice.ADD_TO_QUEUE, checked = true)
+
+        assertEquals("the choice is carried out", listOf(asked, "enqueue"), run.scene.log.all)
+        assertEquals("default action", DefaultTapAction.ADD_TO_QUEUE, run.preferences.action)
+        assertFalse("\"Ask before replacing the queue\" must be off", run.preferences.ask)
+        assertEquals("the notice is due once", 1, run.noticesDue)
+
+        assertFalse("the page control is left to today's handler", run.scene.tap(control))
+        assertEquals("the page control calls nothing", listOf(asked, "enqueue"), run.scene.log.all)
+
+        assertTrue("a list tap is taken over", run.scene.tap(nextVideo))
+        assertEquals("a list tap enqueues", listOf(asked, "enqueue", "enqueue"), run.scene.log.all)
+        assertEquals("no further notice", 1, run.noticesDue)
     }
 }

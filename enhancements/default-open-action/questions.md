@@ -120,3 +120,12 @@ Accepted.
 
 ## A10 spec
 Accepted: a toast with that text, for every remembered choice.
+
+## Q11 tests -> plan
+`DefaultOpenActionResourcesTest` and `DefaultOpenActionWiringTest` read files below `app/src/main`
+as text or XML (B2.6: "read as text"). Gradle does not count those files as inputs of
+`:app:testDebugUnitTest`: after a change to `res/values/enhancements_default_open_action.xml`
+alone the task came `FROM-CACHE` with the old result (seen while checking the new string's tests
+against a wrong text). Should the plan's command for these tests say so? Tested with: the tests
+as B2.7 has them, run with `--rerun` after the `--tests` argument whenever only a resource file
+changed; no build file is touched.
