@@ -47,12 +47,16 @@ on `feature/crash-fixes` and may use its helpers.
 After the owner's crash on build 5 while playing, refreshing a group feed and navigating
 (issue mselin/PipePipe#26; no log). Reading found two candidates in upstream code.
 
-- **AC-7** A feed page that is left before its "channel not available" lookup has returned
+- **AC-7** A feed page that is closed (not merely covered by another page) before its "channel not available" lookup has returned
   never crashes; the lookup's result is dropped.
-- **AC-8** An error from a load that nothing waits for any more, because its page was left,
-  is written to the log and does not close the app, whatever caused it. An error that still
-  has a receiver but no handler closes the app as today. With the debug setting that reports
-  such errors switched on, today's behaviour is kept.
+- **AC-8** An error that RxJava reports as undeliverable, because the load it belongs to was
+  abandoned when its page was left, is written to the log and does not close the app, unless
+  it was caused by the network or an interruption, which stay ignored as today. With the
+  debug setting that reports such errors switched on, today's behaviour is kept. Two limits
+  follow from how RxJava classifies errors and are accepted: an abandoned load that fails
+  with a bare `NullPointerException`, `IllegalStateException` or `IllegalArgumentException`
+  still closes the app; and an exception of another type thrown inside a live callback is
+  also logged where today it could close the app.
 
 ## Not covered
 

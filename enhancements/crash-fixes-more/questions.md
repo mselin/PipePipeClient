@@ -184,3 +184,12 @@ there is one for nearly every page left while loading. Everything else undeliver
 log entry with the tag `UndeliveredErrors` and the stack trace, including the errors that are
 dropped silently today.
 With the debug setting on, nothing changes at all.
+
+## A9 spec
+Agreed on all three points: "left" means closed; no join, since it would turn two logged
+errors into crashes; the dialog-button case is out of scope. AC-7 is reworded.
+
+## A10 spec
+Accepted with the limits stated. AC-8 now says what the mechanism can deliver: errors RxJava
+reports as undeliverable are logged; the two limits (a) and (b) are named in the criterion;
+(c) is as intended.
