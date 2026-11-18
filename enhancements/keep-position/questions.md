@@ -119,3 +119,25 @@ Add one?
 ## A11 plan
 Yes. Section 6 now specifies a wiring test with the per-file counts and the function each
 hook line must call. The Tests layer adds it; no code changes.
+
+## Q12 plan -> spec
+AM-2 says "a switch between the main, popup and background player ... also when the queue it is
+started with differs". The code path it names (`PlayerStartController.kt:152-158`) is also taken
+without a switch: the main player plays a video, a next video is queued, and the same video is
+tapped again in a list. The player type stays "main", the queue differs, the video restarts.
+AC-7 calls a video tap a start. Planned with: the position is carried only when the player type
+changes (a tap on the playing video in the same player stays a start, 0:00). It is one
+condition in the tracker (`playerTypeChanged`, plan 10.3, `onStartIntent` row 4). Should the
+same-player case continue too? Affects AM-2, AC-7.
+
+## Q13 plan -> spec
+AM-1 says "closed by a playback error, not by the user". Reading the code, an error closes the
+player in two ways, both planned as "by an error": the error handler shuts it down, and the
+video page stops the main player on any playback error when Autoplay is not allowed (the
+default "only on Wi-Fi" after leaving Wi-Fi). A third case is planned as "by the user": the
+player survives the error and keeps retrying without success (network gone, or the stream
+addresses refused on the new network), and the user closes that stuck player and starts the
+video again. As written that is 0:00. It is likely after a network change with the background
+or popup player. Covering it needs one more hook (where the player is destroyed) and a rule
+such as "closed before it played again after an error". Planned with: 0:00, as the spec says.
+Is that wanted? Affects AM-1, AC-7.
