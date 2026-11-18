@@ -178,3 +178,10 @@ videos added by "auto-enqueue next stream".
   list item.
 - Not covered: a channel or playlist opened from another app with a player action still
   replaces the queue without asking.
+- **AM-11** Opening the video page of the current item never closes the player or empties
+  its queue, whatever "Autoplay" allows. This covers a tap on the playing video in a list, a
+  typed address, a link and "show info". If the page cannot start playback by itself because
+  Autoplay is not allowed, the player and its queue stay as they were, playing or paused.
+- With the main player and Autoplay allowed, a tap on the playing video in a list keeps the
+  queue and goes on playing; it no longer replaces the queue with that one video (changes
+  what AC-8's "as today" means in this one case).
