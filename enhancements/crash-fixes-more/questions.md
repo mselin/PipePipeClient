@@ -146,3 +146,41 @@ relies on the same order the app does.
 ## A8 plan
 No objection. The behaviour test of `TabAdapter`, the AC-2 instrumented test and the strict
 wiring test are part of the contract.
+
+## Q9 plan -> spec
+AC-7, "a feed page that is left ... the lookup's result is dropped". Two readings of "left".
+(a) Back: the page is destroyed. This is where the crash is.
+(b) Another page is opened on top: the feed page still exists. Today a result that arrives then
+shows its "could not load feed" dialog (or the snackbar for the other errors) over the page on
+top and does not crash; the errors of one refresh are handled only once, so dropping the result
+here would mean the user never gets that dialog for this refresh.
+Assumption used in plan.md (C7): the result is dropped only in (a); (b) stays as it is today.
+Two guard lines, each `if (context == null) return`.
+Also assumed: the lookup is not added to the page's disposables, as the investigation proposed.
+Reading the library shows that this would turn two errors of the lookup that are only logged
+today ("subscription not found", and the page's context read on the background thread) into
+crashes when the page is left at that moment; undoing that needs three more lines. The plan has
+them ready.
+Not covered, say if it should be: the buttons of that dialog read the page's context when
+tapped. If the page is removed from outside while the dialog is open (a link or a notification
+that resets the navigation), "Unsubscribe" would crash. That is after the lookup has returned.
+
+## Q10 plan -> spec
+AC-8 cannot be met as written; three points.
+(a) "whatever caused it". The handler learns that nobody waits only through the wrapper RxJava
+puts around an error, and RxJava does not wrap an error that is itself a NullPointerException,
+IllegalStateException or IllegalArgumentException (nor four of its own types). Such an error from
+a load that was left arrives looking exactly like a bug in a callback. Assumption used in plan.md
+(C8): these close the app as today; the criterion holds for every other error, including one that
+only has such an exception as its cause (the case of the investigation).
+(b) "An error that still has a receiver but no handler closes the app as today": kept exactly.
+But RxJava puts the same wrapper around an exception that a receiver's own callback throws, if it
+is not one of the types in (a). Today that closes the app when one of those types is among its
+causes, and is dropped without any trace otherwise. Assumption: both become a log line, because
+they cannot be told from a load that was left. This is the main thing the change can hide.
+(c) "is written to the log". An undeliverable error caused by a network failure or an
+interruption (a cancelled request) is ignored today and stays ignored, without a stack trace:
+there is one for nearly every page left while loading. Everything else undeliverable gets one
+log entry with the tag `UndeliveredErrors` and the stack trace, including the errors that are
+dropped silently today.
+With the debug setting on, nothing changes at all.
