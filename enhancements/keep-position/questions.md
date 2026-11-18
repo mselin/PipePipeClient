@@ -171,3 +171,30 @@ Yes to both. When the page stops the player for the video it shows and play is p
 video continues; that is the same wish as A12. Going back inside the page's history to the
 video that was playing then also keeps its position until another video is started;
 accepted.
+
+## Q15 code -> plan
+"Position of a mark" row 2 (10.3) reads "0 without a duration" as "the player has not got its
+position back yet". Checked in the ExoPlayer 2.18.7 classes and the app's sources, a player that
+is still loading the previous reload does not report 0: `setMediaSource(source, false)` keeps
+window index and position (`ExoPlayerImpl.setMediaSourcesInternal`), the playlist source offers
+one placeholder window per queue item (`ConcatenatingMediaSource.getInitialTimeline`), and the
+manager only unblocks when playlist and queue have the same size
+(`MediaSourceManager.java:305-317`); `stop()` keeps position and timeline. What does report 0
+without a duration is a new ExoPlayer: H1 inside `initPlayback` (`PlayerStartController.kt:209`),
+after `destroyPlayer()` and `initPlayer()`. So if the same `Player` is re-initialised for a queue
+whose current item has the uuid it is synchronized on, and `onStartIntent` gave no claim (row 6:
+the video had ended, or sat at 0 with a known duration), H1 takes `carried` from an earlier
+reload of that item, sets a reload mark and stores that older position: the start continues at
+the last reload's position where AM-2 says it starts at 0:00. It needs a start queue that is
+not equal to the player's queue but has the same current uuid; the only path found is the page
+going back to an older history entry that still holds a shorter copy of the queue, with the
+player at exactly 0. No ordinary tap was found that does it, and none could be excluded for
+certain. Implemented as planned (the tests pin row 2 for `onReload`). Should `onStartIntent`
+rows 3 and 6 drop a `carried` of this player for `newUuid`, so that a start without a claim
+cannot inherit it? Affects AM-2, AM-3, AC-7.
+
+## A15 plan
+Yes. A start that claims nothing (rows 3 and 6 of `onStartIntent`, and row 4 when it finds no
+position) drops a carried position for the new queue's item, so a start without a claim cannot
+inherit the position of an earlier reload. Plan 10.3 is to be read with this addition; a test
+pins it.
