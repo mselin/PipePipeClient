@@ -10,11 +10,12 @@ import java.io.File
 /**
  * The "wiring" tests: the marked lines the plan puts into upstream files, read as text.
  *
- * This package adds no class of its own (plan section 0): every fix is a marked line inside
- * upstream code. So this source scan is the main contract on the JVM. A rebase that drops or
- * moves one of the lines is noticed by nothing else that runs in CI.
+ * Every fix of this package is a marked line inside upstream code; its one class of its own is
+ * `UndeliveredErrors` (plan, "Amendment", C8), which carries no marked line. So this source
+ * scan is the main contract on the JVM. A rebase that drops or moves one of the lines is
+ * noticed by nothing else that runs in CI.
  *
- * The plan lists every line (39 lines in 10 upstream files), so each test asserts, per file:
+ * The plan lists every line (45 lines in 12 upstream files), so each test asserts, per file:
  *
  * 1. **The exact number of lines marked `ENH:crash-fixes-more`**, and that each of them *ends*
  *    with `// ENH:crash-fixes-more` (plan section 0).
@@ -61,9 +62,20 @@ class CrashFixesMoreWiringTest {
         const val APPEND_DIALOG = "$NEWPIPE/local/dialog/PlaylistAppendDialog.java"
         const val PROGRESS_CONTROLLER = "$NEWPIPE/player/PlayerProgressController.kt"
 
+        const val FEED_FRAGMENT = "$NEWPIPE/local/feed/FeedFragment.kt"
+        const val APP = "$NEWPIPE/App.java"
+
         const val PLAYLIST_MANAGER = "$NEWPIPE/local/playlist/LocalPlaylistManager.java"
 
-        /** Plan, "Verification": marked lines per upstream file. Nothing else may be marked. */
+        /** The package's one own file (plan, "Amendment", C8). */
+        const val OWN_PACKAGE = "$NEWPIPE/enhancements/crashfixesmore"
+        const val UNDELIVERED_ERRORS_FILE = "UndeliveredErrors.kt"
+        const val UNDELIVERED_ERRORS = "org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors"
+
+        /**
+         * Plan, "Verification" and "Marked lines after the amendment": marked lines per upstream
+         * file. Nothing else may be marked.
+         */
         val PLANNED = linkedMapOf(
             PLAYER_CLICK to 1,
             ROUTER to 8,
@@ -74,9 +86,11 @@ class CrashFixesMoreWiringTest {
             CHANNEL_FRAGMENT to 11,
             TAB_ADAPTER to 12,
             APPEND_DIALOG to 1,
-            PROGRESS_CONTROLLER to 1
+            PROGRESS_CONTROLLER to 1,
+            FEED_FRAGMENT to 2,
+            APP to 4
         )
-        const val PLANNED_TOTAL = 39
+        const val PLANNED_TOTAL = 45
     }
 
     /** `src/main` when run by Gradle (working directory `app/`), else `app/src/main`. */
@@ -492,14 +506,186 @@ class CrashFixesMoreWiringTest {
     }
 
     // ------------------------------------------------------------------------------------
+    // AC-7: late "channel not available" lookup of the feed page
+    // ------------------------------------------------------------------------------------
+
+    /**
+     * AC-7, plan C7 (E7a, E7b): both functions the lookup's result ends in return at once when
+     * the page has no context any more (it was closed). Two inserted lines with the same text,
+     * told apart by their neighbours: E7a is the first statement of `handleItemsErrors`, E7b
+     * the first statement of `handleFeedNotAvailable`.
+     *
+     * The guard is `context == null`, not `!isAdded` (answer A9: a page that is merely covered
+     * by another page keeps its dialog), and the lookup is **not** joined to the page's
+     * disposables (plan C7: that would turn two errors that are only logged today into
+     * crashes): the three lines the join would have changed are still there, unmarked.
+     */
+    @Test
+    fun ac7_wiring_feedPage() {
+        val guard = "if (context == null) return"
+        val source = Source("AC-7", FEED_FRAGMENT)
+            .expectCount(2, "plan C7: E7a in handleItemsErrors, E7b in handleFeedNotAvailable")
+            // the lookup is not joined (plan C7, "deliberately NOT added to disposables")
+            .expectUntouched("C7 (no join)", "NewPipeDatabase.getInstance(requireContext()).subscriptionDAO()")
+            .expectUntouched("C7 (no join)", "?: throw IllegalStateException(\"Subscription not found: \${t.subscriptionId}\")")
+            .expectUntouched("C7 (no join)", "return // this will be called on the remaining errors by handleFeedNotAvailable()")
+            .expectGone("C7 (no join)", ").let { disposables.add(it) }")
+
+        class Place(val step: String, val after: String, val before: String)
+        val places = listOf(
+            Place(
+                "E7a (first statement of handleItemsErrors)",
+                "private fun handleItemsErrors(errors: List<Throwable>) {",
+                "errors.forEachIndexed { i, t ->"
+            ),
+            Place(
+                "E7b (first statement of handleFeedNotAvailable)",
+                ") {",
+                "val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())"
+            )
+        )
+        for ((number, place) in places.withIndex()) {
+            val index = source.marked[number]
+            val where = "AC-7, plan ${place.step}"
+            assertEquals(
+                "$where: marked line ${number + 1} of 2 in app/src/main/$FEED_FRAGMENT (line ${index + 1}) must say `$guard`",
+                squeeze(guard),
+                code(source.all[index])
+            )
+            assertEquals(
+                "$where: in app/src/main/$FEED_FRAGMENT the guard must directly follow the line `${place.after}`",
+                squeeze(place.after),
+                squeeze(source.all.getOrElse(index - 1) { "" })
+            )
+            assertEquals(
+                "$where: in app/src/main/$FEED_FRAGMENT the guard must be directly followed by the line `${place.before}`",
+                squeeze(place.before),
+                squeeze(source.all.getOrElse(index + 1) { "" })
+            )
+        }
+        // `) {` alone does not say whose parameter list ends there
+        assertEquals(
+            "AC-7, plan E7b: the `) {` before the second guard must end the parameter list of handleFeedNotAvailable " +
+                "in app/src/main/$FEED_FRAGMENT",
+            squeeze("nextItemsErrors: List<Throwable>"),
+            squeeze(source.all.getOrElse(source.marked[1] - 2) { "" })
+        )
+    }
+
+    // ------------------------------------------------------------------------------------
+    // AC-8: errors nobody waits for
+    // ------------------------------------------------------------------------------------
+
+    /**
+     * AC-8, plan C8: the four lines in the error handler of `App.java`. Directly after the
+     * handler's own first log statement and before everything upstream decides, they ask
+     * `UndeliveredErrors.decide(throwable, isDisposedRxExceptionsReported())`; only for `LOG`
+     * they write `Log.e(LOG_TAG, LOG_MESSAGE, throwable)` (the error as handed over, so with
+     * the cause's stack trace) and return. For every other answer the upstream lines run as
+     * before (plan C8, "only LOG is acted on").
+     *
+     * `decide` mirrors the upstream lines below the edit. They are asserted to be unchanged,
+     * so that a rebase onto an upstream that changed the handler fails **here** and
+     * `UndeliveredErrors.decide`, `TodaysHandler` of the tests and the plan's table are read
+     * again. What the lines do when they run is in [AppErrorHandlerDifferentialTest].
+     */
+    @Test
+    fun ac8_wiring_errorHandler() {
+        val source = Source("AC-8", APP)
+            .expectEdit(
+                "C8",
+                listOf(
+                    "if ($UNDELIVERED_ERRORS.decide(throwable, isDisposedRxExceptionsReported()) == $UNDELIVERED_ERRORS.Action.LOG) {",
+                    "Log.e($UNDELIVERED_ERRORS.LOG_TAG, $UNDELIVERED_ERRORS.LOG_MESSAGE, throwable);",
+                    "return;",
+                    "}"
+                ),
+                after = "+ \"throwable = [\" + throwable.getClass().getName() + \"]\");",
+                before = ""
+            )
+            .expectCount(4, "plan C8: the four lines at the top of the error handler")
+        for (
+            mirrored in listOf(
+                // step 2 and 3: unwrapping
+                "if (throwable instanceof UndeliverableException) {",
+                "actualThrowable = throwable.getCause();",
+                "if (actualThrowable instanceof CompositeException) {",
+                "errors = ((CompositeException) actualThrowable).getExceptions();",
+                // step 4: the loop and its order (ignored before critical)
+                "for (final Throwable error : errors) {",
+                "if (isThrowableIgnored(error)) {",
+                "if (isThrowableCritical(error)) {",
+                "reportException(error);",
+                // the two lists
+                "IOException.class, SocketException.class,",
+                "InterruptedException.class, InterruptedIOException.class);",
+                "NullPointerException.class, IllegalArgumentException.class, // bug in app",
+                "OnErrorNotImplementedException.class, MissingBackpressureException.class,",
+                "IllegalStateException.class); // bug in operator",
+                // step 5
+                "if (isDisposedRxExceptionsReported()) {",
+                "reportException(actualThrowable);"
+            )
+        ) {
+            source.expectUntouched("C8 (an upstream line that UndeliveredErrors.decide mirrors; if it changed, revisit decide)", mirrored)
+        }
+        // both lists are still built with the chain walk decide uses
+        assertEquals(
+            "AC-8, plan C8: both lists of the upstream handler in app/src/main/$APP must still be checked with " +
+                "ExceptionUtils.hasAssignableCause(throwable, (if this changed, revisit UndeliveredErrors.decide)",
+            2,
+            source.all.count { squeeze(it) == squeeze("return ExceptionUtils.hasAssignableCause(throwable,") }
+        )
+        // position: the edit is the first thing after the handler's own log statement, inside accept()
+        val start = source.marked.first()
+        assertEquals(
+            "AC-8, plan C8: the four lines must directly follow the handler's first log statement in app/src/main/$APP",
+            squeeze("Log.e(TAG, \"RxJavaPlugins.ErrorHandler called with -> : \""),
+            squeeze(source.all.getOrElse(start - 2) { "" })
+        )
+        assertEquals(
+            "AC-8, plan C8: the four lines must stand before the upstream handler unwraps the error in app/src/main/$APP " +
+                "(one blank line, then `final Throwable actualThrowable;`)",
+            squeeze("final Throwable actualThrowable;"),
+            squeeze(source.all.getOrElse(start + 5) { "" })
+        )
+    }
+
+    /**
+     * AC-8, plan C8 ("New file .. plain Kotlin, no Android import") and PROCESS ("decision logic
+     * is plain Kotlin with no Android imports"): `UndeliveredErrors.kt` imports nothing of
+     * Android, so the decision runs on the JVM as the tests run it, and it logs nothing itself
+     * (the `Log.e` is one of the four lines in `App.java`).
+     */
+    @Test
+    fun ac8_wiring_decisionFileIsPlainKotlin() {
+        val file = File(mainDir(), "$OWN_PACKAGE/$UNDELIVERED_ERRORS_FILE")
+        assertTrue(
+            "AC-8, plan C8: not implemented: app/src/main/$OWN_PACKAGE/$UNDELIVERED_ERRORS_FILE does not exist",
+            file.isFile
+        )
+        val text = file.readLines()
+        assertTrue(
+            "AC-8, plan C8: $UNDELIVERED_ERRORS_FILE must declare `package org.schabi.newpipe.enhancements.crashfixesmore`",
+            text.any { it.trim() == "package org.schabi.newpipe.enhancements.crashfixesmore" }
+        )
+        val android = text.filter { line ->
+            val trimmed = line.trim()
+            trimmed.startsWith("import android.") || trimmed.startsWith("import androidx.") || "android.util.Log" in trimmed
+        }
+        assertTrue("AC-8, plan C8: $UNDELIVERED_ERRORS_FILE must not use Android: $android", android.isEmpty())
+    }
+
+    // ------------------------------------------------------------------------------------
     // AC-6: nothing else changes
     // ------------------------------------------------------------------------------------
 
     /**
-     * AC-6, plan "Verification" (39 marked lines in 10 upstream files) and section 0: the
-     * marker of this package is in the ten planned files, with the planned count, and in no
-     * other file under `app/src/main` (sources, resources, manifest). The message lists every
-     * file that differs.
+     * AC-6, plan "Marked lines after the amendment" (45 marked lines in 12 upstream files) and
+     * section 0: the marker of this package is in the twelve planned files, with the planned
+     * count, and in no other file under `app/src/main` (sources, resources, manifest; the
+     * package's own `UndeliveredErrors.kt` included, which must not contain the marker even in
+     * a comment). The message lists every file that differs.
      */
     @Test
     fun ac6_wiring_onlyThePlannedFilesAreMarked() {
@@ -525,8 +711,10 @@ class CrashFixesMoreWiringTest {
     }
 
     /**
-     * AC-6, plan "Merging with the other branches": the files that other branches edit and
-     * this plan names as not edited carry no line of this package. Passes before Code exists.
+     * AC-6, plan "Merging with the other branches" (and its amendment): the files that other
+     * branches edit, or that the plan read for AC-7 and AC-8 (`ErrorUtil`, where the feed
+     * page's snackbar throws; `BaseListInfoFragment`, which disposes the loads), and that this
+     * plan names as not edited carry no line of this package. Passes before Code exists.
      */
     @Test
     fun ac6_wiring_filesThePlanLeavesAlone() {
@@ -536,7 +724,9 @@ class CrashFixesMoreWiringTest {
                 "$NEWPIPE/fragments/list/BaseListFragment.java",
                 "$NEWPIPE/fragments/list/search/SearchFragment.java",
                 "$NEWPIPE/fragments/list/channel/ChannelVideosFragment.java",
-                "$NEWPIPE/info_list/dialog/InfoItemDialog.java"
+                "$NEWPIPE/info_list/dialog/InfoItemDialog.java",
+                "$NEWPIPE/error/ErrorUtil.kt",
+                "$NEWPIPE/fragments/list/BaseListInfoFragment.java"
             )
         ) {
             Source("AC-6", path).expectCount(0, "the plan does not edit this file")
@@ -544,12 +734,15 @@ class CrashFixesMoreWiringTest {
     }
 
     /**
-     * AC-6, plan section 0: no resource, no setting, no text and no class of its own. No file
-     * under `app/src/main/res` is named after this package or mentions it, and there is no
-     * `enhancements/crashfixesmore` package in `app/src/main`. Passes before Code exists.
+     * AC-6, plan section 0 as amended ("Marked lines after the amendment"): no resource, no
+     * setting, no text, and exactly one class of its own. No file under `app/src/main/res` is
+     * named after this package or mentions it, and the package
+     * `enhancements/crashfixesmore` in `app/src/main` holds `UndeliveredErrors.kt` and nothing
+     * else (no second helper, no sub-package). The resource half passes before Code exists;
+     * the last assertion fails until the file is there.
      */
     @Test
-    fun ac6_wiring_noResourcesAndNoOwnClasses() {
+    fun ac6_wiring_noResourcesAndOneOwnClass() {
         val main = mainDir()
         val res = File(main, "res")
         assertTrue("app/src/main/res not found", res.isDirectory)
@@ -567,12 +760,23 @@ class CrashFixesMoreWiringTest {
             }
         }
         assertTrue("AC-6, plan section 0: this package adds no resource: $offending", offending.isEmpty())
-        val ownPackage = File(main, "$NEWPIPE/enhancements/crashfixesmore")
-        assertFalse(
-            "AC-6, plan section 0: no new file under app/src/main/$NEWPIPE/enhancements/crashfixesmore " +
-                "(the parent's helpers are reused); found ${ownPackage.list()?.toList()}",
-            ownPackage.exists()
+        val ownPackage = File(main, OWN_PACKAGE)
+        assertEquals(
+            "AC-6 / AC-8, plan \"Marked lines after the amendment\": app/src/main/$OWN_PACKAGE must hold exactly " +
+                "$UNDELIVERED_ERRORS_FILE (the only file of this package; everything else reuses the parent's helpers)",
+            listOf(UNDELIVERED_ERRORS_FILE),
+            ownPackage.list()?.sorted() ?: emptyList<String>()
         )
+        assertTrue(
+            "AC-6 / AC-8: app/src/main/$OWN_PACKAGE/$UNDELIVERED_ERRORS_FILE must be a file",
+            File(ownPackage, UNDELIVERED_ERRORS_FILE).isFile
+        )
+        // no second copy of the package in another source root of app/src/main (kotlin/, ...)
+        val elsewhere = main.walkTopDown()
+            .filter { it.isDirectory && it.name == "crashfixesmore" && it != ownPackage }
+            .map { "app/src/main/" + it.relativeTo(main).invariantSeparatorsPath }
+            .toList()
+        assertTrue("AC-6: this package has one directory in app/src/main; also found $elsewhere", elsewhere.isEmpty())
     }
 
     /**

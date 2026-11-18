@@ -193,3 +193,50 @@ errors into crashes; the dialog-button case is out of scope. AC-7 is reworded.
 Accepted with the limits stated. AC-8 now says what the mechanism can deliver: errors RxJava
 reports as undeliverable are logged; the two limits (a) and (b) are named in the criterion;
 (c) is as intended.
+
+## Q11 tests -> plan
+Amendment (AC-7, AC-8). None of this changes an edit of the plan. JVM tests were run (against a
+throwaway `UndeliveredErrors.kt` with the plan's source and against a copy of the sources with
+the six planned lines); the instrumented tests are compiled, not run.
+(a) Plan C8, "an exception of any other type thrown inside a callback of a live subscriber
+(`onSuccess`, `onNext`) is also wrapped as undeliverable [checked: .. `LambdaObserver`]". On
+rxjava 3.1.12 this holds for `onSuccess` (`Single`, test T3) and for a stream's `onComplete`,
+not for `onNext`: `LambdaObserver.onNext` cancels the stream and gives the exception to the same
+receiver's error callback (or, without one, it becomes an `OnErrorNotImplementedException`,
+unwrapped). Nothing reaches the handler as undeliverable. So accepted limit 2 of AC-8 is
+narrower for streams than the plan says. Assumption used: the tests pin what the library does
+(`ac8_premise_liveOnNextThatThrows_goesToTheReceiversOwnErrorCallback`,
+`ac8_acceptedLimit2_liveOnCompleteThrowingAnotherType_arrivesWrappedAndIsLogged`); the spec's
+wording ("a live callback") still holds.
+(b) Tests beyond the plan's list. Say if any of them pins more than the plan intends; the Code
+layer cannot change them.
+- The optional differential test exists (`AppErrorHandlerDifferentialTest`): the compiled
+  handler of `App` runs on the JVM over the matrix of T2. It needs the JDK's compiler (as
+  `TabAdapterFinishUpdateTest` does) and `sun.misc.Unsafe.allocateInstance`, to get an `App`
+  object without running Android's constructors. Beyond the four lines' text it requires: for an
+  answer `LOG` nothing goes to the uncaught-exception handler, and the log holds the handler's
+  own first line followed by exactly one `Log.e(LOG_TAG, LOG_MESSAGE, <the wrapper itself>)`.
+  It also shows that the copy of today's handler in the tests equals the real one, including
+  which instance is handed over.
+- `UndeliveredErrors` is reached by reflection, so that the test source set compiles before the
+  file exists. Pinned thereby: the object's name, `decide(Throwable, boolean)` static, the four
+  enum names, `LOG_TAG = "UndeliveredErrors"`, `LOG_MESSAGE = "Undelivered error, logged and not
+  rethrown"`, and `decide(UndeliverableException(null), ..)` = LOG / REPORT without throwing
+  (what the plan's source does; not a row of the table).
+- `ac8_wiring_errorHandler` asserts five upstream lines more than the plan's ten (the two
+  unwrapping assignments, the loop header, the two `if (isThrowable..(error)) {` lines), that
+  both lists are still checked with `ExceptionUtils.hasAssignableCause(throwable,`, and that the
+  line after the edit's blank line is `final Throwable actualThrowable;`. A changed **order** of
+  the two checks in upstream's loop is not seen by the wiring test; the differential test fails
+  on it.
+- `ac8_wiring_decisionFileIsPlainKotlin`: `UndeliveredErrors.kt` has no `android.` / `androidx.`
+  import and does not name `android.util.Log`.
+- `ac7_wiring_feedPage` also asserts that `).let { disposables.add(it) }` is absent and that the
+  line two above E7b is `nextItemsErrors: List<Throwable>`.
+- I3 has a third test, `ac7_pageMerelyCovered_resultIsNotDropped` (answer A9: a covered page
+  keeps its dialog; it would fail for a guard `!isAdded`). It and the control read "the dialog
+  is shown" from the activity losing window focus, which nobody has run; if only that assertion
+  fails on a device, it is the test's assumption, not the fix.
+- I4 has three tests more than the plan: a real abandoned `Single` (not rethrown), an
+  undeliverable `IOException` (ignored), and the bare `NullPointerException` named as accepted
+  limit 1.
