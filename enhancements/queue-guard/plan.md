@@ -625,8 +625,8 @@ paragraphs on A11 and A14; in section 8 the five risks about a single video and 
 videos; in section 9 the rows Q12 to Q14. Everything else stands: T1-T4, B1-B5, M1, S1, the
 controller, the dialog rows, `movesForPlayNext`, `streamDetailsInsertIndex`.
 
-Summary: 13 upstream files, 32 lines marked `ENH:queue-guard` (was 9 and 24): Q1 is removed, 9
-lines are added in 5 files that had none. No signature of `GuardPolicy`, `QueueGuardController`,
+Summary: 13 upstream files, 33 lines marked `ENH:queue-guard` (was 9 and 24): Q1 is removed, 10
+lines are added in 5 files that had none (the tenth is P5, A2.15, for AM-9; AM-10 needs no line). No signature of `GuardPolicy`, `QueueGuardController`,
 `TapActions`, `ListActions` or `GuardUi` changes.
 
 ### A2.1 Model (`GuardModel.kt`, plain Kotlin; replaces the parts of 3.1 named above)
@@ -700,7 +700,7 @@ amended it equals `somethingPlaying`, and one name for it is enough.
 | Function | # | Condition | Result | Criterion |
 |---|---|---|---|---|
 | `onTap` | 1 | not playing | `OPEN_AS_TODAY` | AM-1 |
-| | 2 | `player.isCurrent(tap)` | `OPEN_AS_TODAY` | AC-8; AM-3 and AM-5, last sentence each |
+| | 2 | `player.isCurrent(tap)`, and `tap.way` is `LIST_TAP`, `PAGE_CONTROL` or `VIDEO_PAGE`, or `player.queueSize == 1` | `OPEN_AS_TODAY`; what the hook then does for the current item is in A2.15 | AC-8, AM-9, AM-10 |
 | | 3 | not ask, list | *playNow* | AC-16 |
 | | 4 | not ask, not list | `OPEN_AS_TODAY` | AM-7 |
 | | 5 | list, `tap.relatedTo != null` and `player.isCurrent(tap.relatedTo)` | `OPEN_AS_TODAY` | AM-2 |
@@ -957,12 +957,12 @@ Lines containing `ENH:queue-guard`, below `app/src/main`:
 | `java/org/schabi/newpipe/info_list/dialog/InfoItemDialog.java` | 1 | M1 |
 | `res/xml/video_audio_settings.xml` | 1 | S1 |
 | `java/org/schabi/newpipe/player/playqueue/PlayQueue.java` | 0 | Q1 removed |
-| `java/org/schabi/newpipe/fragments/detail/VideoDetailFragment.kt` | 4 | P1-P4, each with `QG.onPageControl(` |
+| `java/org/schabi/newpipe/fragments/detail/VideoDetailFragment.kt` | 5 | P1-P4, each with `QG.onPageControl(`; P5 with `QG.playersQueueFor(vm.currentInfo)?.let { return it }` |
 | `java/org/schabi/newpipe/QueueItemMenuUtil.java` | 1 | D1, `QG.openQueueItemDetails(context, playQueue, item)` |
 | `java/org/schabi/newpipe/util/external_communication/InternalUrlsHandler.java` | 1 | L1, `QG.onTimedLink(` and `() -> playOnMain(context, matchedUrl, service, seconds, disposables)` |
 | `java/org/schabi/newpipe/fragments/list/search/SearchFragment.java` | 1 | L2, `QG.onSearchAddress(SearchFragment.this, intent,` |
 | `java/org/schabi/newpipe/RouterActivity.java` | 2 | R1 `QG.onRouterChoice(`, R2 `QG.isAsking(` |
-| Total | 32 | 13 files with a marked line |
+| Total | 33 | 13 files with a marked line |
 
 `fragments/detail/DetailActions.kt` and `MainActivity.java` hold none. The marker
 `ENH:default-open-action` is not affected: `QueueGuard.kt` 2, `res/xml/video_audio_settings.xml` 2.
@@ -1119,10 +1119,8 @@ Assumed, not run (no build, no device):
 
 Risks:
 
-- Row 2 is the spec's wording and has a hole (Q15): where the page of the current item was
-  reopened from a list, from "Show stream details" or from "Details", its controls send that one
-  video, and a longer queue is replaced without a dialog. The same holds for a link to a time in
-  the current item while the queue is longer than that one video.
+- The hole of Q15 (the current item, a longer queue) is closed by A2.15 after A15. What is left
+  of it is Q21.
 - In the main player, Back on the video page of a queue's first item pops the page history and
   closes the player (`VideoDetailFragment.kt:479-521`). Not a tap and not in the amendment; noted.
 - L2 repeats two upstream statements in its replay. The wiring test pins the two lines below it.
@@ -1152,7 +1150,152 @@ video page, links and the router. G1 and G2 are unchanged.
 nine hook lines; `git grep -c "ENH:queue-guard" -- app/src/main` gives A2.8 (plus the comment
 line in `QueueGuard.kt`). (5) The summary string. (6) Device script.
 
-Raised by this amendment, all planned with the stated assumption: Q15 (current item, longer
+Raised by this amendment (Q15 to Q20 are answered, A2.15 follows the answers; Q21 is open and
+planned with its stated assumption): Q15 (current item, longer
 queue), Q16 ("Details" in the main player), Q17 (a dialog only where the queue would be
 replaced; "show info" in the main player counts), Q18 (AM-2 with the switch off), Q19 (channel
 and playlist links from other apps), Q20 (the address in place of a title).
+
+### A2.15 After A15 to A20: AM-9, AM-10, and what the answers settle
+
+A16 (AM-4 as planned in A2.5), A17 (one rule, `replacesQueue`), A18 (AM-2 with the switch off)
+and A20 (the address in place of a title) confirm the plan; nothing changes for them. A19: a
+channel or playlist opened from another app with a player action is not covered and still
+replaces the queue without asking (A2.3, "Callers still left alone"). A15 adds AM-9 and AM-10.
+
+**Row 2, what it now means at each hook.** The policy still answers `OPEN_AS_TODAY` for the
+current item; the hooks make "as today" keep the queue:
+
+| Request for the current item | Policy | What then runs |
+|---|---|---|
+| list tap (T1-T4) | row 2, hook returns `false` | upstream's tap; where the page then starts playback, P5 hands it the player's queue |
+| page control (P1-P4) | row 2, hook returns `false` | the control's own statements; P5 hands them the player's queue (AM-9) |
+| timed link (L1) | not asked: the glue seeks first (AM-10) | `DetailPlayerEvents.seekTo(seconds)`; `playOnMain` does not run |
+| typed address (L2), "show info" / "video player" (R1) | row 2, hook returns `false` | the page is opened as today; where it starts playback, P5 |
+| "background player" / "popup player" for a link (R1) | row 2 only while the queue is that one video; with a longer queue rows 4, 6, 7 | a longer queue would be replaced by the video alone (`RouterActivity.java:806-810`), so it asks like any other video (A17's rule) |
+
+The added condition of row 2 (A2.2) is that last line; for every other request row 2 is as it was.
+
+**AM-9: hook P5.** How a page that never left the player keeps the queue today: the page's queue
+is the player's own object (`VideoDetailFragment.kt:642-643`, set when the page registers as
+listener, `player/PlayerListeners.kt:34`, and after every start, `PlayerStartController.kt:225`).
+All three controls take the queue to send from `playQueueForIntent()` (`:574-582`; callers
+`:530`, `:549`, `:559`); the copy that arrives equals the player's queue
+(`PlayerStartController.kt:77`), so nothing is re-initialised (`:121-134`), and only a changed
+player type reloads the same queue (`:161-164`). A reopened page holds the video alone instead
+(`:137`, `:454`), the copy is not equal, and `:155` replaces the queue.
+
+| # | File, where | Added line |
+|---|---|---|
+| P5 | `fragments/detail/VideoDetailFragment.kt`, `playQueueForIntent()`, between `:574` and `:575` (`val queue = vm.playQueue`) | `QG.playersQueueFor(vm.currentInfo)?.let { return it } // ENH:queue-guard` |
+
+`@JvmStatic fun playersQueueFor(info: StreamInfo?): PlayQueue?` in `QueueGuard.kt`: `null` if
+`info == null`; `q = PlayerHolder.getInstance().player?.playQueue`, `null` if that is `null` or
+empty; `q` if `HolderPlayerStateSource.current().isCurrent(VideoRef(info.serviceId, info.url))`,
+else `null`. It reads no setting (AM-9 says "never"). No new plain function: the decision is
+`PlayerState.isCurrent(VideoRef)`, which A2.10 already tests.
+
+Why at press time and not by letting the page adopt the player's queue when it loads the current
+item: adopting means writing `vm.playQueue` where the page builds its own (`:454`), and that
+object is also the page's history entry (`:455-456`, `fragments/detail/DetailHistory.kt`), what
+Back replays (`:494-496`) and what `onMetadataUpdate` compares to decide whether the page follows
+the player (`:689`). P5 changes none of that: it only chooses what is sent, at the moment it is
+sent, from the player as it is then. It is one line in the one function all senders share.
+
+What each control does on the reopened page of the current item X, the player holding a longer
+queue Q (P1-P4 return `false`, row 2):
+
+| Control | Player in use | Trace | Result |
+|---|---|---|---|
+| Background (`:523`) | background | `player.setRecovery()` (`:526`), Q sent with type audio; equal queue, same type: `:129-134` only `setPlayWhenReady(true)` | goes on, or resumes if paused; nothing reloads |
+| Background | popup or main | as above, then `:161-164` reloads Q for the new type | Q moves to the background player at the position stored at `:526` |
+| Popup (`:534`) | popup | the same with type popup | goes on or resumes |
+| Popup | background or main | the same, `:161-164` | Q moves to the popup |
+| play / thumbnail (`:835`), mini player play (`:817`) | background or popup | `openMainPlayer()` sends Q with type video | Q moves to the main player; these controls ask for the main player today too |
+| the same | main (the player was stopped for the page's load, `:595`) | equal queue, ExoPlayer idle: `prepare()` and play (`:129-134`) | Q resumes where `stopForImmediateReusing` stored it (`player/PlayerService.java:172`) |
+
+P5 also serves the page's own start after a load (`:422`, `:632`), since they send through the
+same function. So a tap on the playing video in a list, with the main player and Autoplay
+allowed, no longer replaces a longer queue by that video: the page reloads and resumes Q. That is
+more than AM-9's words ("the page's controls") and changes what AC-8's "as today" does there; it
+is planned because the alternative is the loss A15 forbids (Q21).
+
+**AM-10: no new line; L1's glue seeks.** Today, for the current item in a longer queue:
+`handleTimestampUrl` -> `playOnMain` (`InternalUrlsHandler.java:201-235`) loads the video, builds
+it alone at the link's time (`:220-221`) and opens its page with that queue (`:222`). With the
+main player the page loads, stops the player and sends the one video; the seek in place at
+`PlayerStartController.kt:101-105` needs both queues to hold one video, so `:155` replaces the
+queue. Beside the background or popup player the page is reopened and nothing seeks.
+
+`QueueGuard.onTimedLink` (A2.4) gets one step, after `streamUrl` is known and before the
+request is built: if `HolderPlayerStateSource.current().isCurrent(VideoRef(service.serviceId, streamUrl))`,
+call `DetailPlayerEvents.seekTo(seconds)` and return `true`. That is the call a time written as
+text makes (`:102`); the player that is in use handles it (`player/PlayerBroadcastReceiver.kt:36-43`:
+`player.seekTo`, and play if it was playing), whichever player and however long the queue. No
+setting is read. `playOnMain` and keep-position's line above `:222` are not reached for the
+current item; L1's text and place (between `:129` and `:130`) are unchanged.
+
+**Marked lines.** A2.8 as corrected above: `VideoDetailFragment.kt` 5, total 33 in 13 files.
+`InternalUrlsHandler.java` stays at 1.
+
+**Tests, in addition to A2.10.**
+- `QueueGuardPolicyTest`: row 2 for `BACKGROUND_PLAYER` and `POPUP_PLAYER` requests on the
+  current item: `OPEN_AS_TODAY` with one item in the queue, `ASK` with three and the switch on,
+  `OPEN_AS_TODAY` with three and the switch off; for `LIST_TAP`, `PAGE_CONTROL` and `VIDEO_PAGE`
+  the current item is `OPEN_AS_TODAY` whatever the queue size.
+- `GuardModelTest`: `isCurrent(VideoRef)` is `false` while nothing is playing, for another
+  service with the same address and for another address (it carries AM-9 and AM-10).
+- `QueueGuardWiringTest`: `VideoDetailFragment.kt` holds 5 marked lines; exactly one contains
+  `QueueGuard.playersQueueFor(vm.currentInfo)?.let { return it }` and it is the line right after
+  `private fun playQueueForIntent(): PlayQueue? {`; `InternalUrlsHandler.java` still 1.
+- No JVM test for `playersQueueFor` and the seek step (glue): device steps 9 and 10.
+
+**Device script, in addition to A2.11.**
+
+9. AM-9. Background player, a queue of three, the first playing at about 1:00. Tap the playing
+   video in a list: its page opens. Press Popup: the popup shows the same video at about 1:00,
+   the queue still has three items. Open the page again the same way and press Background: it
+   moves back, same position, three items. Open the page through long-press "Show stream
+   details" and press the thumbnail: the main player takes over at the same position, three
+   items. Open the queue screen from the background player, "Details" on the playing item,
+   press Background on that page: playback goes on, three items. Main player, Autoplay allowed,
+   queue of three: go back to a list and tap the playing video: the page reloads and playback
+   resumes where it was, three items.
+10. AM-10. Main player, a queue of three, the first playing. In its description tap a link to a
+   time in this video (a link, not a time written as text): it jumps there without reloading,
+   three items. Same in the background and the popup player. With one video alone in the queue:
+   it jumps there too.
+
+**Merge check.** `VideoDetailFragment.kt` with P1, P2, P4 and P5 inserted, against a copy with
+keep-position's planned line directly before `playerHolder.stopService()` (`:598`):
+`git merge-file`, no conflict (P5 is 23 lines above it). `InternalUrlsHandler.java`: unchanged
+from A2.9. keep-position's planned line in `PlayerStartController.kt` (between `:99` and `:100`)
+is in a file this plan only reads.
+
+**With keep-position's amendment.** Its `onStartIntent` acts when the same video is started with
+a queue that is not equal; with P5 the queue is equal, so it does nothing, and the position is
+kept the way it is on a page that never left the player (`setRecovery` at `:526`, `:546`, `:839`,
+its hooks at the reload). Where P5 gives nothing, because the player is gone or on another
+video, the page sends what it sends today and keep-position's rules apply unchanged. Its
+`onPageStopsPlayer` line marks the position when the page closes the main player (`:598`,
+Autoplay not allowed); the player is then gone, P5 gives `null`, and pressing play starts the
+page's video at the kept position, but alone (Q21). No case was found in which both act on the
+same start. For a time link in the current item neither of its hooks on that path runs any more
+(`onTimestampLink`, `shouldSeekInPlace`): the seek is direct and does not depend on "Always start
+play from beginning", as for a time written as text.
+
+**Checked by reading / assumed.** Checked: the callers of `playQueueForIntent()`; the branches
+of `PlayerStartController.kt:77-164`; that `PlayerBroadcastReceiver` registers its listener for
+every player type (`:168`); the merge above. Assumed, not run: a copy of the player's queue made
+at the press still equals it when the player handles the intent (the same assumption a page that
+never left the player makes; if the player moves on in between, the copy restarts the queue at
+the item it had); an idle ExoPlayer resumes the queue with `prepare()` after
+`stopForImmediateReusing` (upstream's own path at `:129-134`); `info.url` of the page equals the
+current item's address (where it does not, P5 gives nothing and the page behaves as before this
+amendment, and P1-P4 ask).
+
+**Risks.** A long queue is copied through the intent on every such press, as on a page that
+never left the player. On the reopened page the page's own queue and history entry stay the
+single video: Back and the page's follow-the-player logic behave as today. `Player.seekTo`
+clamps to the duration and does nothing without an ExoPlayer (`PlayerTransportController.kt:150-166`):
+a time link in a current item whose player is stopped does nothing.
