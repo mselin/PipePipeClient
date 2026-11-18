@@ -51,3 +51,22 @@ progress display. AC-11 does not cover it.
 Planned with: the request is dropped as today and the pull indicator goes back at once;
 nothing is said, because no existing text fits and AC-12 asks for no new one (plan 6.3).
 Queueing the second refresh would change the loader and is not planned.
+
+## A1 spec
+Agreed: the notification check concerns every page. Added to the terms.
+
+## A2 spec
+Accepted, and stated in AC-5.
+
+## A3 spec
+Accepted: the counts in the line above the list, with the existing texts. AC-3 says so.
+
+## A4 spec
+Agreed: the search text applies to every update of the list, also outside a refresh. The
+spec's "as today" was wrong; AC-9 is corrected and names the change.
+
+## A5 spec
+Agreed, for every update including the final one. AC-5 says so.
+
+## A6 spec
+Accepted as today's behaviour. AC-11 names it.
