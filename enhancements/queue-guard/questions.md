@@ -267,3 +267,21 @@ Not covered for now; listed in the spec.
 
 ## A20 spec
 Accepted.
+
+## Q21 plan -> spec
+Two things next to AM-9, found while planning it (plan A2.15).
+- AM-9 names "the page's controls". The page also starts playback by itself after it has loaded
+  a video (VideoDetailFragment.kt:421-423), through the same function the controls use. With the
+  main player and Autoplay allowed, a tap on the playing video in a list (AC-8, "as today")
+  reloads its page and today replaces a longer queue by that video. Planned with: the one hook
+  that serves the controls serves this start too, so the queue is kept and playback resumes
+  where it was. This changes what "as today" does for AC-8 in that one case.
+- With the main player and Autoplay not allowed (the setting "never", or "only on Wi-Fi" away
+  from Wi-Fi), opening the page of any video, the playing one included, closes the player when
+  the page has loaded (VideoDetailFragment.kt:415, :597-598). The queue is gone before a control
+  is pressed; AM-9 cannot reach it, and play then starts the page's video alone. This is what a
+  video tap and *Play now* do there by A9. For another video the dialog comes first, so it is a
+  choice; for the playing video (a tap on it in a list, its address typed in search, "show info"
+  for a link to it) there is no dialog. Planned with: as today. To keep the queue there, the
+  page would have to skip the reload when it is asked to show the item the main player is on;
+  that is a further hook in the page's loading and would need its own criterion.
