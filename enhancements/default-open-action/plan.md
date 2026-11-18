@@ -597,3 +597,241 @@ The amendment for A8 raised no question. Decided by this plan, within the spec's
 video in the main player" (AC-3, AC-4) is QG's "not a queue worth guarding" while something is
 playing, auto-enqueued videos not counted, and is judged by QG's policy alone; while the switch is
 off, what the wrapped policy would answer to the tap itself is not consulted.
+
+## Amendment 2
+
+For spec section "Amendment 2" (AM-1 to AM-3, spec commit `66b32fa`). It follows queue-guard's
+amendment 2: "QG A2.n" is a part of the section "Amendment 2" of
+`enhancements/queue-guard/plan.md` on `feature/queue-guard`. This branch does not hold that
+section, nor queue-guard's amended spec, until it is rebased onto `feature/queue-guard`; read
+them there.
+
+**What this section overrides.** The note at the top of this plan ("Changed 2026-11-15"); in 4.2
+the rule of `onTap` and of `onTapChoice` (each gets a first clause), row 6b, the paragraph and
+table "The main player with a single video, complete", and every mention of `worthGuarding` and
+`autoQueuedCount`; 4.3 (the result of `onChoice`); in 4.4 the row `RememberChoiceAddOn`; in
+section 5 one new string; in section 6 the rows AC-4, AC-8, AC-14; 6.1; in section 8 the risk
+"With the switch on and *Add to queue* or *Play next* selected, a tap on a single video in the
+main player replaces it"; in section 9 the row Q8. Everything else stands: G1, G2, S2, S3, 4.1,
+rows 1 to 5 and 7 to 23, the layout.
+
+Summary: no hook is added, changed or removed. Lines marked `ENH:default-open-action` stay at
+`enhancements/queueguard/QueueGuard.kt` 2 and `res/xml/video_audio_settings.xml` 2. Changed:
+`OpenActionPolicy.kt` (two clauses), `RememberChoice.kt` (a result), `DefaultOpenAction.kt` (the
+message), one string.
+
+### B2.1 What queue-guard's amendment changes underneath (QG A2.1, A2.2, A2.4)
+
+- `PlayerState` has no `autoQueuedCount` and no `worthGuarding`: "a queue worth guarding" is
+  `somethingPlaying`. `QueueGuardPolicy.onTap` asks for one video in the main player again.
+- `TapRequest` has two more fields with defaults: `way: OpenWay` (`LIST_TAP` for a video tap in a
+  list; `PAGE_CONTROL`, `VIDEO_PAGE`, `BACKGROUND_PLAYER`, `POPUP_PLAYER` for the paths the
+  amendment adds: the video page's controls, links, an address typed in search, a video from
+  another app) and `relatedTo` (the video whose related list was tapped).
+- The tap dialog, and with it the checkbox of G2, now also opens from those paths.
+  `DialogGuardUi` builds the add-on with a `Context` that may be a themed wrapper instead of the
+  activity (QG A2.4, the router); `TapDialogExtension.create(context)` is unchanged.
+
+### B2.2 `OpenActionPolicy.kt` (AM-2, AM-3)
+
+Signature unchanged. Two clauses come first; the rest of both functions is as 4.2 has it.
+
+- `onTap`: `tap.way != OpenWay.LIST_TAP` -> `base.onTap(tap, player)`, whatever is playing and
+  whatever the three settings are. Otherwise as before.
+- `onTapChoice`: `tap.way != OpenWay.LIST_TAP` -> `base.onTapChoice(choice, tap, player)`.
+  Otherwise as before.
+- `onListPlay`, `onListChoice`, `offersStreamDetails`, *idle*: unchanged.
+
+So neither the default action nor "Start playback in" ever applies to a page control, a link or
+a video from another app, also while nothing is playing and also when the player was closed
+while their dialog was open: those requests get queue-guard's answer (QG A2.2 rows 1, 2, 4, 6, 7
+and 8 to 11). The class still reads neither `relatedTo` nor the queue size.
+
+Rule table for `OpenActionPolicy(QueueGuardPolicy(g), g, settings)`, `onTap`, list taps
+(`way == LIST_TAP`). Rows 1 to 5 and 7 to 12 are the rows of 4.2, unchanged; the column "worth
+guarding" of 4.2 is gone.
+
+| # | playing | current | ask | tap in the related list of the current item's page | Result | Criterion |
+|---|---|---|---|---|---|---|
+| 1-4 | no | - | any | any | as 4.2 ("Start playback in") | AC-5, AC-6 |
+| 5 | yes | yes | any | any | `OPEN_AS_TODAY` | AC-12 |
+| 6 | yes | no | on | no | `ASK`, in every player and for a single video too | AM-2, AC-4 (QG AM-1) |
+| 6c | yes | no | on | yes | `OPEN_AS_TODAY` | AM-2 (QG AM-2) |
+| 7-12 | yes | no | off | any | as 4.2 (the default action) | AC-3 |
+
+Row 6b of 4.2 (a single video in the main player opens as today) no longer exists: that state is
+row 6. Row 6c is new and is queue-guard's answer, not a rule of this class. With asking off a
+tap in the related list of the current item's page gets the default action like any other tap
+(rows 7 to 12; Q9).
+
+Requests of another `way`, for every state and all 18 combinations of the settings:
+
+| Function | Result |
+|---|---|
+| `onTap` | `base.onTap`: `OPEN_AS_TODAY` while nothing is playing, for the current item, with asking off, and where the path would not replace the queue; else `ASK` (AM-3) |
+| `onTapChoice` | `base.onTapChoice`: `NONE`, `ENQUEUE`, `ENQUEUE_NEXT` (`ENQUEUE` once nothing is playing), and `OPEN_AS_TODAY` for *Play now*, never `START_BACKGROUND` or `START_POPUP` |
+
+`offersStreamDetails`, rows 20 to 23: results unchanged. Row 21b with asking on is now `false`
+because every tap on another video asks; there is no state left in which it opens the page.
+
+AC-14 still holds over the whole grid, by the steps of 4.2: for a list tap nothing in them used
+`worthGuarding`, and with asking off `base.onTap` is *playNow* (QG A2.2 row 3), which is what
+`base.onTapChoice(PLAY_NOW, ...)` gives; every other `way` is `base` by the two new clauses.
+
+### B2.3 `RememberChoice.kt` (AM-1, plain Kotlin)
+
+```kotlin
+class RememberChoice(private val store: RememberStore) {
+    /**
+     * A choice made in the tap dialog, before it is carried out. [checked]: the checkbox at that moment.
+     * Returns whether the choice was saved, which is when the notice "asking is now off" is due (AM-1).
+     */
+    fun onChoice(choice: GuardChoice, checked: Boolean): Boolean
+}
+```
+
+| `checked` | `choice` | `store.save` | Result |
+|---|---|---|---|
+| yes | `ADD_TO_QUEUE`, `PLAY_NEXT`, `PLAY_NOW` | once, `(DefaultTapAction.fromChoice(choice), false)` | `true` |
+| yes | `CANCEL` | not called | `false` |
+| no | any | not called | `false` |
+
+The notice is due for every saved choice, *Play now* included, and also when asking was off
+already or the saved action equals the old one: the result does not look at what was stored
+before. `RememberStore` is unchanged.
+
+### B2.4 `DefaultOpenAction.kt` (AM-1, glue)
+
+`RememberChoiceAddOn(context, remember)` keeps `context` and shows the message:
+
+```kotlin
+override fun onChoice(choice: GuardChoice) {
+    if (remember.onChoice(choice, checkBox.isChecked)) {
+        Toast.makeText(
+            context,
+            context.getString(
+                R.string.enh_default_open_action_asking_off,
+                context.getString(R.string.settings),
+                context.getString(R.string.settings_category_player_title),
+                context.getString(R.string.enh_queue_guard_ask_title),
+            ),
+            Toast.LENGTH_LONG,
+        ).show()
+    }
+}
+```
+
+- Shown from the add-on, which queue-guard's dialog calls for a row click that is then carried
+  out, right before it (QG plan 3.3): the message comes with every remembered choice and with no
+  other click. `context` is the dialog's, so the text is in the app's language.
+- A toast, not a dialog: the choice is carried out at once, and three of its results are toasts
+  themselves ("Enqueued", ...). Android shows toasts one after the other; this one is first.
+- The two names in it are the screen's and the switch's own strings (`res/xml/main_settings.xml:10`,
+  QG plan 4), so the message stays right in every language and after a rename.
+- `PrefsOpenActionSettings`, `DefaultOpenAction.policy`, `tapDialogExtension`: unchanged. Nothing
+  new runs in an initialiser.
+
+### B2.5 Resource (adds to section 5)
+
+In `res/values/enhancements_default_open_action.xml`:
+
+| Name | English text |
+|---|---|
+| `enh_default_open_action_asking_off` | `Asking is now off. To switch it on again: %1$s > %2$s > %3$s` |
+
+Written in the file with `&gt;` for `>`. Translatable. With the English strings it reads:
+"Asking is now off. To switch it on again: Settings > Player > Ask before replacing the queue".
+
+### B2.6 Criteria
+
+| AM | Implemented by | Verified by |
+|---|---|---|
+| 1 | B2.3, B2.4, B2.5 | JVM: the table of B2.3; the string's text and its three placeholders; `DefaultOpenAction.kt` names `R.string.enh_default_open_action_asking_off` (read as text). Manual: B2.8 step 1 |
+| 2 | queue-guard's row 1 and row 5 through `base.onTap`; rows 6 and 6c | JVM: with asking on, equal to `QueueGuardPolicy` alone in every playing state, a single video in the main player included, for all 9 combinations. Manual: step 2 |
+| 3 | the two clauses of B2.2 | JVM: over a recording wrapped policy and over `QueueGuardPolicy`: a request of another `way` gets the wrapped answer for all 18 combinations, playing or not. Manual: step 3 |
+
+### B2.7 Tests (replaces 6.1)
+
+- `Fakes.kt`: `playing(...)` loses `autoQueued`; the fixtures `WORTH_GUARDING` and
+  `SINGLE_IN_MAIN` go, `SOMETHING_PLAYING` (each player with one item and with three) covers
+  both. New helpers: a tap of each other `OpenWay`, a tap in the related list of the current item.
+- `OpenActionPolicyTest`. Now the opposite of what it pinned:
+  `ac4_row6b_askOn_singleVideoInTheMainPlayerOpensAsTodayForAllNineCombinationsOfTheTwoSettings`
+  (-> `ASK`; it merges into `ac4_row6_...`); `ac3_ac4_theAskSwitchIsReadAtEveryTap` (main player,
+  one video, *Add to queue*: asking on gives `ASK`, off `ENQUEUE`; its `offersStreamDetails` half
+  stays `false`, `true`, `false`); the part of
+  `ac15_playButtonsAskOrPlayAsTodayWhateverTheTwoSettingsAre` that expects `PLAY_AS_TODAY` for a
+  single video with asking on (-> `ASK`). Back on `SOMETHING_PLAYING`: `ac4_row6_...`,
+  `ac4_rows6and6b_...` (still "equal to queue-guard alone"), the row 6 line of
+  `ac12_ac3_rows6to8and11_...`. Removed: `ac3_rows7to12_askOff_queuesWithAutoEnqueuedVideosGetTheDefaultAction`.
+  Same result on a plain state (`MAIN`, one item): every other `...SingleVideoInTheMainPlayer...`
+  test (rows 5, 7, 8, 9/10, 13 to 18, 21, 21b). New: row 6c with asking on and rows 7, 8 for the
+  same tap with asking off; B2.2's second table for all 18 combinations, nothing playing with
+  *Background player* and asking off with *Add to queue* included.
+- `OpenActionControllerTest`. Now the opposite:
+  `ac4_row6b_askOn_tapOnASingleVideoInTheMainPlayerIsLeftToTodaysTapHandler` (-> only the dialog,
+  with "1"); the last step of `ac3_ac4_aQueueIsStartedByTappingAndGuardedOnceItExists` (asking
+  on, one video: the dialog). Removed:
+  `ac14_defaultSettings_tapsRunAsWithQueueGuardAloneOnQueuesWithAutoEnqueuedVideos`,
+  `ac15_playButtonsRunAsWithQueueGuardAloneOnQueuesWithAutoEnqueuedVideos`. Back on
+  `SOMETHING_PLAYING`: `ac4_row6_...`, `ac9_row13_...`, `ac15_askOn_playButtonOpensTheListDialog...`.
+  `ac11_rows21and21b_singleVideoInTheMainPlayer_...` keeps its results. New: a page-control
+  request with asking off and *Add to queue*: `false`, nothing called; with asking on: the
+  dialog, *Play now* calls `openAsToday()`; nothing playing with *Popup player*: `false`.
+- `OpenActionPolicyDelegationTest`: `ac3_ac4_ac11_delegation_theWrapperDoesNotJudgeTheQueueItself`
+  runs over `SOMETHING_PLAYING`. New: for a request of another `way` the wrapped policy gets
+  `onTap` / `onTapChoice` with tap and state unchanged and its answer is the result, with the
+  switch on and off, every default action and start-in value, playing or not; `onTapChoice` is
+  never asked in place of `onTap`.
+- `DefaultSettingsEqualQueueGuardTest`: the grid loses the states with auto-enqueued videos
+  (13 states: four kinds with 0, 1 and 3 items, and `IDLE`) and gains, per state, the taps of
+  every `OpenWay` and the related tap; the asserted case counts follow from that. The five
+  comparisons stay.
+- `RememberChoiceTest`: the 8 stay. New: `onChoice` returns `true` for each of the three choices
+  with the box checked, `false` unchecked and for `CANCEL`; it returns `true` exactly when one
+  save was recorded; `true` again for a second remembered choice on the same store.
+- `RememberChoiceScenarioTest`: the 10 stay (`Run` ignores the result or asserts it). New: main
+  player with one video, asking on: tap -> dialog; *Play now* with the box checked -> notice due,
+  asking off saved; the next tap opens as today without a dialog (AM-1 "*Play now* included").
+- `DefaultOpenActionResourcesTest`: new, the string of B2.5 (parsed text, not
+  `translatable="false"`). `DefaultOpenActionWiringTest`: the 6 stay; new, the text check of
+  AM-1 in B2.6. `OpenActionModelTest`: unchanged.
+
+Until queue-guard's amended code is below this branch, this test source set does not compile.
+
+### B2.8 Device script
+
+1. AM-1. Asking on. Play a video in the background, tap another in a list, tick "Remember my
+   choice", choose *Play now*: it plays, and a message says asking is now off and names
+   Settings > Player > Ask before replacing the queue. Open that screen: the switch is off.
+   Switch it on and repeat with *Add to queue*: the message, then "Enqueued".
+2. AM-2. Asking on, default action *Add to queue*. Play one video on its page, go back, tap
+   another video: the dialog opens ("1 item in the queue"), nothing is enqueued by itself. On
+   the page of the playing video tap a related video: it opens and plays, no dialog.
+3. AM-3. Asking off, default action *Add to queue*, "Start playback in" *Popup player*.
+   Background player with a queue; open another video's page through "Show stream details" and
+   press its Background button: it plays there at once, nothing is enqueued. Tap a timed link in
+   a description while the main player holds a queue: the video opens as before this feature.
+   Close the player, share a link from another app and choose "Show info": the page opens, no
+   popup starts. A tap in a list still enqueues.
+
+### B2.9 Merging, risks, order
+
+- Merging: the only upstream file of this feature is `res/xml/video_audio_settings.xml`, not
+  touched here. `feature/keep-position`, `release-views`, `crash-fixes`, `crash-fixes-more`,
+  `player-memory` and `subscription-scale` change none of this feature's files.
+- Order: (1) queue-guard's amendment (code) is on `feature/queue-guard`; rebase this branch onto
+  it. G1 and G2 sit on two lines of `QueueGuard.kt` that the amendment does not change. (2)
+  `OpenActionPolicy.kt`, `RememberChoice.kt`. (3) the string, then `DefaultOpenAction.kt`. (4)
+  tests of B2.7; queue-guard's own stay green. (5) device script.
+- "Remember my choice" can now be ticked in a dialog opened from a video page control, a link or
+  the router. It saves the same two settings; the saved default action then applies to list taps
+  only, and with asking off those paths behave as today (Q9).
+- With asking on the default action is never used any more (row 6 covers every playing state);
+  it matters only after asking is switched off.
+- Assumed, not run: a toast shown right before another toast is displayed first and in full
+  (Android queues them); a toast created with a themed wrapper of the router shows after the
+  router has finished. Checked in source: the add-on is called only for a row click that is then
+  carried out (`QueueGuardDialog.kt:83-90`); `R.string.settings` and
+  `R.string.settings_category_player_title` are the titles of `res/xml/main_settings.xml:5,10`.
+- Q9 and Q10 are raised by this amendment and planned with the stated assumption.

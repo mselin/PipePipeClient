@@ -95,3 +95,22 @@ default action set to *Add to queue* or *Play next*, what should a tap do there?
 Applied: AC-4 (asking on: exactly queue-guard's behaviour, the default action is not used)
 and AC-3 (asking off: the default action applies, also on a single video). Plan, tests and
 code follow; queue-guard's plan section 6 describes what changes here.
+
+## Q9 plan -> spec
+Two things the amendment leaves open about the paths queue-guard's amendment adds (video page
+controls, links, videos from other apps). Their dialog is the video-tap dialog, so it carries
+"Remember my choice" (AC-7).
+- A choice remembered there: is it saved like one from a list tap? Planned with: yes, the same
+  two settings (AC-8) and the same message (AM-1). The saved default action then applies to
+  video taps in lists only, and with asking off those paths behave as today (AM-3).
+- A tap in the list of related videos on the page of the current item (queue-guard's AM-2) with
+  asking off: the default action, or "opens the video as today"? Planned with: the default
+  action, as AC-3 says for every tap on anything but the current item; queue-guard's AM-2 only
+  removes the dialog (its Q18).
+
+## Q10 plan -> spec
+AM-1, "a short message". Planned with: a toast, shown right before the choice is carried out, so
+before that choice's own toast ("Enqueued", ...). English text, with the names taken from the
+app's own strings: "Asking is now off. To switch it on again: Settings > Player > Ask before
+replacing the queue". It is shown for every remembered choice, also when asking was already off
+or the remembered action is the one already set.
