@@ -293,3 +293,26 @@ Two things next to AM-9, found while planning it (plan A2.15).
    mobile data, tapping the playing video would close the player and lose the queue, which
    is the owner's complaint. The spec gains AM-11: opening the page of the current item
    never closes the player. The plan is to add the hook in the page's loading.
+
+## Q22 tests -> plan
+Three places where the tests of Amendment 2 go beyond or beside the wording of the plan. Each has a
+working assumption and the tests are written with it; none blocks the Code layer.
+- A2.15 says "No JVM test for `playersQueueFor` and the seek step (glue)". AM-10 and AM-9/AM-11 are
+  the owner's complaint, and nothing on the JVM would notice the seek step being left out. So
+  `QueueGuardWiringTest.am10_theGlueSeeksForATimedLinkToTheCurrentItem` reads the feature's own
+  sources as text: `QueueGuard.kt` declares `fun onTimedLink(` and `fun playersQueueFor(`, and some
+  file of `enhancements/queueguard/` contains `DetailPlayerEvents.seekTo(seconds)`, the call as
+  A2.15 words it. Assumed: the Code layer writes that call literally. If the seek is to be written
+  differently, the test's one string has to follow.
+- A2.4 and A2.7 remove `noteAutoQueued`, `autoQueuedRecord`, `AutoQueuedRecord`, `autoQueuedCount`
+  and `worthGuarding`. `am1_theBookkeepingOfAutoQueuedVideosIsGoneFromTheFeaturesOwnCode` fails while
+  any file of `enhancements/queueguard/` still contains one of these names (or
+  `AUTO_QUEUED_RECORD_LIMIT`), in code or in a comment. Assumed: no comment needs to mention them.
+- A2.10 lists `...DoesNotDependOnTheAutoQueuedCount` "twice" among the removed tests of
+  `GuardModelTest`. The second one, `ac8_currentItemDoesNotDependOnTheAutoQueuedCount`, still holds
+  without the count (the current item is recognised in every playing state), so it is kept as
+  `ac8_currentItemIsRecognisedInEveryStateInWhichSomethingIsPlaying`. A2.10 also asks for the
+  fragments of A2.8 in the wiring test; the tests pin the whole line of A2.3, A2.15 and A2.16 with
+  `QG` written in full, the upstream lines directly above and below it, and its indentation.
+  Assumed: the hook lines are to be exactly those. A2.14 step 4 still says "the nine hook lines";
+  the tests follow A2.8 (10 added, 1 changed in place, Q1 removed: 34 in 13 files).

@@ -13,9 +13,11 @@ import org.junit.Test
  * order of the calls and that nothing else was called: no dialog, no other action, nothing on the
  * objects of another tap.
  *
- * Since answers A11 and A13 a dialog opens only for "a queue worth guarding": tests that expect one run
- * over [WORTH_GUARDING], and the last section covers the main player with a single video
- * ([SINGLE_IN_MAIN]).
+ * Amendment 2 (AM-1): a dialog opens whenever something is playing, a single video in the main player
+ * included. Tests that expect one run over [SOMETHING_PLAYING]. The section "A queue worth guarding, as
+ * amended" holds the tests that pinned the opposite before (answers A11 and A13), now inverted, and the
+ * last sections cover the requests Amendment 2 added: page controls, links and router actions
+ * ([OpenWay]), and the related list (AM-2).
  */
 class QueueGuardControllerTest {
 
@@ -58,7 +60,7 @@ class QueueGuardControllerTest {
     /** AC-1: "opens the queue-guard dialog. Until the user chooses, nothing else happens." */
     @Test
     fun ac1_tapWhileSomethingIsPlayingIsTakenOverAndOnlyOpensTheDialog() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
 
             val takenOver = scene.tap(tap)
@@ -71,7 +73,7 @@ class QueueGuardControllerTest {
 
     @Test
     fun ac1_tapWithMusicPlayerModeIsTakenOverAndOnlyOpensTheDialog() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
 
             val takenOver = scene.tap(musicModeTap)
@@ -120,14 +122,13 @@ class QueueGuardControllerTest {
     }
 
     /**
-     * In the main player a queue of one video opens no dialog (answer A11, AC-7), so the sizes there
-     * start at two.
+     * AC-2 for every player from a queue of one on. Answer A11 had made the main player start at two;
+     * AM-1 withdraws that (plan A2.10: "uses one item for the main player again").
      */
     @Test
     fun ac2_dialogGetsTheQueueSizeOfEachPlayer() {
         for (kind in ALL_KINDS) {
-            val queueSizes = if (kind == PlayerKind.MAIN) listOf(2, 40) else listOf(1, 2, 40)
-            for (queueSize in queueSizes) {
+            for (queueSize in listOf(1, 2, 40)) {
                 val scene = scene(playing(kind, queueSize = queueSize))
 
                 scene.tap(tap)
@@ -144,7 +145,7 @@ class QueueGuardControllerTest {
     /** AC-3: the result equals the long-press action "Enqueue". */
     @Test
     fun ac3_addToQueueCallsOnlyEnqueue() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.tap(tap)
 
@@ -157,7 +158,7 @@ class QueueGuardControllerTest {
     /** AC-4: the result equals the long-press action "Enqueue next". */
     @Test
     fun ac4_playNextCallsOnlyEnqueueNext() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.tap(tap)
 
@@ -232,7 +233,7 @@ class QueueGuardControllerTest {
     /** AC-5, Music Player Mode: Play now is what a tap does there today, "whichever player is in use". */
     @Test
     fun ac5_playNowWithMusicPlayerModeReplaysTheTapInEveryPlayer() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             val replay = replayOnOpenAsToday(scene, musicModeTap)
             scene.tap(musicModeTap)
@@ -308,7 +309,7 @@ class QueueGuardControllerTest {
     /** AC-6: "Cancel ... changes nothing." */
     @Test
     fun ac6_cancelCallsNoAction() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.tap(tap)
 
@@ -401,7 +402,7 @@ class QueueGuardControllerTest {
     /** AC-9: "Add to queue ... do[es] what Enqueue does today when nothing is playing." */
     @Test
     fun ac9_addToQueueAfterThePlayerWasClosedCallsOnlyEnqueue() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             for (closed in NOTHING_PLAYING) {
                 val scene = scene(state)
                 scene.tap(tap)
@@ -421,7 +422,7 @@ class QueueGuardControllerTest {
     /** AC-9: *Play next* becomes "Enqueue" too. "Enqueue next" has no current item to follow. */
     @Test
     fun ac9_playNextAfterThePlayerWasClosedCallsEnqueueInsteadOfEnqueueNext() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             for (closed in NOTHING_PLAYING) {
                 val scene = scene(state)
                 scene.tap(tap)
@@ -445,7 +446,7 @@ class QueueGuardControllerTest {
      */
     @Test
     fun ac9_playNowAfterThePlayerWasClosedReplaysTheTapAsToday() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             for (closed in NOTHING_PLAYING) {
                 val scene = scene(state)
                 val replay = replayOnOpenAsToday(scene, tap)
@@ -525,7 +526,7 @@ class QueueGuardControllerTest {
     /** AC-10: "pressing a play button opens the dialog in its list form." Nothing plays before a choice. */
     @Test
     fun ac10_playButtonWhileSomethingIsPlayingOnlyOpensTheListDialog() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
 
             scene.pressPlayButton(videoCount = 12)
@@ -580,7 +581,7 @@ class QueueGuardControllerTest {
     /** AC-11: *Add all to queue*. */
     @Test
     fun ac11_addAllToQueueCallsOnlyEnqueueAll() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.pressPlayButton(videoCount = 12)
 
@@ -593,7 +594,7 @@ class QueueGuardControllerTest {
     /** AC-11: *Play all next*. */
     @Test
     fun ac11_playAllNextCallsOnlyEnqueueAllNext() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.pressPlayButton(videoCount = 12)
 
@@ -606,7 +607,7 @@ class QueueGuardControllerTest {
     /** AC-11, last sentence, and answer A5: with the player closed, *Add all* is "Enqueue" of the list. */
     @Test
     fun ac11_addAllToQueueAfterThePlayerWasClosedCallsOnlyEnqueueAll() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             for (closed in NOTHING_PLAYING) {
                 val scene = scene(state)
                 scene.pressPlayButton(videoCount = 12)
@@ -626,7 +627,7 @@ class QueueGuardControllerTest {
     /** AC-11, last sentence, and answer A5: with the player closed, *Play all next* is "Enqueue" as well. */
     @Test
     fun ac11_playAllNextAfterThePlayerWasClosedCallsEnqueueAllInsteadOfEnqueueAllNext() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             for (closed in NOTHING_PLAYING) {
                 val scene = scene(state)
                 scene.pressPlayButton(videoCount = 12)
@@ -646,7 +647,7 @@ class QueueGuardControllerTest {
     /** AC-12: "Replace queue does what the pressed button does today." */
     @Test
     fun ac12_replaceQueueCallsOnlyPlayAsToday() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.pressPlayButton(videoCount = 12)
 
@@ -659,7 +660,7 @@ class QueueGuardControllerTest {
     /** AC-12 and answer A5: the same with the player closed in the meantime. */
     @Test
     fun ac12_replaceQueueAfterThePlayerWasClosedCallsOnlyPlayAsToday() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             for (closed in NOTHING_PLAYING) {
                 val scene = scene(state)
                 scene.pressPlayButton(videoCount = 12)
@@ -679,7 +680,7 @@ class QueueGuardControllerTest {
     /** AC-13: "Cancel ... change[s] nothing." */
     @Test
     fun ac13_cancelInTheListDialogCallsNoAction() {
-        for (state in WORTH_GUARDING) {
+        for (state in SOMETHING_PLAYING) {
             val scene = scene(state)
             scene.pressPlayButton(videoCount = 12)
 
@@ -787,138 +788,111 @@ class QueueGuardControllerTest {
     }
 
     // =============================================================================================
-    // A queue worth guarding (answers A11 and A13)
+    // A queue worth guarding, as amended (AM-1)
     // =============================================================================================
 
-    private fun main(queueSize: Int, autoQueued: Int = 0) =
-        playing(PlayerKind.MAIN, queueSize = queueSize, autoQueued = autoQueued)
+    private fun main(queueSize: Int) = playing(PlayerKind.MAIN, queueSize = queueSize)
 
     /**
-     * AC-7: "Without a queue worth guarding (... a single video in the main player), a video tap behaves
-     * as today and no dialog appears": `false`, and neither the ui nor an action is touched.
+     * The main player from a single video on: one video, and the lengths that used to stand for "it and
+     * the auto-enqueued next ones" (the removed fixture `SINGLE_IN_MAIN`).
+     */
+    private val mainFromOneVideoOn = listOf(main(1), main(2), main(3))
+
+    /**
+     * INVERTED by AM-1. Was `ac7_tapWithASingleVideoInTheMainPlayerIsNotTakenOver` and expected `false`
+     * and an untouched ui. Now the tap is taken over and only the dialog opens; for one video it shows
+     * "1" (device script step 1: "the dialog opens and says 1 item in the queue").
      */
     @Test
-    fun ac7_tapWithASingleVideoInTheMainPlayerIsNotTakenOver() {
-        for (ask in listOf(true, false)) {
-            settings.ask = ask
-            for (state in SINGLE_IN_MAIN) {
-                for (request in listOf(tap, musicModeTap)) {
-                    val scene = scene(state)
-
-                    val takenOver = scene.tap(request)
-
-                    assertFalse("switch $ask, $state, $request", takenOver)
-                    assertEquals("switch $ask, $state, $request", emptyList<String>(), scene.journal.all)
-                }
-            }
-        }
-    }
-
-    /** AC-14: "Without a queue worth guarding, the play buttons behave as today and no dialog appears." */
-    @Test
-    fun ac14_playButtonWithASingleVideoInTheMainPlayerPlaysAsTodayAtOnce() {
-        for (ask in listOf(true, false)) {
-            settings.ask = ask
-            for (state in SINGLE_IN_MAIN) {
+    fun am1_tapWithASingleVideoInTheMainPlayerIsTakenOverAndOpensTheDialog() {
+        for (state in mainFromOneVideoOn) {
+            for (request in listOf(tap, musicModeTap)) {
                 val scene = scene(state)
 
-                scene.pressPlayButton(videoCount = 12)
+                val takenOver = scene.tap(request)
 
-                assertEquals("switch $ask, $state", listOf("playAsToday"), scene.journal.all)
+                assertTrue("$state, $request", takenOver)
+                assertEquals(
+                    "$state, $request",
+                    listOf(askedForTap("Tapped video", state.queueSize)),
+                    scene.journal.all,
+                )
             }
         }
+        val single = scene(main(1))
+        single.tap(tap)
+        assertEquals(listOf(FakeGuardUi.TapPrompt("Tapped video", 1)), single.ui.tapPrompts)
     }
 
     /**
-     * AC-1 and AC-7: the player is read at every tap. One video in the main player: the tap goes through.
-     * The user enqueues a second one: the next tap asks. Back to one: through again.
+     * INVERTED by AM-1. Was `ac14_playButtonWithASingleVideoInTheMainPlayerPlaysAsTodayAtOnce` and
+     * expected `playAsToday` at once. Now the list dialog opens (AC-10) and nothing plays before a choice.
      */
     @Test
-    fun ac1_ac7_stateIsReadAtEveryTap_theSecondVideoOfTheUsersBringsTheDialog() {
-        val scene = scene(main(1))
+    fun am1_ac10_playButtonWithASingleVideoInTheMainPlayerOpensTheListDialog() {
+        for (state in mainFromOneVideoOn) {
+            val scene = scene(state)
 
-        assertFalse("one video: not taken over", scene.tap(tap))
+            scene.pressPlayButton(videoCount = 12)
+
+            assertEquals("$state", listOf(askedForList(12, state.queueSize)), scene.journal.all)
+            assertEquals("$state: no action before a choice", emptyList<String>(), scene.listActions.calls)
+        }
+    }
+
+    /**
+     * INVERTED by AM-1. Was `ac1_ac7_stateIsReadAtEveryTap_theSecondVideoOfTheUsersBringsTheDialog`: one
+     * video went through, the second brought the dialog. Now (plan A2.10) nothing playing: not taken
+     * over; one video: dialog; nothing playing again: through again. The player is still read at every tap.
+     */
+    @Test
+    fun am1_stateIsReadAtEveryTap_theFirstVideoBringsTheDialog() {
+        val scene = scene(openButEmpty(PlayerKind.MAIN))
+
+        assertFalse("nothing playing: not taken over", scene.tap(tap))
         assertEquals(emptyList<String>(), scene.journal.all)
 
-        scene.player.state = main(2)
-        assertTrue("two videos: taken over", scene.tap(tap))
-        assertEquals(listOf(askedForTap("Tapped video", 2)), scene.journal.all)
+        scene.player.state = main(1)
+        assertTrue("one video: taken over", scene.tap(tap))
+        assertEquals(listOf(askedForTap("Tapped video", 1)), scene.journal.all)
         scene.ui.choose(GuardChoice.CANCEL)
 
-        scene.player.state = main(1)
-        assertFalse("one video again: not taken over", scene.tap(tap))
-        assertEquals(listOf(askedForTap("Tapped video", 2)), scene.journal.all)
-    }
-
-    /** The same while playback moves on by itself (answer A13) and for the play buttons (AC-10, AC-14). */
-    @Test
-    fun ac1_ac7_ac10_ac14_stateIsReadAtEveryTapAndPress_autoQueuedVideosNeverBringTheDialog() {
-        val scene = scene(main(1))
-        for (state in listOf(main(1), main(2, autoQueued = 1), main(3, autoQueued = 2), main(4, autoQueued = 3))) {
-            scene.player.state = state
-            assertFalse("$state", scene.tap(tap))
-            scene.pressPlayButton(videoCount = 12)
-        }
-        assertEquals(List(4) { "playAsToday" }, scene.journal.all)
-
-        scene.player.state = main(5, autoQueued = 3)
-        assertTrue("the user enqueued a video", scene.tap(tap))
-        scene.pressPlayButton(videoCount = 12)
-
-        assertEquals(
-            List(4) { "playAsToday" } + listOf(askedForTap("Tapped video", 5), askedForList(12, 5)),
-            scene.journal.all,
-        )
+        scene.player.state = PlayerState.IDLE
+        assertFalse("the player was closed: not taken over", scene.tap(tap))
+        assertEquals(listOf(askedForTap("Tapped video", 1)), scene.journal.all)
     }
 
     /**
-     * AC-2: "the number of items in the queue" is the whole queue, the videos the player added by itself
-     * included (plan 3.1: `queueSize` "is the number the dialog shows").
+     * AM-1, the opposite of the removed
+     * `ac1_ac7_ac10_ac14_stateIsReadAtEveryTapAndPress_autoQueuedVideosNeverBringTheDialog`: while the
+     * main player's queue grows by itself behind one chosen video, every tap and every press asks, and
+     * the dialog shows the whole queue (AC-2, AC-10).
      */
     @Test
-    fun ac2_dialogGetsTheWholeQueueSizeWhenSomeVideosWereAutoQueued() {
-        val cases = listOf(
-            main(5, autoQueued = 3) to 5,
-            main(3, autoQueued = 1) to 3,
-            playing(PlayerKind.BACKGROUND, queueSize = 3, autoQueued = 2) to 3,
-            playing(PlayerKind.POPUP, queueSize = 2, autoQueued = 2) to 2,
-        )
-        for ((state, shown) in cases) {
-            val scene = scene(state)
-
-            assertTrue("$state", scene.tap(tap))
-
-            assertEquals("$state", listOf(FakeGuardUi.TapPrompt("Tapped video", shown)), scene.ui.tapPrompts)
-        }
-    }
-
-    /** AC-10: the list dialog gets the whole queue too, "an auto-enqueued video included". */
-    @Test
-    fun ac10_listDialogGetsTheWholeQueueSizeWhenSomeVideosWereAutoQueued() {
-        val cases = listOf(
-            main(5, autoQueued = 3) to 5,
-            playing(PlayerKind.BACKGROUND, queueSize = 3, autoQueued = 2) to 3,
-        )
-        for ((state, shown) in cases) {
-            val scene = scene(state)
-
+    fun am1_ac2_ac10_everyTapAndPressAsksWhileTheQueueGrowsByItself() {
+        val scene = scene(main(1))
+        val expected = mutableListOf<String>()
+        for (queueSize in 1..4) {
+            scene.player.state = main(queueSize)
+            assertTrue("queue of $queueSize", scene.tap(tap))
             scene.pressPlayButton(videoCount = 12)
-
-            assertEquals("$state", listOf(FakeGuardUi.ListPrompt(12, shown)), scene.ui.listPrompts)
-            assertEquals("$state", listOf(askedForList(12, shown)), scene.journal.all)
+            expected += askedForTap("Tapped video", queueSize)
+            expected += askedForList(12, queueSize)
         }
+        assertEquals(expected, scene.journal.all)
     }
 
-    // Plan 3.2: "A dialog only opens for a queue worth guarding; if the queue has stopped being one when
-    // the user chooses ..., the choice is still carried out against what is playing." Here the dialog
-    // opens in the main player with three videos, and the player is down to a single video (each state
-    // of SINGLE_IN_MAIN) when the user chooses. Plan section 5, AC-9: "the choice is carried out as if
-    // nothing had changed".
+    // Rows 8 to 12 judge a choice on "playing" at the moment it is made (plan A2.2). Here the dialog
+    // opens in the main player with three videos, and the player is down to a single video when the user
+    // chooses. Plan A2.10: these eight tests "keep their results on plain states".
+
+    private val downToOneVideo = listOf(main(1))
 
     /** AC-3: *Add to queue* is still "Enqueue". */
     @Test
     fun ac3_addToQueueCallsOnlyEnqueueWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             scene.tap(tap)
             scene.player.state = later
@@ -932,7 +906,7 @@ class QueueGuardControllerTest {
     /** AC-4: *Play next* is still "Enqueue next": something is playing, so there is a current item. */
     @Test
     fun ac4_playNextCallsOnlyEnqueueNextWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             scene.tap(tap)
             scene.player.state = later
@@ -943,10 +917,13 @@ class QueueGuardControllerTest {
         }
     }
 
-    /** AC-5: *Play now* is today's tap; the replayed tap is let through and opens no second dialog. */
+    /**
+     * AC-5: *Play now* is today's tap; the replayed tap is let through and opens no second dialog,
+     * although a single video in the main player would now ask (AM-1) if it were an ordinary tap.
+     */
     @Test
     fun ac5_playNowReplaysTheTapWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             val replay = replayOnOpenAsToday(scene, tap)
             scene.tap(tap)
@@ -976,7 +953,7 @@ class QueueGuardControllerTest {
     /** AC-6: *Cancel* still changes nothing. */
     @Test
     fun ac6_cancelCallsNoActionWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             scene.tap(tap)
             scene.player.state = later
@@ -990,7 +967,7 @@ class QueueGuardControllerTest {
     /** AC-11: *Add all to queue* is still carried out. */
     @Test
     fun ac11_addAllToQueueCallsOnlyEnqueueAllWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             scene.pressPlayButton(videoCount = 12)
             scene.player.state = later
@@ -1004,7 +981,7 @@ class QueueGuardControllerTest {
     /** AC-11: *Play all next* stays "all next": something is playing, so there is a current item. */
     @Test
     fun ac11_playAllNextCallsOnlyEnqueueAllNextWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             scene.pressPlayButton(videoCount = 12)
             scene.player.state = later
@@ -1018,7 +995,7 @@ class QueueGuardControllerTest {
     /** AC-12: *Replace queue* is the pressed button as today, without a second dialog. */
     @Test
     fun ac12_replaceQueueCallsOnlyPlayAsTodayWhenTheMainPlayerIsDownToOneVideoAtTheChoice() {
-        for (later in SINGLE_IN_MAIN) {
+        for (later in downToOneVideo) {
             val scene = scene(main(3))
             scene.pressPlayButton(videoCount = 12)
             scene.player.state = later
@@ -1029,17 +1006,385 @@ class QueueGuardControllerTest {
         }
     }
 
-    /** AC-16: with the switch off a tap in the main player is today's tap, whatever its queue. */
+    /**
+     * AC-16: with the switch off a tap in the main player is today's tap, whatever its queue. Was
+     * `ac16_switchOff_tapInMainPlayerIsNotTakenOverWhetherTheQueueIsWorthGuardingOrNot`; same result.
+     */
     @Test
-    fun ac16_switchOff_tapInMainPlayerIsNotTakenOverWhetherTheQueueIsWorthGuardingOrNot() {
+    fun ac16_switchOff_tapInMainPlayerIsNotTakenOverWhateverItsQueue() {
         settings.ask = false
-        for (state in SINGLE_IN_MAIN + WORTH_GUARDING.filter { it.kind == PlayerKind.MAIN }) {
+        for (state in mainFromOneVideoOn + main(5)) {
             val scene = scene(state)
 
             assertFalse("$state", scene.tap(tap))
             scene.pressPlayButton(videoCount = 12)
 
             assertEquals("$state", listOf("playAsToday"), scene.journal.all)
+        }
+    }
+
+    // =============================================================================================
+    // Amendment 2: the related list (AM-2)
+    // =============================================================================================
+
+    /**
+     * AM-2: "a video tap in the list of related videos on the video page of the current item opens the
+     * video as today, without a dialog": the hook gets `false`, nothing else is called.
+     */
+    @Test
+    fun am2_relatedTapOnThePageOfTheCurrentItemIsNotTakenOver() {
+        for (state in SOMETHING_PLAYING) {
+            val scene = scene(state)
+
+            val takenOver = scene.tap(relatedTap(pageOf = CURRENT_VIDEO))
+
+            assertFalse("$state", takenOver)
+            assertEquals("$state", emptyList<String>(), scene.journal.all)
+        }
+    }
+
+    /** AM-2 is one exception: the related list on another video's page asks (device script step 2). */
+    @Test
+    fun am2_relatedTapOnThePageOfAnotherVideoOpensTheDialog() {
+        for (state in SOMETHING_PLAYING) {
+            val scene = scene(state)
+
+            val takenOver = scene.tap(relatedTap(pageOf = OTHER_VIDEO))
+
+            assertTrue("$state", takenOver)
+            assertEquals("$state", listOf(askedForTap("Tapped video", state.queueSize)), scene.journal.all)
+        }
+    }
+
+    /**
+     * AM-2 with the switch off (answer A18): the tap is played now. Beside the background or popup player
+     * the video starts there and the tap is taken over; in the main player it is today's tap.
+     */
+    @Test
+    fun am2_ac16_switchOff_relatedTapOnThePageOfTheCurrentItemIsPlayedNow() {
+        settings.ask = false
+        val expected = mapOf(
+            PlayerKind.MAIN to (false to emptyList<String>()),
+            PlayerKind.BACKGROUND to (true to listOf("startInBackground")),
+            PlayerKind.POPUP to (true to listOf("startInPopup")),
+        )
+        for ((kind, outcome) in expected) {
+            val scene = scene(playing(kind))
+
+            val takenOver = scene.tap(relatedTap(pageOf = CURRENT_VIDEO))
+
+            assertEquals("$kind: taken over", outcome.first, takenOver)
+            assertEquals("$kind", outcome.second, scene.journal.all)
+        }
+    }
+
+    // =============================================================================================
+    // Amendment 2: page controls (AM-3, AM-9)
+    // =============================================================================================
+
+    private val pageControl = requestBy(OpenWay.PAGE_CONTROL, title = "Video of the page")
+
+    /**
+     * AM-3: on the page of a video that is not the current item a play control "open[s] the video-tap
+     * dialog for that video", with its title, in every player. Until the user chooses nothing else
+     * happens (AC-1): the hook gets `true` and skips the control's own statements.
+     */
+    @Test
+    fun am3_pageControlOfAnotherVideoIsTakenOverAndOnlyOpensTheDialog() {
+        for (state in SOMETHING_PLAYING) {
+            val scene = scene(state)
+
+            val takenOver = scene.tap(pageControl)
+
+            assertTrue("$state", takenOver)
+            assertEquals("$state", listOf(askedForTap("Video of the page", state.queueSize)), scene.journal.all)
+            assertEquals("$state: the tap form", emptyList<FakeGuardUi.ListPrompt>(), scene.ui.listPrompts)
+        }
+    }
+
+    /**
+     * AM-3: "*Play now* does what the pressed control does today": `openAsToday()`, the replay of the
+     * control, in every player; never a direct start in the player in use. The replay reaches the hook
+     * again and that call returns `false`, so the control's own statements run.
+     */
+    @Test
+    fun am3_playNowOfAPageControlReplaysTheControlInEveryPlayerAndLetsTheReplayThrough() {
+        for (state in SOMETHING_PLAYING) {
+            val scene = scene(state)
+            val replay = replayOnOpenAsToday(scene, pageControl)
+            scene.tap(pageControl)
+
+            scene.ui.choose(GuardChoice.PLAY_NOW)
+
+            assertEquals(
+                "$state",
+                listOf(askedForTap("Video of the page", state.queueSize), "openAsToday"),
+                scene.journal.all,
+            )
+            assertEquals("$state: the replayed control must be let through", listOf(false), replay.answers)
+        }
+    }
+
+    /** AM-3 with AC-9: *Play now* after the player was closed is the control as today as well. */
+    @Test
+    fun am3_ac9_playNowOfAPageControlAfterThePlayerWasClosedReplaysTheControl() {
+        for (closed in NOTHING_PLAYING) {
+            val scene = scene(playing(PlayerKind.BACKGROUND))
+            val replay = replayOnOpenAsToday(scene, pageControl)
+            scene.tap(pageControl)
+            scene.player.state = closed
+
+            scene.ui.choose(GuardChoice.PLAY_NOW)
+
+            assertEquals("-> $closed", listOf(askedForTap("Video of the page", 3), "openAsToday"), scene.journal.all)
+            assertEquals("-> $closed", listOf(false), replay.answers)
+        }
+    }
+
+    /** AM-3 with AC-3 and AC-4: *Add to queue* and *Play next* call only `enqueue()` / `enqueueNext()`. */
+    @Test
+    fun am3_ac3_ac4_addToQueueAndPlayNextOfAPageControlCallOnlyEnqueueAndEnqueueNext() {
+        for (state in SOMETHING_PLAYING) {
+            val adding = scene(state)
+            adding.tap(pageControl)
+            adding.ui.choose(GuardChoice.ADD_TO_QUEUE)
+            assertEquals(
+                "$state, add to queue",
+                listOf(askedForTap("Video of the page", state.queueSize), "enqueue"),
+                adding.journal.all,
+            )
+
+            val next = scene(state)
+            next.tap(pageControl)
+            next.ui.choose(GuardChoice.PLAY_NEXT)
+            assertEquals(
+                "$state, play next",
+                listOf(askedForTap("Video of the page", state.queueSize), "enqueueNext"),
+                next.journal.all,
+            )
+        }
+    }
+
+    /** AM-3 with AC-6: *Cancel* on the dialog of a page control changes nothing. */
+    @Test
+    fun am3_ac6_cancelOfAPageControlCallsNoAction() {
+        for (state in SOMETHING_PLAYING) {
+            val scene = scene(state)
+            scene.tap(pageControl)
+
+            scene.ui.choose(GuardChoice.CANCEL)
+
+            assertEquals("$state", listOf(askedForTap("Video of the page", state.queueSize)), scene.journal.all)
+        }
+    }
+
+    /**
+     * AM-7: with the switch off a page control is not taken over in any player (`false`, nothing
+     * called), also beside the background or popup player, where a list tap would be played now.
+     */
+    @Test
+    fun am7_switchOff_pageControlIsNotTakenOver() {
+        settings.ask = false
+        for (state in SOMETHING_PLAYING) {
+            val scene = scene(state)
+
+            assertFalse("$state", scene.tap(pageControl))
+
+            assertEquals("$state", emptyList<String>(), scene.journal.all)
+        }
+    }
+
+    /**
+     * AM-3, last sentence, and AM-9: "On the page of the current item these controls behave as today":
+     * the hook gets `false` whatever the switch and the queue length, so the control's own statements
+     * run (and hook P5 hands them the player's queue).
+     */
+    @Test
+    fun am3_am9_pageControlOnThePageOfTheCurrentItemIsNotTakenOver() {
+        for (ask in listOf(true, false)) {
+            settings.ask = ask
+            for (state in SOMETHING_PLAYING + playing(PlayerKind.BACKGROUND, queueSize = 40)) {
+                val scene = scene(state)
+
+                assertFalse("switch $ask, $state", scene.tap(requestForCurrentBy(OpenWay.PAGE_CONTROL)))
+
+                assertEquals("switch $ask, $state", emptyList<String>(), scene.journal.all)
+            }
+        }
+    }
+
+    /** AM-1: a page control while nothing is playing is not taken over. */
+    @Test
+    fun am1_pageControlWhileNothingIsPlayingIsNotTakenOver() {
+        for (state in NOTHING_PLAYING) {
+            val scene = scene(state)
+
+            assertFalse("$state", scene.tap(pageControl))
+
+            assertEquals("$state", emptyList<String>(), scene.journal.all)
+        }
+    }
+
+    // =============================================================================================
+    // Amendment 2: links, typed addresses, the router (AM-5, AM-6, AM-7)
+    // =============================================================================================
+
+    private val address = "https://video.example/watch?v=linked"
+
+    /** A request that knows no title: the dialog shows the address (answer A20, plan A2.6). */
+    private fun linkBy(way: OpenWay) = requestBy(way, url = address, title = address)
+
+    /**
+     * AM-5, AM-6: with the main player, a timed link, a typed address and "show info" / "video player"
+     * for a video of another app open the dialog. Spec: "the dialog shows the address where it shows a
+     * title for a list item".
+     */
+    @Test
+    fun am5_am6_openingAVideoPageInTheMainPlayerOpensTheDialogWithTheAddress() {
+        for (queueSize in listOf(1, 3)) {
+            val scene = scene(main(queueSize))
+
+            val takenOver = scene.tap(linkBy(OpenWay.VIDEO_PAGE))
+
+            assertTrue("queue of $queueSize", takenOver)
+            assertEquals("queue of $queueSize", listOf(askedForTap(address, queueSize)), scene.journal.all)
+        }
+    }
+
+    /**
+     * AM-5 and AM-6, one rule (plan A2.10: "A `VIDEO_PAGE` request beside the background player returns
+     * `false`"): beside the background or popup player the page opens as today, without a dialog.
+     */
+    @Test
+    fun am5_am6_openingAVideoPageBesideTheBackgroundOrPopupPlayerIsNotTakenOver() {
+        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
+            for (queueSize in listOf(1, 3)) {
+                val scene = scene(playing(kind, queueSize = queueSize))
+
+                assertFalse("$kind, queue of $queueSize", scene.tap(linkBy(OpenWay.VIDEO_PAGE)))
+
+                assertEquals("$kind, queue of $queueSize", emptyList<String>(), scene.journal.all)
+            }
+        }
+    }
+
+    /**
+     * AM-6: "background player" and "popup player" chosen for a video of another app open the dialog in every player.
+     */
+    @Test
+    fun am6_playerActionOfAnotherAppOpensTheDialogInEveryPlayer() {
+        for (way in listOf(OpenWay.BACKGROUND_PLAYER, OpenWay.POPUP_PLAYER)) {
+            for (state in SOMETHING_PLAYING) {
+                val scene = scene(state)
+
+                assertTrue("$way, $state", scene.tap(linkBy(way)))
+
+                assertEquals("$way, $state", listOf(askedForTap(address, state.queueSize)), scene.journal.all)
+            }
+        }
+    }
+
+    /**
+     * AM-5, AM-6: the three choices for a link or a router action. *Play now* is "what the path does
+     * today" (answer A17): the replay, let through. *Add to queue* and *Play next* only enqueue.
+     */
+    @Test
+    fun am5_am6_choicesOfALinkOrRouterRequestReplayOrEnqueue() {
+        for (way in listOf(OpenWay.VIDEO_PAGE, OpenWay.BACKGROUND_PLAYER, OpenWay.POPUP_PLAYER)) {
+            val request = linkBy(way)
+            val asked = askedForTap(address, 3)
+
+            val playNow = scene(main(3))
+            val replay = replayOnOpenAsToday(playNow, request)
+            playNow.tap(request)
+            playNow.ui.choose(GuardChoice.PLAY_NOW)
+            assertEquals("$way, play now", listOf(asked, "openAsToday"), playNow.journal.all)
+            assertEquals("$way: the replay must be let through", listOf(false), replay.answers)
+
+            val add = scene(main(3))
+            add.tap(request)
+            add.ui.choose(GuardChoice.ADD_TO_QUEUE)
+            assertEquals("$way, add to queue", listOf(asked, "enqueue"), add.journal.all)
+
+            val next = scene(main(3))
+            next.tap(request)
+            next.ui.choose(GuardChoice.PLAY_NEXT)
+            assertEquals("$way, play next", listOf(asked, "enqueueNext"), next.journal.all)
+
+            val cancel = scene(main(3))
+            cancel.tap(request)
+            cancel.ui.choose(GuardChoice.CANCEL)
+            assertEquals("$way, cancel", listOf(asked), cancel.journal.all)
+        }
+    }
+
+    /**
+     * AM-6: *Play now* of "popup player" chosen in another app while the background player is in use
+     * replays the router's action; it does not start the video in the background player, which is what
+     * *Play now* of a list tap does there (AC-5).
+     */
+    @Test
+    fun am6_playNowOfAPlayerActionOfAnotherAppIsNotRedirectedToThePlayerInUse() {
+        val request = linkBy(OpenWay.POPUP_PLAYER)
+        val scene = scene(playing(PlayerKind.BACKGROUND))
+        scene.tap(request)
+
+        scene.ui.choose(GuardChoice.PLAY_NOW)
+
+        assertEquals(listOf(askedForTap(address, 3), "openAsToday"), scene.journal.all)
+    }
+
+    /** AM-7: with the switch off "AM-3, AM-5 and AM-6 do not apply": no such request is taken over in any player. */
+    @Test
+    fun am7_switchOff_noLinkOrRouterRequestIsTakenOver() {
+        settings.ask = false
+        for (way in NOT_LIST_WAYS) {
+            for (state in SOMETHING_PLAYING) {
+                val scene = scene(state)
+
+                assertFalse("$way, $state", scene.tap(linkBy(way)))
+
+                assertEquals("$way, $state", emptyList<String>(), scene.journal.all)
+            }
+        }
+    }
+
+    /**
+     * AM-5, AM-10, AM-11: a typed address, a link or "show info" for the current item is not taken over,
+     * whatever the queue length and the switch: no dialog, and the page is opened as today (where P6
+     * keeps the player).
+     */
+    @Test
+    fun am5_am11_openingThePageOfTheCurrentItemIsNotTakenOver() {
+        for (ask in listOf(true, false)) {
+            settings.ask = ask
+            for (state in SOMETHING_PLAYING) {
+                val scene = scene(state)
+
+                assertFalse("switch $ask, $state", scene.tap(requestForCurrentBy(OpenWay.VIDEO_PAGE)))
+
+                assertEquals("switch $ask, $state", emptyList<String>(), scene.journal.all)
+            }
+        }
+    }
+
+    /**
+     * AM-6 for the current item (plan A2.15): "background player" / "popup player" for the playing video
+     * goes through while it is the whole queue, and asks when the queue is longer, since "a longer queue
+     * would be replaced by the video alone".
+     */
+    @Test
+    fun am6_playerActionOfAnotherAppForTheCurrentItemAsksOnlyWhenTheQueueIsLonger() {
+        for (way in listOf(OpenWay.BACKGROUND_PLAYER, OpenWay.POPUP_PLAYER)) {
+            for (kind in ALL_KINDS) {
+                val alone = scene(playing(kind, queueSize = 1))
+                assertFalse("$way, $kind, the whole queue", alone.tap(requestForCurrentBy(way)))
+                assertEquals("$way, $kind, the whole queue", emptyList<String>(), alone.journal.all)
+
+                val longer = scene(playing(kind, queueSize = 3))
+                assertTrue("$way, $kind, a longer queue", longer.tap(requestForCurrentBy(way)))
+                assertEquals("$way, $kind, a longer queue", listOf(askedForTap("Tapped video", 3)), longer.journal.all)
+            }
         }
     }
 }
