@@ -595,6 +595,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
             playerService.stopForImmediateReusing()
             view.visibility = View.GONE
         } else {
+            org.schabi.newpipe.enhancements.keepposition.KeepPosition.onPageStopsPlayer(player, vm.serviceId, vm.url) // ENH:keep-position
             playerHolder.stopService()
         }
     }

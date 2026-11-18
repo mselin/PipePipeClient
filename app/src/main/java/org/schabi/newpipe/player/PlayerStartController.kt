@@ -97,6 +97,7 @@ class PlayerStartController(private val player: Player) {
          * In those cases time will be saved because re-init of the play queue is a not an instant
          *  task and requires network calls
          * */
+        org.schabi.newpipe.enhancements.keepposition.KeepPosition.onStartIntent(player, newQueue) // ENH:keep-position
         // seek to timestamp if stream is already playing
         if (!player.exoPlayerIsNull()
             && newQueue.size() == 1 && newQueue.getItem() != null
