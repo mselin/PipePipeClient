@@ -246,3 +246,24 @@ AC-2: the dialog "shows the title of the tapped video". A timed link, an address
 and a link from another app know only the address until the video is loaded. Planned with: the
 dialog shows the address in place of the title; the page controls of AM-3 show the title.
 Loading the video first only to show its title would delay the dialog by a network request.
+
+## A15 spec
+Neither case may lose the queue; that is the owner's complaint. The spec gains AM-9 (page
+controls of the current item act on the player's queue) and AM-10 (a time link in the current
+item seeks in place and keeps the queue). The plan is to be extended for both. If acting on
+the player's queue cannot be done safely, ask again; do not fall back to replacing.
+
+## A16 spec
+Accepted, and written into AM-4.
+
+## A17 spec
+Accepted: one rule, ask exactly where the queue would be replaced.
+
+## A18 spec
+Accepted.
+
+## A19 spec
+Not covered for now; listed in the spec.
+
+## A20 spec
+Accepted.
