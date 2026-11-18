@@ -20,6 +20,14 @@ private const val W = "uuid-W"
  * `shouldSeekOnSynchronize` of the method table in plan section 3.1.
  *
  * Both switches are on, so a mark that wrongly survived would seek.
+ *
+ * Changed by spec "Amendment 2" (AM-1, AM-2; plan 10.1 and 10.7). "A start never sets a
+ * mark" is no longer true for two kinds of start: the next start of a video whose player was
+ * closed because of an error (AM-1, [KeepPositionTrackerErrorCloseTest]) and a start of the
+ * video that is playing (AM-2, [KeepPositionTrackerSameVideoStartTest]). Both pass a claim in
+ * `onStartIntent` (hook G1). The tests of this class keep their assertions; what they state
+ * now is narrower: a start that passed no such claim begins at 0:00. None of them calls
+ * `onStartIntent`, except where its KDoc says so.
  */
 class KeepPositionTrackerStartTest {
 
@@ -63,18 +71,37 @@ class KeepPositionTrackerStartTest {
     }
 
     /**
-     * Pressing play after the player was closed: a new player, a new ExoPlayer at position 0.
-     * `initPlayback` and the reload right after it call `onReload`, which sets nothing.
+     * AC-7 as narrowed by AM-1 and AM-2: pressing play after the player was closed begins at
+     * 0:00 when that player was not failing (it was closed while playing or paused normally)
+     * and the page did not stop it for its own video. A new player, a new ExoPlayer at
+     * position 0; `initPlayback` and the reload right after it call `onReload`, which sets
+     * nothing.
+     *
+     * What changed and why: before amendment 2 this held for every close. Now a player closed
+     * because of an error continues at the next start of the same video (AM-1). The test
+     * therefore states the normal close explicitly (`onPlayerClosed` with no error before, in
+     * both play states) and lets the start pass `onStartIntent`, which must claim nothing.
+     * The cases that do continue are in [KeepPositionTrackerErrorCloseTest] and
+     * [KeepPositionTrackerSameVideoStartTest].
      */
     @Test
-    fun ac7_playAfterThePlayerWasClosedBeginsAtZero() {
-        assertEquals("in the old player", NO_SEEK, tracker.load(p1, U))
+    fun ac7_am1_playAfterAPlayerThatWasNotFailingWasClosedBeginsAtZero() {
+        for (wasPlaying in listOf(true, false)) {
+            val tracker = KeepPositionTracker(FakeKeepPositionSettings())
+            assertEquals("in the old player", NO_SEEK, tracker.load(p1, U, "0|address"))
+            tracker.onPlayerClosed(p1, 5000, true, wasPlaying)
 
-        tracker.onReload(p2, U, 0, false)
-        tracker.onReload(p2, U, 0, false)
+            assertEquals(
+                "playing=$wasPlaying: the start claims nothing",
+                NO_POSITION,
+                tracker.onStartIntent(p2, null, null, 0, false, false, false, U, "0|address", false)
+            )
+            tracker.onReload(p2, U, 0, false)
+            tracker.onReload(p2, U, 0, false)
 
-        assertEquals(Mark.NONE, tracker.peekMark(p2, U))
-        assertEquals("in the new player", NO_SEEK, tracker.load(p2, U))
+            assertEquals("playing=$wasPlaying", Mark.NONE, tracker.peekMark(p2, U))
+            assertEquals("playing=$wasPlaying: in the new player", NO_SEEK, tracker.load(p2, U, "0|address"))
+        }
     }
 
     // ---- the reload mark fits one item, one owner, one load ----
@@ -106,10 +133,16 @@ class KeepPositionTrackerStartTest {
     /**
      * Plan section 6, AC-7: mark of p1, load U in p2 -> false. The player was closed during
      * the reload; a new player's load of U does not fit the owner, and it discards the mark.
+     *
+     * Amendment 2 (plan 10.7): this stays true. What lets a new player continue after an error
+     * close (AM-1) is the close mark, a separate mark that only `onStartIntent` turns into a
+     * reload mark; a reload mark never gets a wider owner. The test now also shows that the
+     * close of p1 (not failing) changes nothing about it.
      */
     @Test
     fun ac7_reloadMarkOfOnePlayerDoesNotFitAnotherPlayer() {
         beginReload(p1, U)
+        tracker.onPlayerClosed(p1, 5000, true, false)
 
         assertEquals(Mark.NONE, tracker.peekMark(p2, U))
         assertEquals("the other player's load", NO_SEEK, tracker.load(p2, U))

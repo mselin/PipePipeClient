@@ -34,3 +34,39 @@ internal fun KeepPositionTracker.load(player: Any, itemUuid: String): LoadDecisi
     onSynchronize(player, itemUuid)
     return LoadDecisions(onLoad, shouldSeekOnSynchronize(player, itemUuid))
 }
+
+// ---- Amendment 2 (spec AM-1 to AM-3, plan 10.3 and 10.7) ----
+
+/**
+ * "load U in p" with the item's address, as hook H3 passes it since amendment 2
+ * (`onSynchronize(p, u, a)`, plan 10.3). The address decides what happens to a close mark.
+ */
+internal fun KeepPositionTracker.load(player: Any, itemUuid: String, itemAddress: String?): LoadDecisions {
+    val onLoad = shouldSeekOnLoad(player, itemUuid)
+    onSynchronize(player, itemUuid, itemAddress)
+    return LoadDecisions(onLoad, shouldSeekOnSynchronize(player, itemUuid))
+}
+
+/** `err(p,U,A,pos,dur)` of plan 10.7: a playback error of a stream that is not live (hook E1). */
+internal fun KeepPositionTracker.err(
+    player: Any,
+    itemUuid: String?,
+    itemAddress: String?,
+    positionMs: Long,
+    durationKnown: Boolean
+) = onErrorBegin(player, itemUuid, itemAddress, positionMs, false, durationKnown)
+
+/** `closed(p,pos,dur,playing)` of plan 10.7: the player is destroyed, by anyone (hook D1). */
+internal fun KeepPositionTracker.closed(
+    player: Any,
+    positionMs: Long,
+    durationKnown: Boolean,
+    isPlaying: Boolean
+) = onPlayerClosed(player, positionMs, durationKnown, isPlaying)
+
+/**
+ * `start(p,N,A)` of plan 10.7: a start intent arrives at a new player, which plays nothing
+ * yet (hook G1): `onStartIntent(p, null, null, 0, false, false, false, N, A, false)`.
+ */
+internal fun KeepPositionTracker.start(player: Any, newUuid: String?, newAddress: String?): Long =
+    onStartIntent(player, null, null, 0, false, false, false, newUuid, newAddress, false)
