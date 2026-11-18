@@ -316,3 +316,8 @@ working assumption and the tests are written with it; none blocks the Code layer
   `QG` written in full, the upstream lines directly above and below it, and its indentation.
   Assumed: the hook lines are to be exactly those. A2.14 step 4 still says "the nine hook lines";
   the tests follow A2.8 (10 added, 1 changed in place, Q1 removed: 34 in 13 files).
+
+## A22 plan
+All three accepted. The source-text check of the seek step stays; the removed names must be
+gone from the package, comments included; the tests follow A2.8 (34 lines in 13 files), and
+A2.14's "nine hook lines" is a stale sentence.
