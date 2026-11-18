@@ -95,3 +95,24 @@ Timed starts
   Bilibili round play.
 - Times written as text in descriptions and comments. They already work.
 - The "Resume playback" setting of the watch history.
+
+## Amendment 2, 2026-11-18
+
+After the owner's device test of build 5 (issue mselin/PipePipe#25): after a network change
+playback restarted from the beginning, and so did a move between foreground and background.
+Reading the code found the hooked reloads correct and three uncovered paths. Where this
+section contradicts the text above, this section holds. All of it applies only while both
+switches are on.
+
+- **AM-1** (changes AC-7) When the player is closed by a playback error, not by the user,
+  and the next start plays the same video, the video continues at the position it had when
+  the error closed the player. This holds until another video is started or the app's
+  process ends. A player closed by the user, and a start of any other video, stay starts.
+- **AM-2** (extends AC-2) A switch between the main, popup and background player for the
+  video that is playing keeps the position also when the queue it is started with differs
+  from the player's queue, for example a video page reopened from a list after a next video
+  was queued. What happens to the queue is as today.
+- **AM-3** (extends AC-3 and AC-4) A reload that begins before the previous reload has
+  finished loading keeps the position the video had.
+- **AM-4** Not covered for now: a playing stream replaced in place after a failed or expired
+  source, without a reload. It is taken up if a log shows a restart there.
