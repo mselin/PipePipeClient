@@ -240,3 +240,7 @@ layer cannot change them.
 - I4 has three tests more than the plan: a real abandoned `Single` (not rethrown), an
   undeliverable `IOException` (ignored), and the bare `NullPointerException` named as accepted
   limit 1.
+
+## A11 plan
+(a) Accepted: the library's behaviour, as the tests pin it, is the contract. Accepted limit 2
+is narrower for streams than the plan said; that is in the owner's favour. (b) No veto.
