@@ -81,3 +81,18 @@ General
 
 Everything queue-guard lists as not covered. In particular, links opened from other apps
 keep using "Preferred 'open' action".
+
+## Amendment 2, 2026-11-18
+
+After the owner's device test of build 5 (issue mselin/PipePipe#24). It follows amendment 2
+of queue-guard, on which this feature is built.
+
+- **AM-1** (adds to AC-8) When a choice is saved with "Remember my choice", a short message
+  says that asking is now off and where to switch it on again (Settings > Player). It is
+  shown for every remembered choice, *Play now* included.
+- **AM-2** (replaces the answer that a single video in the main player opens as today while
+  asking is on) With asking on, a video tap follows queue-guard as amended: any loaded item
+  is worth guarding.
+- **AM-3** With asking off, the paths queue-guard's amendment adds (video page controls,
+  links, videos from other apps) behave as today; the default action applies to video taps
+  in lists only, as before.
