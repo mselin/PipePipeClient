@@ -104,14 +104,18 @@ Reading the code found the hooked reloads correct and three uncovered paths. Whe
 section contradicts the text above, this section holds. All of it applies only while both
 switches are on.
 
-- **AM-1** (changes AC-7) When the player is closed by a playback error, not by the user,
-  and the next start plays the same video, the video continues at the position it had when
-  the error closed the player. This holds until another video is started or the app's
-  process ends. A player closed by the user, and a start of any other video, stay starts.
-- **AM-2** (extends AC-2) A switch between the main, popup and background player for the
-  video that is playing keeps the position also when the queue it is started with differs
-  from the player's queue, for example a video page reopened from a list after a next video
-  was queued. What happens to the queue is as today.
+- **AM-1** (changes AC-7) When the player is closed because of a playback error, and the
+  next start plays the same video, the video continues at the position it had when the error
+  occurred. "Closed because of an error" covers three cases: the player closes itself on the
+  error; the video page stops the player in reaction to the error; and the user closes a
+  player that has been failing since an error without having played on. This holds until
+  another video is started or the app's process ends. A player closed by the user while it
+  was playing or paused normally, and a start of any other video, stay starts.
+- **AM-2** (extends AC-2) A start of the video that is playing keeps its position: a switch
+  between the main, popup and background player also when the queue it is started with
+  differs from the player's queue (for example a video page reopened from a list after a
+  next video was queued), and a tap that starts the playing video again in the same player.
+  What happens to the queue is as today.
 - **AM-3** (extends AC-3 and AC-4) A reload that begins before the previous reload has
   finished loading keeps the position the video had.
 - **AM-4** Not covered for now: a playing stream replaced in place after a failed or expired
