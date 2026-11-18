@@ -265,10 +265,13 @@ class FeedLoadManager(private val context: Context) {
             .observeOn(Schedulers.io())
             .buffer(BUFFER_COUNT_BEFORE_INSERT)
             .doOnNext(DatabaseConsumer())
+            .doOnNext { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.batchStored() } // ENH:feed-live-update
             .map { batch -> org.schabi.newpipe.enhancements.subscriptionscale.FeedResultRetention.retain(batch, retainNewStreams) } // ENH:subscription-scale
             .subscribeOn(Schedulers.io())
             .toList()
             .flatMap { x -> postProcessFeed().toSingleDefault(x.flatten()) }
+            .doOnSubscribe { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.started(groupId) } // ENH:feed-live-update
+            .doFinally { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.ended() } // ENH:feed-live-update
     }
 
     fun cancel() {
