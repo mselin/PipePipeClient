@@ -361,6 +361,7 @@ public class RouterActivity extends AppCompatActivity {
                 .setNegativeButton(R.string.just_once, dialogButtonsClickListener)
                 .setPositiveButton(R.string.always, dialogButtonsClickListener)
                 .setOnDismissListener((dialog) -> {
+                    if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.isAsking(RouterActivity.this)) return; // ENH:queue-guard
                     if (!selectionIsDownload && !selectionIsAddToPlaylist) {
                         finish();
                     }
@@ -558,6 +559,7 @@ public class RouterActivity extends AppCompatActivity {
             finish();
             return;
         }
+        if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onRouterChoice(this, currentService, currentLinkType, currentUrl, selectedChoiceKey, () -> handleChoice(selectedChoiceKey))) return; // ENH:queue-guard
 
         if (selectedChoiceKey.equals(getString(R.string.download_key))) {
             if (PermissionHelper.checkStoragePermissions(this,
