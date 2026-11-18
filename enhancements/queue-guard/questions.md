@@ -321,3 +321,87 @@ working assumption and the tests are written with it; none blocks the Code layer
 All three accepted. The source-text check of the seek step stays; the removed names must be
 gone from the package, comments included; the tests follow A2.8 (34 lines in 13 files), and
 A2.14's "nine hook lines" is a stale sentence.
+
+## Q23 code -> plan
+P6 and P5 (A2.15, A2.16) decide by the video alone: `playersQueueFor(info)` gives the player's queue
+whenever the player's current item is the video the page shows. They cannot see that the page was
+opened with a queue of its own that is meant to replace the player's. Read in the code, not run:
+- Main player, queue [A, B, C] on A. "Play all" above a list that starts with A (hooks B1-B5 ->
+  `QueueGuard.playOnMainPlayer` -> `NavigationHelper.playOnMainPlayer(activity, list)` ->
+  `openVideoDetailFragment(..., list, false)`), *Replace queue* in the dialog, or no dialog with the
+  switch off. The page loads A with the list as its queue; P6 then writes the player's queue over
+  it and skips the stop, and P5 sends the player's queue. The list is never played: *Replace queue*
+  does nothing. Before this amendment the list replaced the queue. The likely case: one video of a
+  playlist is playing alone and the user then presses "Play all" on that playlist.
+- The same for a playlist or channel from another app or a link with "video player"
+  (`RouterActivity.java:797-808` -> `NavigationHelper.playOnMainPlayer(this, playQueue, false)`)
+  when its first video is the one the player is on, and for `CastReceiver.kt:215`, whose start
+  position is dropped when the cast video is the one playing.
+Done in the code for the first case only, because that path goes through the feature's own function
+and needs no hook: when `QueueGuard.playOnMainPlayer` lets a list through whose first video is the
+player's current item and which is not equal to the player's queue, it remembers the player's queue
+object (a weak reference), and `playersQueueFor` returns `null` for exactly that object, so the
+page plays the list as before this amendment. The mark ends when the player holds another queue
+object. Known limit: if the replacement never happens (the page fails to load, or beside the
+background or popup player the user never presses play on that page), the old queue stays marked
+and P5/P6 do nothing for it; it is then treated as before Amendment 2 on the page of its current
+item (the dialogs are not affected). The second and third case are not handled.
+Asked: is the mark acceptable, or should the page tell the guard that it holds a queue it was
+given (for example `playersQueueFor(result.info, vm.playQueue)` in P6, which changes a pinned hook
+line), and what should a playlist or channel sent to the main player do when its first video is
+the current item?
+
+## Q24 code -> plan
+A2.3 removes hook Q1 from `player/playqueue/PlayQueue.java` ("the file is then byte-identical to
+`dev`"), and the wiring test requires it. `enhancements/tools/check-layers.sh` rejects a code
+commit that does this: for a file that exists on the base it fails when the commit removes more
+lines than it adds. Tried on a throwaway clone with this working tree committed as
+`code(queue-guard): ...`: `FAIL ... PlayQueue.java: removes upstream lines (1 removed, 0 added)`,
+and nothing else fails. The code layer cannot change the tool. Either the check has to accept a
+removed line that carries `ENH:<feature>` (a tooling commit), or Q1 has to stay in some form, which
+the tests forbid.
+
+## Q25 code -> plan
+AM-6 rests on `HolderPlayerStateSource` (`PlayerHolder`), as every rule does. `PlayerHolder` knows
+the player only after the video page has bound it (`VideoDetailFragment.kt:241`, `:529`, `:545`,
+`:559`, `:765`; no other caller of `startService`/`setListener`). If the app's process was started
+by a share from another app and "background player" (or popup) was chosen, the player runs but the
+main screen was never created, the holder is unbound and `current()` says nothing is playing. A
+second video shared the same way then replaces the first without a dialog (R1 returns `false`,
+row 1). Read in the code, not run. Not changed here: it needs either a bind from the router (which
+is asynchronous, so the hook could not answer at once) or another way to see the running player.
+The same holds for the router's own chooser, which reads `PlayerHolder.getInstance().getType()`
+(`RouterActivity.java:470`).
+
+## Q26 code -> plan
+A2.4, the router's table, row "rotation": "the new router instance handles the link again from
+`onStart` and asks again". Implemented literally (`dismissOnStop = true`, `onDismiss(false)` ->
+`activity.finish()`), a rotation first stops the old instance, the dialog is dismissed on that stop
+and `finish()` is called on the old instance. As far as I know Android, that finishes the screen
+as a whole, the recreated instance included (the router's own chooser does the same today through
+`onStop` -> `dismiss()` -> its dismiss listener). So the expected result of a rotation is that the
+dialog goes and the router finishes, not that it asks again; the android.jar in the SDK has no
+method bodies, so this is not verified. Either result leaves the queue alone and no invisible
+screen behind. Left as the plan's literal text. If "asks again" is wanted, `onDismiss` would have
+to skip `finish()` while `activity.isChangingConfigurations`.
+
+## A23 plan
+The mark for "Play all, Replace queue" is accepted as implemented. The two open cases are
+accepted as known limits, because both keep the queue where they used to replace it: a
+playlist or channel sent to the main player from a link or another app whose first video is
+the one playing is ignored, and a cast start of the playing video loses its start position.
+Both go into the pull request and the device script.
+
+## A24 plan
+The tool was wrong for this case, not the code: a feature removing its own marked line is
+not removing an upstream line. The layer check now counts only removed lines that do not
+carry the feature's marker (a `chore` commit on the base, picked onto this branch).
+
+## A25 plan
+Accepted as a known limit for now and recorded as an issue: in a process started by a share,
+before the main screen has ever been created, the guard cannot see the running player, and a
+second shared video replaces the first without a question. Closing it needs the share screen
+to connect to the player service, which is a change of its own.
+
+## A26 plan
+Accepted: on rotation the share screen finishes; it does not ask again.
