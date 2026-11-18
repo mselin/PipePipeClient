@@ -141,3 +141,15 @@ video again. As written that is 0:00. It is likely after a network change with t
 or popup player. Covering it needs one more hook (where the player is destroyed) and a rule
 such as "closed before it played again after an error". Planned with: 0:00, as the spec says.
 Is that wanted? Affects AM-1, AC-7.
+
+## A12 spec
+Yes, it continues too. The owner's report is that playback should go on where it was; a tap
+on the video that is already playing restarting it at 0:00 is the same complaint. AM-2 now
+covers a start of the playing video in the same player. This is the session's reading of
+the owner's report, not a separate answer from the owner; it is listed for the owner in the
+pull request.
+
+## A13 spec
+Covered. A player that has been failing since an error, and is then closed by the user
+without having played on, counts as closed because of the error. AM-1 says so. The plan adds
+the hook where the player is destroyed.
