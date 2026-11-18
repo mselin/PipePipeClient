@@ -4,6 +4,7 @@ import org.schabi.newpipe.enhancements.queueguard.GuardChoice
 import org.schabi.newpipe.enhancements.queueguard.GuardPolicy
 import org.schabi.newpipe.enhancements.queueguard.GuardSettings
 import org.schabi.newpipe.enhancements.queueguard.ListEffect
+import org.schabi.newpipe.enhancements.queueguard.OpenWay
 import org.schabi.newpipe.enhancements.queueguard.PlayerState
 import org.schabi.newpipe.enhancements.queueguard.TapEffect
 import org.schabi.newpipe.enhancements.queueguard.TapRequest
@@ -23,6 +24,9 @@ class OpenActionPolicy(
 ) : GuardPolicy {
 
     override fun onTap(tap: TapRequest, player: PlayerState): TapEffect {
+        if (tap.way != OpenWay.LIST_TAP) {
+            return base.onTap(tap, player) // AM-3
+        }
         if (!player.somethingPlaying) {
             return idle(tap, base.onTap(tap, player)) // rows 1-4: AC-5, AC-6
         }
@@ -34,6 +38,9 @@ class OpenActionPolicy(
     }
 
     override fun onTapChoice(choice: GuardChoice, tap: TapRequest, player: PlayerState): TapEffect {
+        if (tap.way != OpenWay.LIST_TAP) {
+            return base.onTapChoice(choice, tap, player) // AM-3
+        }
         val answer = base.onTapChoice(choice, tap, player)
         return if (choice == GuardChoice.PLAY_NOW && !player.somethingPlaying) {
             idle(tap, answer) // row 19: AC-13

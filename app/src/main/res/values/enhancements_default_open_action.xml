@@ -35,4 +35,6 @@
 
     <!-- default-open-action: the checkbox in queue-guard's tap dialog -->
     <string name="enh_default_open_action_remember">Remember my choice</string>
+    <!-- default-open-action: the message after a remembered choice; Settings, Player, the switch's title -->
+    <string name="enh_default_open_action_asking_off">Asking is now off. To switch it on again: %1$s &gt; %2$s &gt; %3$s</string>
 </resources>

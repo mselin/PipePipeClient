@@ -13,11 +13,12 @@ fun interface RememberStore {
 class RememberChoice(private val store: RememberStore) {
 
     /** A choice made in the tap dialog, before it is carried out. [checked]: the checkbox at that moment. */
-    fun onChoice(choice: GuardChoice, checked: Boolean) {
+    fun onChoice(choice: GuardChoice, checked: Boolean): Boolean {
         if (!checked) {
-            return
+            return false
         }
-        val action = DefaultTapAction.fromChoice(choice) ?: return // CANCEL
+        val action = DefaultTapAction.fromChoice(choice) ?: return false // CANCEL
         store.save(action, askBeforeReplacing = false)
+        return true
     }
 }

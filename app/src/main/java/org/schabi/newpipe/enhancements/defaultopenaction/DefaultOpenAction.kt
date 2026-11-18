@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.CheckBox
+import android.widget.Toast
 import androidx.preference.PreferenceManager
 import org.schabi.newpipe.App
 import org.schabi.newpipe.R
@@ -64,7 +65,7 @@ internal object PrefsOpenActionSettings : OpenActionSettings, RememberStore {
 }
 
 /** The checkbox "Remember my choice" in queue-guard's tap dialog. Read at the moment of the choice. */
-internal class RememberChoiceAddOn(context: Context, private val remember: RememberChoice) : TapDialogAddOn {
+internal class RememberChoiceAddOn(private val context: Context, private val remember: RememberChoice) : TapDialogAddOn {
 
     override val view: View =
         LayoutInflater.from(context).inflate(R.layout.enhancements_default_open_action_remember, null)
@@ -72,6 +73,17 @@ internal class RememberChoiceAddOn(context: Context, private val remember: Remem
     private val checkBox: CheckBox = view.findViewById(R.id.enh_default_open_action_remember)
 
     override fun onChoice(choice: GuardChoice) {
-        remember.onChoice(choice, checkBox.isChecked)
+        if (remember.onChoice(choice, checkBox.isChecked)) {
+            Toast.makeText(
+                context,
+                context.getString(
+                    R.string.enh_default_open_action_asking_off,
+                    context.getString(R.string.settings),
+                    context.getString(R.string.settings_category_player_title),
+                    context.getString(R.string.enh_queue_guard_ask_title),
+                ),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
 }
