@@ -1,6 +1,7 @@
 package org.schabi.newpipe.enhancements.queueguard
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -169,16 +170,32 @@ class QueueGuardResourcesTest {
 
     // ---- AC-15: the switch ----
 
-    /** AC-15: a switch "Ask before replacing the queue". Summary and key as in plan section 4. */
+    /**
+     * AC-15: a switch "Ask before replacing the queue". Title and key as in plan section 4; the summary
+     * is the one of plan A2.6. Changed by Amendment 2: the old summary ended "A single video in the main
+     * player is replaced without asking", which AM-1 made untrue, and it did not mention links (AM-5).
+     */
     @Test
     fun ac15_switchHasItsTitleSummaryAndPreferenceKey() {
         assertEquals("Ask before replacing the queue", string("enh_queue_guard_ask_title"))
         assertEquals(
-            "Tapping a video or a play button asks what to do with the queue that is playing. " +
-                "A single video in the main player is replaced without asking",
+            "Asks what to do before a tap, a play button or a link replaces what is playing",
             string("enh_queue_guard_ask_summary"),
         )
         assertEquals("enh_queue_guard_ask", string("enh_queue_guard_ask_key"))
+    }
+
+    /**
+     * AM-1: no delivered text may still promise the withdrawn exception ("A single video in the main
+     * player is replaced without asking"). Plan A2.6: "One text changes; no string is added".
+     */
+    @Test
+    fun am1_noTextStillSaysThatASingleVideoIsReplacedWithoutAsking() {
+        for (name in stringNames) {
+            val text = string(name)
+            assertFalse("$name: '$text'", "single video" in text.lowercase())
+            assertFalse("$name: '$text'", "without asking" in text.lowercase())
+        }
     }
 
     /**

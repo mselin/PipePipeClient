@@ -3,15 +3,25 @@ package org.schabi.newpipe.enhancements.queueguard
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import kotlin.concurrent.thread
 
 /**
- * The model of plan 3.1 (`GuardModel.kt`): what "something is playing", "a queue worth guarding" and
- * "current item" mean, the record of the videos the player added by itself ([AutoQueuedRecord]), and the
- * two pure functions behind *Play all next* (AC-11) and the "Show stream details" entry (AC-17).
+ * The model of plan 3.1 as changed by plan A2.1 (`GuardModel.kt`): what "something is playing" and
+ * "current item" mean, the ways a request can reach the guard ([OpenWay]), the three tables of A2.1
+ * ([replacesQueue], [openWayOfRouterChoice], [queueItemDetails]), and the two pure functions behind
+ * *Play all next* (AC-11) and the "Show stream details" entry (AC-17).
+ *
+ * Amendment 2 (AM-1): "a queue worth guarding" now equals "something is playing". `worthGuarding`,
+ * `autoQueuedCount`, `AutoQueuedRecord` and `AUTO_QUEUED_RECORD_LIMIT` are removed from the model, and
+ * the tests of them went with them (plan A2.10): the eight `worthGuarding` tests
+ * (`ac7_ac14_noQueueIsWorthGuardingWhileNothingIsPlaying` to
+ * `ac1_ac7_aQueueWorthGuardingAlwaysMeansSomethingIsPlaying`),
+ * `ac1_ac7_noVideoIsAutoQueuedInIdleAndInAStateBuiltWithFourArguments`,
+ * `ac1_ac7_somethingPlayingDoesNotDependOnTheAutoQueuedCount`, the ten `ac1_ac7_record...` tests and
+ * `ac1_ac7_watchingOneVideoAndLettingTheNextOnesFollowIsNotAQueueUntilTheUserAddsAVideo`: 21 tests.
+ * `ac8_currentItemDoesNotDependOnTheAutoQueuedCount` still holds and stays under a new name. What
+ * replaces the removed ones is the section "A queue worth guarding, as amended" below.
  */
 class GuardModelTest {
 
@@ -48,172 +58,83 @@ class GuardModelTest {
         )
     }
 
-    // ---- "A queue worth guarding" (spec, Terms; answers A11 and A13) ----
+    // ---- "A queue worth guarding", as amended (AM-1): the player holds at least one item ----
     //
-    // Plan 3.1, the table of `somethingPlaying` and `worthGuarding`, one test per line. A queue is
-    // written queueSize/autoQueued; queueSize - autoQueued is the number of videos the user put there.
+    // Plan A2.1: `worthGuarding` "is removed, not kept as an alias: as amended it equals
+    // `somethingPlaying`, and one name for it is enough", and `PlayerState` loses `autoQueuedCount`.
 
-    private fun main(queueSize: Int, autoQueued: Int = 0) =
-        playing(PlayerKind.MAIN, queueSize = queueSize, autoQueued = autoQueued)
-
-    /** Line 1: "no player, or `queueSize == 0`" is not worth guarding, whatever `autoQueuedCount` says. */
+    /**
+     * AM-1: "How the items got there no longer matters: one video counts, and so do videos added by
+     * auto-enqueue next stream." The state has no field left that could tell them apart: exactly the four
+     * of plan A2.1. A fifth field (the old `autoQueuedCount`) fails here.
+     */
     @Test
-    fun ac7_ac14_noQueueIsWorthGuardingWhileNothingIsPlaying() {
+    fun am1_playerStateHoldsKindQueueSizeAndCurrentItemAndNothingAboutHowItemsGotThere() {
+        val fields = PlayerState::class.java.declaredFields
+            .filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }
+            .map { it.name }
+            .sorted()
+        assertEquals(listOf("currentServiceId", "currentUrl", "kind", "queueSize"), fields)
+        assertEquals(
+            "the constructor takes those four and nothing else",
+            PlayerState(PlayerKind.MAIN, 3, SERVICE, CURRENT_URL),
+            PlayerState(kind = PlayerKind.MAIN, queueSize = 3, currentServiceId = SERVICE, currentUrl = CURRENT_URL),
+        )
+    }
+
+    /**
+     * AM-1, plan A2.1: there is one name for "a queue worth guarding", `somethingPlaying`. A second
+     * property that could drift away from it (the old `worthGuarding`, with its exception for a single
+     * video in the main player) must not come back.
+     */
+    @Test
+    fun am1_playerStateHasNoSeparateWorthGuardingAndNoAutoQueuedCount() {
+        val getters = PlayerState::class.java.methods.map { it.name }
+        assertFalse("PlayerState.worthGuarding must be removed (plan A2.1)", "getWorthGuarding" in getters)
+        assertFalse("PlayerState.autoQueuedCount must be removed (plan A2.1)", "getAutoQueuedCount" in getters)
+        assertTrue("PlayerState.somethingPlaying stays", "getSomethingPlaying" in getters)
+    }
+
+    /**
+     * AM-1, the changed term: "the player (main, popup or background) holds at least one item". The main
+     * player with one video is worth guarding like every other state; before Amendment 2 it was the
+     * exception (answer A11).
+     */
+    @Test
+    fun am1_oneVideoInTheMainPlayerIsAQueueWorthGuardingLikeEveryOtherLoadedQueue() {
+        assertTrue("main player, one video", playing(PlayerKind.MAIN, queueSize = 1).somethingPlaying)
+        for (kind in ALL_KINDS) {
+            for (queueSize in listOf(1, 2, 3, 25, 500)) {
+                assertTrue("$kind, $queueSize", playing(kind, queueSize = queueSize).somethingPlaying)
+            }
+        }
+    }
+
+    /** The fixture every "asks" test runs over (plan A2.10): each player with one item and with three. */
+    @Test
+    fun am1_theFixtureSomethingPlayingHoldsEachPlayerWithOneItemAndWithThree() {
+        assertEquals(
+            ALL_KINDS.flatMap { listOf(it to 1, it to 3) },
+            SOMETHING_PLAYING.map { it.kind to it.queueSize },
+        )
+        for (state in SOMETHING_PLAYING) {
+            assertTrue("$state", state.somethingPlaying)
+            assertEquals("$state", SERVICE, state.currentServiceId)
+            assertEquals("$state", CURRENT_URL, state.currentUrl)
+        }
         for (state in NOTHING_PLAYING) {
-            for (autoQueued in listOf(0, 1, 5)) {
-                val withCount = state.copy(autoQueuedCount = autoQueued)
-                assertFalse("$withCount", withCount.worthGuarding)
-            }
-        }
-        for (autoQueued in listOf(0, 1, 3)) {
-            val noPlayerButStaleQueueData = PlayerState(
-                kind = null,
-                queueSize = 3,
-                currentServiceId = SERVICE,
-                currentUrl = CURRENT_URL,
-                autoQueuedCount = autoQueued,
-            )
-            assertFalse("$noPlayerButStaleQueueData", noPlayerButStaleQueueData.worthGuarding)
-        }
-    }
-
-    /** Line 2: "`BACKGROUND` or `POPUP`, `queueSize >= 1`, any `autoQueuedCount`" is worth guarding. */
-    @Test
-    fun ac1_ac10_everyQueueOfTheBackgroundAndThePopupPlayerIsWorthGuarding() {
-        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
-            for (queueSize in listOf(1, 2, 3, 25)) {
-                for (autoQueued in 0..queueSize) {
-                    val state = playing(kind, queueSize = queueSize, autoQueued = autoQueued)
-                    assertTrue("$state", state.worthGuarding)
-                }
-            }
-        }
-    }
-
-    /** Line 3: "`MAIN`, `queueSize - autoQueuedCount <= 1`" is not worth guarding. */
-    @Test
-    fun ac7_ac14_mainPlayerWithAtMostOneVideoOfTheUsersIsNotWorthGuarding() {
-        assertFalse("A alone", main(1).worthGuarding)
-        assertFalse("A and the auto-enqueued B", main(2, autoQueued = 1).worthGuarding)
-        assertFalse("A, B, C after playback moved on by itself (A13)", main(3, autoQueued = 2).worthGuarding)
-        assertFalse("B and C after the user removed A", main(2, autoQueued = 2).worthGuarding)
-        assertFalse("B and D after the user removed A and enqueued D", main(2, autoQueued = 1).worthGuarding)
-        assertFalse("one auto-enqueued video alone", main(1, autoQueued = 1).worthGuarding)
-        for (autoQueued in 0..30) {
-            assertFalse("${autoQueued + 1}/$autoQueued", main(autoQueued + 1, autoQueued).worthGuarding)
-            if (autoQueued > 0) {
-                assertFalse("$autoQueued/$autoQueued", main(autoQueued, autoQueued).worthGuarding)
-            }
-        }
-    }
-
-    /** Line 4: "`MAIN`, `queueSize - autoQueuedCount >= 2`" is worth guarding. */
-    @Test
-    fun ac1_ac10_mainPlayerWithTwoVideosOfTheUsersIsWorthGuarding() {
-        assertTrue("A and D", main(2).worthGuarding)
-        assertTrue("A, B and D", main(3, autoQueued = 1).worthGuarding)
-        assertTrue("three videos of the user's", main(3).worthGuarding)
-        assertTrue("a long queue", main(500).worthGuarding)
-        for (autoQueued in 0..30) {
-            assertTrue("${autoQueued + 2}/$autoQueued", main(autoQueued + 2, autoQueued).worthGuarding)
-            assertTrue("${autoQueued + 7}/$autoQueued", main(autoQueued + 7, autoQueued).worthGuarding)
-        }
-    }
-
-    /** The user's second video is what makes a queue (plan section 8), wherever the first one stands. */
-    @Test
-    fun ac1_ac7_theSecondVideoOfTheUsersTurnsTheMainPlayersQueueIntoOneWorthGuarding() {
-        for (state in SINGLE_IN_MAIN.filter { it.queueSize - it.autoQueuedCount == 1 }) {
-            assertFalse("$state", state.worthGuarding)
-            val oneMoreEnqueuedByTheUser = state.copy(queueSize = state.queueSize + 1)
-            assertTrue("$oneMoreEnqueuedByTheUser", oneMoreEnqueuedByTheUser.worthGuarding)
-            val oneMoreAutoEnqueued =
-                state.copy(queueSize = state.queueSize + 1, autoQueuedCount = state.autoQueuedCount + 1)
-            assertFalse("$oneMoreAutoEnqueued", oneMoreAutoEnqueued.worthGuarding)
-        }
-    }
-
-    /** The fixture every "asks" test runs over (plan 5.1). */
-    @Test
-    fun ac1_ac10_everyStateOfTheFixtureWorthGuardingIsWorthGuarding() {
-        assertEquals("states in WORTH_GUARDING", 9, WORTH_GUARDING.size)
-        for (state in WORTH_GUARDING) {
-            assertTrue("$state", state.worthGuarding)
-            assertTrue("$state: worth guarding implies something is playing", state.somethingPlaying)
-        }
-    }
-
-    /** The fixture every "single video in the main player" test runs over (plan 5.1). */
-    @Test
-    fun ac7_ac14_noStateOfTheFixtureSingleInMainIsWorthGuarding() {
-        assertEquals("states in SINGLE_IN_MAIN", 5, SINGLE_IN_MAIN.size)
-        for (state in SINGLE_IN_MAIN) {
-            assertEquals("$state", PlayerKind.MAIN, state.kind)
-            assertFalse("$state", state.worthGuarding)
-            assertTrue("$state: something is playing all the same", state.somethingPlaying)
-        }
-    }
-
-    /** Plan 3.1: "`worthGuarding` implies `somethingPlaying`", for every kind, size and count. */
-    @Test
-    fun ac1_ac7_aQueueWorthGuardingAlwaysMeansSomethingIsPlaying() {
-        for (kind in ALL_KINDS + null) {
-            for (queueSize in 0..6) {
-                for (autoQueued in 0..queueSize) {
-                    val state = PlayerState(kind, queueSize, SERVICE, CURRENT_URL, autoQueued)
-                    if (state.worthGuarding) {
-                        assertTrue("$state", state.somethingPlaying)
-                    }
-                }
-            }
+            assertFalse("$state", state.somethingPlaying)
         }
     }
 
     /**
-     * Plan 3.1: `autoQueuedCount` is the last constructor parameter with default `0`, so a state built
-     * with four arguments (this feature's older tests, default-open-action) is a queue the user built
-     * alone.
+     * AC-8: the current item is recognised in every state in which something is playing. This test ran
+     * over the two removed fixtures and was called `ac8_currentItemDoesNotDependOnTheAutoQueuedCount`;
+     * what it pins is unchanged.
      */
     @Test
-    fun ac1_ac7_noVideoIsAutoQueuedInIdleAndInAStateBuiltWithFourArguments() {
-        assertEquals("IDLE", 0, PlayerState.IDLE.autoQueuedCount)
-        assertEquals("positional", 0, PlayerState(PlayerKind.MAIN, 3, SERVICE, CURRENT_URL).autoQueuedCount)
-        assertEquals(
-            "named",
-            0,
-            PlayerState(kind = PlayerKind.POPUP, queueSize = 1, currentServiceId = SERVICE, currentUrl = null)
-                .autoQueuedCount,
-        )
-        assertEquals(
-            "the fifth argument is the count",
-            PlayerState(PlayerKind.MAIN, 3, SERVICE, CURRENT_URL, autoQueuedCount = 2),
-            PlayerState(PlayerKind.MAIN, 3, SERVICE, CURRENT_URL, 2),
-        )
-        assertEquals(2, PlayerState(PlayerKind.MAIN, 3, SERVICE, CURRENT_URL, 2).autoQueuedCount)
-    }
-
-    /** Plan 3.1: "`somethingPlaying` ... keep[s its] meaning": `queueSize` stays the whole queue. */
-    @Test
-    fun ac1_ac7_somethingPlayingDoesNotDependOnTheAutoQueuedCount() {
-        for (kind in ALL_KINDS) {
-            for (queueSize in listOf(1, 2, 3)) {
-                for (autoQueued in 0..queueSize) {
-                    val state = playing(kind, queueSize = queueSize, autoQueued = autoQueued)
-                    assertTrue("$state", state.somethingPlaying)
-                }
-            }
-            for (autoQueued in listOf(0, 1, 4)) {
-                val empty = openButEmpty(kind).copy(autoQueuedCount = autoQueued)
-                assertFalse("$empty", empty.somethingPlaying)
-            }
-        }
-        assertFalse(PlayerState.IDLE.copy(autoQueuedCount = 2).somethingPlaying)
-    }
-
-    /** Plan 3.1 and 3.2: `isCurrent` is still built on "playing", not on "worth guarding" (AC-8). */
-    @Test
-    fun ac8_currentItemDoesNotDependOnTheAutoQueuedCount() {
-        for (state in SINGLE_IN_MAIN + WORTH_GUARDING) {
+    fun ac8_currentItemIsRecognisedInEveryStateInWhichSomethingIsPlaying() {
+        for (state in SOMETHING_PLAYING) {
             assertTrue("$state", state.isCurrent(tapOnCurrent()))
             assertFalse("$state, another video", state.isCurrent(tapOn(url = TAPPED_URL)))
             assertFalse(
@@ -221,211 +142,6 @@ class GuardModelTest {
                 state.isCurrent(tapOn(url = CURRENT_URL, serviceId = OTHER_SERVICE)),
             )
         }
-    }
-
-    // ---- AutoQueuedRecord: which videos the player added by itself (plan 3.1, rules 1 to 6) ----
-    //
-    // Queue items are given by their uuid, one per queue slot. Capital letters here: A and D are videos
-    // the user tapped or enqueued, B and C came through "Auto-enqueue next stream".
-
-    @Test
-    fun ac1_ac7_emptyRecordCountsNoVideoInAnyQueue() {
-        val record = AutoQueuedRecord()
-        assertEquals("empty queue", 0, record.countIn(emptyList()))
-        assertEquals("one video", 0, record.countIn(listOf("A")))
-        assertEquals("several videos", 0, record.countIn(listOf("A", "B", "C")))
-        record.add(emptyList())
-        assertEquals("after adding nothing", 0, record.countIn(listOf("A", "B", "C")))
-    }
-
-    /** Rule 1: an item counts if and only if its uuid was reported. Rule 2: playing does not change it. */
-    @Test
-    fun ac1_ac7_recordCountsTheReportedVideosAndNoOthers() {
-        val record = AutoQueuedRecord()
-        record.add(listOf("B"))
-        assertEquals("A, B", 1, record.countIn(listOf("A", "B")))
-        record.add(listOf("C"))
-        assertEquals("A, B, C", 2, record.countIn(listOf("A", "B", "C")))
-        assertEquals("asking again gives the same answer", 2, record.countIn(listOf("A", "B", "C")))
-        assertEquals("the user's videos only", 0, record.countIn(listOf("A", "D")))
-        assertEquals("empty queue", 0, record.countIn(emptyList()))
-    }
-
-    /** One call can report several videos (hook Q1 passes the whole appended list). */
-    @Test
-    fun ac1_ac7_recordTakesSeveralVideosInOneCall() {
-        val record = AutoQueuedRecord()
-        record.add(listOf("B", "C"))
-        record.add(setOf("E"))
-        assertEquals(3, record.countIn(listOf("A", "B", "C", "D", "E")))
-    }
-
-    /** Rule 3: moving an auto-enqueued video, by drag or by shuffling, does not make it the user's. */
-    @Test
-    fun ac1_ac7_recordCountsTheSameWhateverTheOrderOfTheQueue() {
-        val record = AutoQueuedRecord()
-        record.add(listOf("B", "C"))
-        val orders = listOf(
-            listOf("A", "B", "C", "D"),
-            listOf("B", "A", "D", "C"),
-            listOf("C", "B", "A", "D"),
-            listOf("D", "C", "B", "A"),
-            listOf("B", "C", "D", "A"),
-        )
-        for (queue in orders) {
-            assertEquals("$queue", 2, record.countIn(queue))
-        }
-    }
-
-    /**
-     * Rule 5: "A removed item's uuid simply never matches again", and the record follows the uuids
-     * wherever the queue goes. Rule 4: the same video enqueued by hand is a new item with a new uuid, so
-     * a uuid that was never reported is the user's.
-     */
-    @Test
-    fun ac1_ac7_recordDoesNotCountARemovedVideoNorOneThatWasNeverReported() {
-        val record = AutoQueuedRecord()
-        record.add(listOf("B", "C"))
-        assertEquals("B was removed from the queue", 1, record.countIn(listOf("A", "C")))
-        assertEquals("B and C were removed", 0, record.countIn(listOf("A")))
-        assertEquals("the queue was replaced", 0, record.countIn(listOf("X", "Y", "Z")))
-        assertEquals(
-            "the video of B enqueued by hand is another item, B2",
-            2,
-            record.countIn(listOf("A", "B", "C", "B2")),
-        )
-        assertEquals("C is still known when it is in a queue again", 1, record.countIn(listOf("D", "C")))
-    }
-
-    /** Plan 3.1, `add` and `countIn`: a uuid is remembered once and counted once per slot that holds it. */
-    @Test
-    fun ac1_ac7_recordCountsAVideoReportedTwiceOncePerOccurrenceInTheQueue() {
-        val record = AutoQueuedRecord()
-        record.add(listOf("B"))
-        record.add(listOf("B"))
-        record.add(listOf("B", "B"))
-        assertEquals("reported four times, in the queue once", 1, record.countIn(listOf("A", "B")))
-        assertEquals("a uuid that occurs twice counts twice", 2, record.countIn(listOf("B", "A", "B")))
-        assertEquals("not in the queue", 0, record.countIn(listOf("A")))
-    }
-
-    /**
-     * Rule 6: beyond the limit the record forgets its oldest entries, "one per entry added". A forgotten
-     * video counts as the user's, so the guard errs towards asking.
-     */
-    @Test
-    fun ac1_ac7_recordWithLimitThreeForgetsItsOldestVideoWhenAFourthIsReported() {
-        val record = AutoQueuedRecord(limit = 3)
-        record.add(listOf("u1"))
-        record.add(listOf("u2"))
-        record.add(listOf("u3"))
-        val queue = listOf("u1", "u2", "u3", "u4", "u5")
-        assertEquals("at the limit nothing is forgotten", 3, record.countIn(queue))
-
-        record.add(listOf("u4"))
-        assertEquals("u1 is forgotten", 0, record.countIn(listOf("u1")))
-        assertEquals("u2, u3 and u4 are kept", 3, record.countIn(listOf("u2", "u3", "u4")))
-        assertEquals(3, record.countIn(queue))
-
-        record.add(listOf("u5"))
-        assertEquals("u1 and u2 are forgotten", 0, record.countIn(listOf("u1", "u2")))
-        assertEquals("u3, u4 and u5 are kept", 3, record.countIn(listOf("u3", "u4", "u5")))
-    }
-
-    /** Rule 6 with the videos reported by one call up to the limit and one call beyond it. */
-    @Test
-    fun ac1_ac7_recordWithLimitThreeForgetsItsOldestVideoAlsoWhenVideosComeInLists() {
-        val record = AutoQueuedRecord(limit = 3)
-        record.add(listOf("u1", "u2", "u3"))
-        assertEquals(3, record.countIn(listOf("u1", "u2", "u3")))
-        record.add(listOf("u4"))
-        assertEquals("u1 is forgotten", 0, record.countIn(listOf("u1")))
-        assertEquals("u2, u3 and u4 are kept", 3, record.countIn(listOf("u1", "u2", "u3", "u4")))
-    }
-
-    /** Plan 3.1: `AUTO_QUEUED_RECORD_LIMIT` is 1000 and the limit of a record built without arguments. */
-    @Test
-    fun ac1_ac7_recordRemembersAThousandVideosByDefault() {
-        assertEquals(1000, AUTO_QUEUED_RECORD_LIMIT)
-
-        val record = AutoQueuedRecord()
-        val uuids = List(1001) { "uuid-$it" }
-        for (uuid in uuids.take(1000)) record.add(listOf(uuid))
-        assertEquals("1000 reported", 1000, record.countIn(uuids))
-
-        record.add(listOf(uuids[1000]))
-        assertEquals("the 1001st makes the first forgotten", 0, record.countIn(listOf(uuids[0])))
-        assertEquals("the other 1000 are kept", 1000, record.countIn(uuids))
-    }
-
-    /**
-     * Plan 3.1 and 3.3: the record is thread-safe, because hook Q1 can run on the round-play timer's
-     * thread while a tap reads the queue on the main thread. Four threads report 250 videos each while
-     * the test thread keeps counting; afterwards all 1000 are remembered.
-     */
-    @Test
-    fun ac1_ac7_recordCanBeWrittenAndReadFromSeveralThreadsAtOnce() {
-        val record = AutoQueuedRecord()
-        val all = List(4) { t -> List(250) { i -> "thread$t-video$i" } }
-        val queue = all.flatten()
-        val start = CountDownLatch(1)
-        val failures = java.util.Collections.synchronizedList(mutableListOf<Throwable>())
-        val writers = all.map { uuids ->
-            thread {
-                try {
-                    start.await()
-                    for (uuid in uuids) record.add(listOf(uuid))
-                } catch (t: Throwable) {
-                    failures += t
-                }
-            }
-        }
-        start.countDown()
-        var last = 0
-        while (writers.any { it.isAlive }) {
-            val count = record.countIn(queue)
-            assertTrue("the count never shrinks while videos are only added: $last, then $count", count >= last)
-            last = count
-        }
-        for (writer in writers) writer.join(TimeUnit.SECONDS.toMillis(10))
-        assertEquals("no writer failed", emptyList<Throwable>(), failures.toList())
-        assertEquals(1000, record.countIn(queue))
-    }
-
-    /**
-     * Answer A13 end to end, as the glue puts record and state together (plan 3.3,
-     * `HolderPlayerStateSource`): the user watches A in the main player; B is auto-enqueued and plays, C
-     * is auto-enqueued. The queue A, B, C is not worth guarding. Once the user enqueues D it is.
-     */
-    @Test
-    fun ac1_ac7_watchingOneVideoAndLettingTheNextOnesFollowIsNotAQueueUntilTheUserAddsAVideo() {
-        val record = AutoQueuedRecord()
-        fun mainPlayerWith(queue: List<String>) = PlayerState(
-            kind = PlayerKind.MAIN,
-            queueSize = queue.size,
-            currentServiceId = SERVICE,
-            currentUrl = CURRENT_URL,
-            autoQueuedCount = record.countIn(queue),
-        )
-
-        assertFalse("A alone", mainPlayerWith(listOf("A")).worthGuarding)
-
-        record.add(listOf("B"))
-        assertFalse("A, B", mainPlayerWith(listOf("A", "B")).worthGuarding)
-
-        record.add(listOf("C"))
-        val watching = mainPlayerWith(listOf("A", "B", "C"))
-        assertEquals(2, watching.autoQueuedCount)
-        assertEquals("the dialog would still show the whole queue", 3, watching.queueSize)
-        assertFalse("A, B, C", watching.worthGuarding)
-
-        val withASecondVideoOfTheUsers = mainPlayerWith(listOf("A", "B", "C", "D"))
-        assertEquals(2, withASecondVideoOfTheUsers.autoQueuedCount)
-        assertTrue("A, B, C, D", withASecondVideoOfTheUsers.worthGuarding)
-
-        assertFalse("B, C after the user removed A", mainPlayerWith(listOf("B", "C")).worthGuarding)
-        assertFalse("B, D: one video of the user's", mainPlayerWith(listOf("B", "D")).worthGuarding)
-        assertTrue("A, D", mainPlayerWith(listOf("A", "D")).worthGuarding)
     }
 
     // ---- "Current item" (AC-8): matched by service id and exact url ----
@@ -500,6 +216,425 @@ class GuardModelTest {
         val tap = TapRequest(SERVICE, TAPPED_URL, "Tapped video")
         assertFalse(tap.startsListInBackground)
         assertEquals(TapRequest(SERVICE, TAPPED_URL, "Tapped video", false), tap)
+    }
+
+    /**
+     * Plan A2.1: "The two new fields of `TapRequest` are last and have defaults: every existing
+     * four-argument call means a list tap outside a related list." AC-1 to AC-16 keep their meaning for
+     * the hooks T1-T4, which were written before Amendment 2.
+     */
+    @Test
+    fun ac1_am2_aRequestBuiltWithoutWayIsAListTapOutsideARelatedList() {
+        val three = TapRequest(SERVICE, TAPPED_URL, "Tapped video")
+        assertEquals(OpenWay.LIST_TAP, three.way)
+        assertNull(three.relatedTo)
+
+        val four = TapRequest(SERVICE, TAPPED_URL, "Tapped video", true)
+        assertTrue(four.startsListInBackground)
+        assertEquals(OpenWay.LIST_TAP, four.way)
+        assertNull(four.relatedTo)
+
+        assertEquals(
+            "the fifth argument is the way, the sixth the related video",
+            TapRequest(SERVICE, TAPPED_URL, "Tapped video", false, way = OpenWay.LIST_TAP, relatedTo = CURRENT_VIDEO),
+            TapRequest(SERVICE, TAPPED_URL, "Tapped video", false, OpenWay.LIST_TAP, CURRENT_VIDEO),
+        )
+    }
+
+    /** AM-3, AM-5, AM-6: a request carries the way it came by; two ways are two different requests. */
+    @Test
+    fun am3_am5_am6_aRequestCarriesItsWay() {
+        for (way in ALL_WAYS) {
+            assertEquals("$way", way, requestBy(way).way)
+            assertNull("$way: no related list", requestBy(way).relatedTo)
+        }
+        assertEquals("requestBy(LIST_TAP) is tapOn()", tapOn(), requestBy(OpenWay.LIST_TAP))
+        assertEquals(ALL_WAYS.size, ALL_WAYS.map { requestBy(it) }.toSet().size)
+    }
+
+    /** AM-2: a tap in a related list carries the video whose page shows that list. */
+    @Test
+    fun am2_aRelatedTapCarriesTheVideoOfThePageItWasTappedOn() {
+        assertEquals(CURRENT_VIDEO, relatedTap().relatedTo)
+        assertEquals(OTHER_VIDEO, relatedTap(pageOf = OTHER_VIDEO).relatedTo)
+        assertEquals(OpenWay.LIST_TAP, relatedTap().way)
+        assertEquals("the tapped video is not the page's video", TAPPED_URL, relatedTap().url)
+    }
+
+    /** Plan A2.1: exactly five ways. A sixth needs a row in every table below. */
+    @Test
+    fun am3_am5_am6_thereAreExactlyFiveWaysToOpenAVideo() {
+        assertEquals(
+            setOf("LIST_TAP", "PAGE_CONTROL", "VIDEO_PAGE", "BACKGROUND_PLAYER", "POPUP_PLAYER"),
+            OpenWay.values().map { it.name }.toSet(),
+        )
+        assertEquals("the fixture ALL_WAYS covers them all", OpenWay.values().toSet(), ALL_WAYS.toSet())
+    }
+
+    // ---- isCurrent(VideoRef) (AM-9, AM-10, AM-11; plan A2.15) ----
+    //
+    // This is the whole decision behind `QueueGuard.playersQueueFor` (hooks P5 and P6) and the seek step
+    // of `onTimedLink`: "the player holds a queue and its current item is this video". The plan separates
+    // no other plain function for them. Queue length must not matter.
+
+    /**
+     * AM-9, AM-11: the page of the current item is recognised by service and address in every player and
+     * for every queue length, so that the page's controls and the page's own start get the player's
+     * queue instead of the one video.
+     */
+    @Test
+    fun am9_am11_theVideoThePlayerIsOnIsCurrentInEveryPlayerWhateverTheQueueLength() {
+        for (kind in ALL_KINDS) {
+            for (queueSize in listOf(1, 2, 3, 40)) {
+                val state = playing(kind, queueSize = queueSize)
+                assertTrue("$state", state.isCurrent(CURRENT_VIDEO))
+                assertTrue("$state, an equal ref", state.isCurrent(VideoRef(SERVICE, CURRENT_URL)))
+            }
+        }
+    }
+
+    /** AM-10: a link to a time in the current item is recognised although the queue is longer than one. */
+    @Test
+    fun am10_theCurrentItemOfALongerQueueIsCurrentForATimeLink() {
+        for (kind in ALL_KINDS) {
+            assertTrue("$kind, queue of three", playing(kind, queueSize = 3).isCurrent(CURRENT_VIDEO))
+            assertTrue("$kind, queue of one", playing(kind, queueSize = 1).isCurrent(CURRENT_VIDEO))
+        }
+    }
+
+    /**
+     * Plan A2.15, tests: `isCurrent(VideoRef)` "is `false` while nothing is playing, for another service
+     * with the same address and for another address". Where it is `false`, P5 and P6 give nothing and the
+     * page behaves as before (AM-9, AM-11), and a time link is no seek (AM-10).
+     */
+    @Test
+    fun am9_am10_am11_noVideoIsCurrentWhileNothingIsPlayingNorOnAnotherServiceNorAtAnotherAddress() {
+        for (state in NOTHING_PLAYING) {
+            assertFalse("$state", state.isCurrent(CURRENT_VIDEO))
+        }
+        for (kind in ALL_KINDS) {
+            val staleItem = PlayerState(
+                kind = kind,
+                queueSize = 0,
+                currentServiceId = SERVICE,
+                currentUrl = CURRENT_URL,
+            )
+            assertFalse("$kind, empty queue with a stale item", staleItem.isCurrent(CURRENT_VIDEO))
+            assertFalse("$kind, no current url", playing(kind, url = null).isCurrent(CURRENT_VIDEO))
+        }
+        val noPlayer = PlayerState(kind = null, queueSize = 3, currentServiceId = SERVICE, currentUrl = CURRENT_URL)
+        assertFalse("no player, stale queue data", noPlayer.isCurrent(CURRENT_VIDEO))
+        for (state in SOMETHING_PLAYING) {
+            assertFalse("$state, another service", state.isCurrent(VideoRef(OTHER_SERVICE, CURRENT_URL)))
+            assertFalse("$state, another address", state.isCurrent(VideoRef(SERVICE, TAPPED_URL)))
+            assertFalse("$state, a longer address", state.isCurrent(VideoRef(SERVICE, "$CURRENT_URL&t=90")))
+        }
+    }
+
+    /** Plan A2.1: `isCurrent(tap)` is `isCurrent(VideoRef(tap.serviceId, tap.url))`, whatever else the request says. */
+    @Test
+    fun ac8_am9_aRequestIsCurrentExactlyWhenItsVideoIs() {
+        val videos = listOf(CURRENT_VIDEO, OTHER_VIDEO, VideoRef(OTHER_SERVICE, CURRENT_URL))
+        for (state in NOTHING_PLAYING + SOMETHING_PLAYING) {
+            for (video in videos) {
+                for (way in ALL_WAYS) {
+                    val request = requestBy(way, url = video.url, serviceId = video.serviceId)
+                    assertEquals("$state, $request", state.isCurrent(video), state.isCurrent(request))
+                }
+                val related = relatedTap(pageOf = CURRENT_VIDEO, url = video.url).copy(serviceId = video.serviceId)
+                assertEquals("$state, $related", state.isCurrent(video), state.isCurrent(related))
+            }
+        }
+    }
+
+    // ---- replacesQueue (AM-3, AM-5, AM-6; plan A2.1, one test per row of its table) ----
+
+    /** "not playing: `false` in every row": with no queue there is nothing to replace (AM-1). */
+    @Test
+    fun am1_noWayReplacesAQueueWhileNothingIsPlaying() {
+        for (state in NOTHING_PLAYING) {
+            for (way in ALL_WAYS) {
+                assertFalse("$way, $state", replacesQueue(way, state))
+            }
+        }
+    }
+
+    /** Row `PAGE_CONTROL`: "the control sends the page's own queue to the player", in every player (AM-3). */
+    @Test
+    fun am3_aPageControlReplacesTheQueueInEveryPlayer() {
+        for (state in SOMETHING_PLAYING) {
+            assertTrue("$state", replacesQueue(OpenWay.PAGE_CONTROL, state))
+        }
+    }
+
+    /** Row `VIDEO_PAGE`, `MAIN`: "opening a page starts or stops the main player" (AM-5, AM-6, answer A17). */
+    @Test
+    fun am5_am6_openingAVideoPageReplacesTheQueueOfTheMainPlayer() {
+        for (queueSize in listOf(1, 3, 40)) {
+            assertTrue("queue of $queueSize", replacesQueue(OpenWay.VIDEO_PAGE, playing(PlayerKind.MAIN, queueSize)))
+        }
+    }
+
+    /**
+     * Row `VIDEO_PAGE`, `BACKGROUND` and `POPUP`: "beside another player it only shows the page". Spec,
+     * "AM-5 and AM-6, one rule": such a link "opens it as today".
+     */
+    @Test
+    fun am5_am6_openingAVideoPageBesideTheBackgroundOrPopupPlayerReplacesNothing() {
+        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
+            for (queueSize in listOf(1, 3, 40)) {
+                assertFalse("$kind, queue of $queueSize", replacesQueue(OpenWay.VIDEO_PAGE, playing(kind, queueSize)))
+            }
+        }
+    }
+
+    /** Rows `BACKGROUND_PLAYER`, `POPUP_PLAYER`: "the video alone is sent to that player", in every player (AM-6). */
+    @Test
+    fun am6_thePlayerActionsOfAnotherAppReplaceTheQueueInEveryPlayer() {
+        for (way in listOf(OpenWay.BACKGROUND_PLAYER, OpenWay.POPUP_PLAYER)) {
+            for (state in SOMETHING_PLAYING) {
+                assertTrue("$way, $state", replacesQueue(way, state))
+            }
+        }
+    }
+
+    /** Row `LIST_TAP`: "not used by the rules; listed for completeness": `true` while something is playing. */
+    @Test
+    fun ac1_aListTapReplacesTheQueueInEveryPlayer() {
+        for (state in SOMETHING_PLAYING) {
+            assertTrue("$state", replacesQueue(OpenWay.LIST_TAP, state))
+        }
+    }
+
+    /**
+     * The whole table of A2.1 at once: the only `false` cells while playing are `VIDEO_PAGE` beside background and
+     * popup.
+     */
+    @Test
+    fun am3_am5_am6_replacesQueueIsFalseOnlyForAVideoPageBesideTheBackgroundOrPopupPlayer() {
+        val falseCells = mutableListOf<Pair<OpenWay, PlayerKind?>>()
+        for (way in ALL_WAYS) {
+            for (state in SOMETHING_PLAYING) {
+                if (!replacesQueue(way, state)) falseCells += way to state.kind
+            }
+        }
+        assertEquals(
+            listOf(
+                OpenWay.VIDEO_PAGE to PlayerKind.BACKGROUND,
+                OpenWay.VIDEO_PAGE to PlayerKind.BACKGROUND,
+                OpenWay.VIDEO_PAGE to PlayerKind.POPUP,
+                OpenWay.VIDEO_PAGE to PlayerKind.POPUP,
+            ),
+            falseCells,
+        )
+    }
+
+    // ---- openWayOfRouterChoice (AM-6; plan A2.1) ----
+    //
+    // The keys are the values of the preference "Preferred 'open' action"; any distinct strings do.
+
+    private val showInfoKey = "show_info"
+    private val videoPlayerKey = "video_player"
+    private val backgroundPlayerKey = "background_player"
+    private val popupPlayerKey = "popup_player"
+
+    private fun wayOf(choice: String): OpenWay? = openWayOfRouterChoice(
+        choice = choice,
+        showInfo = showInfoKey,
+        videoPlayer = videoPlayerKey,
+        backgroundPlayer = backgroundPlayerKey,
+        popupPlayer = popupPlayerKey,
+    )
+
+    /** "`showInfo` and `videoPlayer` -> `VIDEO_PAGE`": both open the video's page (answer A17). */
+    @Test
+    fun am6_showInfoAndVideoPlayerOpenTheVideoPage() {
+        assertEquals(OpenWay.VIDEO_PAGE, wayOf(showInfoKey))
+        assertEquals(OpenWay.VIDEO_PAGE, wayOf(videoPlayerKey))
+    }
+
+    /** "`backgroundPlayer` -> `BACKGROUND_PLAYER`; `popupPlayer` -> `POPUP_PLAYER`". */
+    @Test
+    fun am6_backgroundPlayerAndPopupPlayerAreTheirOwnWays() {
+        assertEquals(OpenWay.BACKGROUND_PLAYER, wayOf(backgroundPlayerKey))
+        assertEquals(OpenWay.POPUP_PLAYER, wayOf(popupPlayerKey))
+    }
+
+    /**
+     * AM-6: "Actions that only add to the queue, download or show information behave as today."
+     * "anything else -> `null`": download, add to playlist, "always ask" and unknown keys never play.
+     */
+    @Test
+    fun am6_downloadAddToPlaylistAndUnknownChoicesAreNoWayToPlay() {
+        for (choice in listOf("download", "add_to_playlist", "always_ask", "", "SHOW_INFO", "show_info ", "popup")) {
+            assertNull("'$choice'", wayOf(choice))
+        }
+    }
+
+    /** The choice is compared with the four keys it is given, in the order of plan A2.1's signature. */
+    @Test
+    fun am6_routerChoiceIsComparedWithTheKeysInTheOrderShowInfoVideoPlayerBackgroundPopup() {
+        assertEquals(OpenWay.VIDEO_PAGE, openWayOfRouterChoice("a", "a", "b", "c", "d"))
+        assertEquals(OpenWay.VIDEO_PAGE, openWayOfRouterChoice("b", "a", "b", "c", "d"))
+        assertEquals(OpenWay.BACKGROUND_PLAYER, openWayOfRouterChoice("c", "a", "b", "c", "d"))
+        assertEquals(OpenWay.POPUP_PLAYER, openWayOfRouterChoice("d", "a", "b", "c", "d"))
+        assertNull(openWayOfRouterChoice("e", "a", "b", "c", "d"))
+    }
+
+    /** The router never yields a list tap or a page control: those have their own hooks. */
+    @Test
+    fun am6_routerChoiceIsNeverAListTapOrAPageControl() {
+        val ways = listOf(showInfoKey, videoPlayerKey, backgroundPlayerKey, popupPlayerKey, "download")
+            .map { wayOf(it) }
+        assertFalse(OpenWay.LIST_TAP in ways)
+        assertFalse(OpenWay.PAGE_CONTROL in ways)
+    }
+
+    // ---- queueItemDetails (AM-4; plan A2.1, first match wins, one test per row) ----
+
+    /** Exactly the four effects of plan A2.1. */
+    @Test
+    fun am4_thereAreExactlyFourDetailsEffects() {
+        assertEquals(
+            setOf("AS_TODAY", "SHOW_PLAYING_PAGE", "SELECT_THEN_SHOW_PAGE", "NONE"),
+            DetailsEffect.values().map { it.name }.toSet(),
+        )
+    }
+
+    /**
+     * Row 1, second half, `player.kind != MAIN`. AM-4, made precise: "With the background or popup
+     * player, Details opens the page and touches nothing": upstream's statement runs, for the playing
+     * item and for any other.
+     */
+    @Test
+    fun am4_detailsBesideTheBackgroundOrPopupPlayerIsAsToday() {
+        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
+            for (queueSize in listOf(1, 3)) {
+                val state = playing(kind, queueSize = queueSize)
+                for (currentIndex in 0 until queueSize) {
+                    for (itemIndex in 0 until queueSize) {
+                        assertEquals(
+                            "$state, item $itemIndex, current $currentIndex",
+                            DetailsEffect.AS_TODAY,
+                            queueItemDetails(state, itemIndex, currentIndex),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /** Row 1, first half, "not `player.somethingPlaying`": nothing to keep, upstream's statement runs. */
+    @Test
+    fun am4_detailsWhileNothingIsPlayingIsAsToday() {
+        for (state in NOTHING_PLAYING) {
+            for ((itemIndex, currentIndex) in listOf(0 to 0, 1 to 0, -1 to 0, -1 to -1, 0 to -1)) {
+                assertEquals(
+                    "$state, item $itemIndex, current $currentIndex",
+                    DetailsEffect.AS_TODAY,
+                    queueItemDetails(state, itemIndex, currentIndex),
+                )
+            }
+        }
+    }
+
+    /** Row 2, `itemIndex < 0` in the main player: the item left the queue while its menu was open; nothing happens. */
+    @Test
+    fun am4_detailsOfAnItemThatLeftTheMainPlayersQueueDoesNothing() {
+        for (queueSize in listOf(1, 3)) {
+            for (currentIndex in 0 until queueSize) {
+                val state = playing(PlayerKind.MAIN, queueSize = queueSize)
+                assertEquals(
+                    "$state, current $currentIndex",
+                    DetailsEffect.NONE,
+                    queueItemDetails(state, -1, currentIndex),
+                )
+            }
+        }
+        assertEquals(DetailsEffect.NONE, queueItemDetails(playing(PlayerKind.MAIN), -5, 0))
+    }
+
+    /**
+     * Row 3, `itemIndex == currentIndex` in the main player. AM-4, made precise: "Details on the playing
+     * item shows its page without a restart".
+     */
+    @Test
+    fun am4_detailsOfThePlayingItemInTheMainPlayerShowsItsPage() {
+        for (queueSize in listOf(1, 3, 40)) {
+            val state = playing(PlayerKind.MAIN, queueSize = queueSize)
+            for (index in listOf(0, queueSize / 2, queueSize - 1)) {
+                assertEquals(
+                    "$state, item and current $index",
+                    DetailsEffect.SHOW_PLAYING_PAGE,
+                    queueItemDetails(state, index, index),
+                )
+            }
+        }
+    }
+
+    /**
+     * Row 4, otherwise. AM-4, made precise: "on another item it moves playback to that item inside the
+     * queue and shows its page".
+     */
+    @Test
+    fun am4_detailsOfAnotherItemInTheMainPlayerSelectsItAndShowsItsPage() {
+        val state = playing(PlayerKind.MAIN, queueSize = 3)
+        for (currentIndex in 0..2) {
+            for (itemIndex in (0..2).filter { it != currentIndex }) {
+                assertEquals(
+                    "item $itemIndex, current $currentIndex",
+                    DetailsEffect.SELECT_THEN_SHOW_PAGE,
+                    queueItemDetails(state, itemIndex, currentIndex),
+                )
+            }
+        }
+    }
+
+    /**
+     * Row order, row 1 before row 2: beside the background or popup player, and while nothing is playing,
+     * an item that is no longer in the queue is still `AS_TODAY`, not `NONE`. Fails if the two rows are
+     * swapped.
+     */
+    @Test
+    fun am4_rowOrder_theKindOfPlayerIsLookedAtBeforeTheItemsPlaceInTheQueue() {
+        for (state in NOTHING_PLAYING + playing(PlayerKind.BACKGROUND) + playing(PlayerKind.POPUP)) {
+            assertEquals("$state", DetailsEffect.AS_TODAY, queueItemDetails(state, -1, 0))
+        }
+    }
+
+    /**
+     * Row order, row 2 before row 3: in the main player an item that is no longer in the queue (-1) is
+     * `NONE` also when the queue reports no current index (-1 as well). Fails if the two rows are swapped.
+     */
+    @Test
+    fun am4_rowOrder_anItemThatLeftTheQueueIsNeverTakenForThePlayingItem() {
+        assertEquals(DetailsEffect.NONE, queueItemDetails(playing(PlayerKind.MAIN), -1, -1))
+        assertEquals(DetailsEffect.NONE, queueItemDetails(playing(PlayerKind.MAIN, queueSize = 1), -1, -1))
+    }
+
+    /**
+     * Row order, row 1 before rows 3 and 4: the playing item beside another player is `AS_TODAY`, not a page switch.
+     */
+    @Test
+    fun am4_rowOrder_thePlayingItemBesideAnotherPlayerIsNotShownAsThePlayingPage() {
+        for (kind in listOf(PlayerKind.BACKGROUND, PlayerKind.POPUP)) {
+            assertEquals("$kind, the playing item", DetailsEffect.AS_TODAY, queueItemDetails(playing(kind), 1, 1))
+            assertEquals("$kind, another item", DetailsEffect.AS_TODAY, queueItemDetails(playing(kind), 2, 1))
+        }
+    }
+
+    /**
+     * AM-4: "leaves the queue as it is, in every player". No effect of the table replaces the queue, and
+     * the function has no settings parameter: AM-7, "AM-4 applies whatever the switch says".
+     */
+    @Test
+    fun am4_am7_detailsDependsOnlyOnThePlayerAndTheTwoIndexes() {
+        val parameters = Class.forName("org.schabi.newpipe.enhancements.queueguard.GuardModelKt")
+            .methods.single { it.name == "queueItemDetails" }.parameterTypes.toList()
+        assertEquals(
+            listOf<Class<*>>(PlayerState::class.java, Int::class.javaPrimitiveType!!, Int::class.javaPrimitiveType!!),
+            parameters,
+        )
     }
 
     // ---- movesForPlayNext (AC-11, "Play all next") ----
