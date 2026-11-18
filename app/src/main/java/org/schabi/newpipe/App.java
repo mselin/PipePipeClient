@@ -278,6 +278,10 @@ public class App extends MultiDexApplication {
             public void accept(@NonNull final Throwable throwable) {
                 Log.e(TAG, "RxJavaPlugins.ErrorHandler called with -> : "
                         + "throwable = [" + throwable.getClass().getName() + "]");
+                if (org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.decide(throwable, isDisposedRxExceptionsReported()) == org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.Action.LOG) { // ENH:crash-fixes-more
+                    Log.e(org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.LOG_TAG, org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.LOG_MESSAGE, throwable); // ENH:crash-fixes-more
+                    return; // ENH:crash-fixes-more
+                } // ENH:crash-fixes-more
 
                 final Throwable actualThrowable;
                 if (throwable instanceof UndeliverableException) {
