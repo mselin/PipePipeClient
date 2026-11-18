@@ -17,6 +17,12 @@ private const val LIVE = "uuid-live"
  * Both switches are on, the case of AC-2 to AC-5. That a start is never taken for a reload
  * is in [KeepPositionTrackerStartTest]; the keep switch off is in
  * [KeepPositionTrackerSwitchesTest].
+ *
+ * Amendment 2 (AM-3, plan 10.3): `onReload` and `onSwitch` take `durationKnown`, default
+ * true, and return a position. Every call in this class uses the default, so "position 0" in
+ * these tests is a real 0 of a player that knows its duration, where still no mark is set. A
+ * player that reports 0 while it is loading a reload (no duration) is in
+ * [KeepPositionTrackerCarriedPositionTest].
  */
 class KeepPositionTrackerReloadTest {
 
@@ -184,6 +190,10 @@ class KeepPositionTrackerReloadTest {
      * A second reload before the first one's load synchronized (two quality picks, an error
      * during the reload). Whether the second attempt passes the guards (position above 0) or
      * fails them (position 0), the item keeps its mark.
+     *
+     * Amendment 2 (AM-3): the mark was always kept here; what was lost was the position the
+     * queue had stored. That part, the return value for the glue, is in
+     * [KeepPositionTrackerCarriedPositionTest] (steps a. to e.).
      */
     @Test
     fun ac3_ac4_reloadRepeatedBeforeItsLoad_stillContinues() {
@@ -200,7 +210,14 @@ class KeepPositionTrackerReloadTest {
 
     // ---- AC-5: the guards of onReload / onSwitch ----
 
-    /** Plan section 6, AC-5: `pos <= 0`. There is no position to continue at. */
+    /**
+     * Plan section 6, AC-5: `pos <= 0`. There is no position to continue at.
+     *
+     * Narrowed by AM-3: this holds for a player that knows its duration (the default of
+     * `durationKnown`), and for one that does not when no position is carried for the item
+     * (added below). With a carried position the reload continues there:
+     * [KeepPositionTrackerCarriedPositionTest].
+     */
     @Test
     fun ac5_reloadWithoutAPositionSetsNoMark() {
         tracker.onSynchronize(p, U)
@@ -213,6 +230,10 @@ class KeepPositionTrackerReloadTest {
         assertEquals("onSwitch at 0", Mark.NONE, tracker.peekMark(p, U))
         tracker.onSwitch(p, U, -1, false)
         assertEquals("onSwitch at -1", Mark.NONE, tracker.peekMark(p, U))
+        tracker.onReload(p, U, 0, false, false)
+        assertEquals("onReload at 0, no duration, nothing carried", Mark.NONE, tracker.peekMark(p, U))
+        tracker.onSwitch(p, U, 0, false, false)
+        assertEquals("onSwitch at 0, no duration, nothing carried", Mark.NONE, tracker.peekMark(p, U))
 
         assertEquals(NO_SEEK, tracker.load(p, U))
     }
