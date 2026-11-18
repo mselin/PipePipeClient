@@ -625,8 +625,9 @@ paragraphs on A11 and A14; in section 8 the five risks about a single video and 
 videos; in section 9 the rows Q12 to Q14. Everything else stands: T1-T4, B1-B5, M1, S1, the
 controller, the dialog rows, `movesForPlayNext`, `streamDetailsInsertIndex`.
 
-Summary: 13 upstream files, 33 lines marked `ENH:queue-guard` (was 9 and 24): Q1 is removed, 10
-lines are added in 5 files that had none (the tenth is P5, A2.15, for AM-9; AM-10 needs no line). No signature of `GuardPolicy`, `QueueGuardController`,
+Summary: 13 upstream files, 34 lines marked `ENH:queue-guard` (was 9 and 24): Q1 is removed, 10
+lines are added in 5 files that had none (the tenth is P5, A2.15, for AM-9; AM-10 needs no line)
+and one line is changed in place (P6, A2.16, for AM-11). No signature of `GuardPolicy`, `QueueGuardController`,
 `TapActions`, `ListActions` or `GuardUi` changes.
 
 ### A2.1 Model (`GuardModel.kt`, plain Kotlin; replaces the parts of 3.1 named above)
@@ -957,12 +958,12 @@ Lines containing `ENH:queue-guard`, below `app/src/main`:
 | `java/org/schabi/newpipe/info_list/dialog/InfoItemDialog.java` | 1 | M1 |
 | `res/xml/video_audio_settings.xml` | 1 | S1 |
 | `java/org/schabi/newpipe/player/playqueue/PlayQueue.java` | 0 | Q1 removed |
-| `java/org/schabi/newpipe/fragments/detail/VideoDetailFragment.kt` | 5 | P1-P4, each with `QG.onPageControl(`; P5 with `QG.playersQueueFor(vm.currentInfo)?.let { return it }` |
+| `java/org/schabi/newpipe/fragments/detail/VideoDetailFragment.kt` | 6 | P1-P4, each with `QG.onPageControl(`; P5 with `QG.playersQueueFor(vm.currentInfo)?.let { return it }`; P6 with `QG.playersQueueFor(result.info)` and `else hideMainPlayerOnLoadingNewStream()` |
 | `java/org/schabi/newpipe/QueueItemMenuUtil.java` | 1 | D1, `QG.openQueueItemDetails(context, playQueue, item)` |
 | `java/org/schabi/newpipe/util/external_communication/InternalUrlsHandler.java` | 1 | L1, `QG.onTimedLink(` and `() -> playOnMain(context, matchedUrl, service, seconds, disposables)` |
 | `java/org/schabi/newpipe/fragments/list/search/SearchFragment.java` | 1 | L2, `QG.onSearchAddress(SearchFragment.this, intent,` |
 | `java/org/schabi/newpipe/RouterActivity.java` | 2 | R1 `QG.onRouterChoice(`, R2 `QG.isAsking(` |
-| Total | 33 | 13 files with a marked line |
+| Total | 34 | 13 files with a marked line |
 
 `fragments/detail/DetailActions.kt` and `MainActivity.java` hold none. The marker
 `ENH:default-open-action` is not affected: `QueueGuard.kt` 2, `res/xml/video_audio_settings.xml` 2.
@@ -1235,7 +1236,8 @@ text makes (`:102`); the player that is in use handles it (`player/PlayerBroadca
 setting is read. `playOnMain` and keep-position's line above `:222` are not reached for the
 current item; L1's text and place (between `:129` and `:130`) are unchanged.
 
-**Marked lines.** A2.8 as corrected above: `VideoDetailFragment.kt` 5, total 33 in 13 files.
+**Marked lines.** A2.8 as corrected above: with P5 `VideoDetailFragment.kt` holds 5; A2.16 adds
+P6: 6, total 34 in 13 files.
 `InternalUrlsHandler.java` stays at 1.
 
 **Tests, in addition to A2.10.**
@@ -1299,3 +1301,108 @@ never left the player. On the reopened page the page's own queue and history ent
 single video: Back and the page's follow-the-player logic behave as today. `Player.seekTo`
 clamps to the duration and does nothing without an ExoPlayer (`PlayerTransportController.kt:150-166`):
 a time link in a current item whose player is stopped does nothing.
+
+### A2.16 After A21: AM-11, the page of the current item never closes the player
+
+A21 part 1 accepts what A2.15 planned for a tap on the playing video with Autoplay allowed; part
+2 becomes AM-11. No row of A2.1 or A2.2 changes: AM-11 is about what the page does after it has
+loaded, not about asking.
+
+**When `playerHolder.stopService()` at `:598` runs.** Only inside
+`hideMainPlayerOnLoadingNewStream()` (`:587-600`), which returns at once unless a player service
+with a view exists and the main player is selected (`:588-592`): never beside the background or
+popup player. Then it takes the player's view out of the page (`:593`) and, if
+`isAutoplayEnabled()` (`:603-607`), stops ExoPlayer for reuse (`:595`); otherwise it closes the
+player (`:598`). Three callers:
+
+| Caller | When | This plan |
+|---|---|---|
+| `:415`, `onLoadResult` | the page has loaded a video, whichever way it was asked to (list tap, typed address, link, "show info", "Details", reload) | P6 |
+| `:511`, `setupFromHistoryItem` | Back inside the page goes to an earlier video; the load of that video follows | unchanged |
+| `:706`, `onPlayerError` | the player reported an error | unchanged; keep-position's subject |
+
+**Hook P6, a line changed in place** (the call stays on its line and gets a condition; it cannot
+be an added line, because the statements after it must still run):
+
+| # | File, where | Old line | New line |
+|---|---|---|---|
+| P6 | `fragments/detail/VideoDetailFragment.kt:415`, `onLoadResult`, between `isLoading.set(false)` and `render(result.info, rebuildTabs = true)` | `hideMainPlayerOnLoadingNewStream()` | `val playing = QG.playersQueueFor(result.info); if (playing != null) vm.playQueue = playing else hideMainPlayerOnLoadingNewStream() // ENH:queue-guard` |
+
+`QG` in full in the file, same indentation as the old line. `playersQueueFor` is the function of
+P5, unchanged (A2.15): the player's queue if the player holds one and its current item is this
+video (service and address, `info.url`), else `null`. No setting is read.
+
+What the line says: the page has loaded the video the player is on, so there is nothing to hide,
+and the page takes the player's queue as its own again, which is what it held before it was
+asked to show this video (`:642-643`; `selectAndLoadVideo` had replaced it, `:137`). For any
+other video the old statement runs as it did.
+
+Why here and not inside the function: a condition at the top of
+`hideMainPlayerOnLoadingNewStream()` would also decide for `:706` and `:511`. P6 changes one
+caller's line; the function's body and the other two calls are not touched, so an error stops
+the player exactly as today, and keep-position's planned line before `:598` runs or not exactly
+as it would without this feature for every call that still reaches the function.
+
+Why the queue is taken over as well, and not only the stop skipped: with the stop skipped the
+main player goes on inside this page, and the page must go on following it. It follows only
+while its queue is the player's (`onMetadataUpdate`, `:689`); left with the queue of one video
+that `pushToHistory` would build (`:454`), it would keep showing this video's title and
+description after the player has moved to the next item. With the player's queue in place
+`pushToHistory` adds no second history entry for the same queue (`:455`). This is the "adopt"
+variant A2.15 set aside for the general case; here it is confined to the one moment the page has
+just loaded the player's current item, and it restores the state the page was in. P5 stays: it
+covers pages that hold another queue for other reasons (Back to an earlier entry, a page whose
+video the player reaches later).
+
+**What the user sees after the stop is skipped.** The page reloads its texts and tabs for the
+same video (`showLoading` and `render` touch title, description, thumbnail image and play icon,
+`DetailHeaderBinder.kt:59-81`, `:85-105`, not the player view, which stays in its place because
+`:593` did not run). Then:
+
+| Player | Autoplay | After P6 | Result |
+|---|---|---|---|
+| main, playing | not allowed | `isAutoplayEnabled()` is false (`:421`): nothing else runs | the video goes on playing in the page, same position, queue complete |
+| main, paused | not allowed | nothing else runs | stays paused where it was; the player's own play button resumes |
+| main, playing or paused | allowed | `:422` -> `openMainPlayer()` sends the player's queue (the page's queue again, and P5): equal queue, ExoPlayer not stopped, `PlayerStartController.kt:129-134` only sets play | goes on playing; a paused video starts, as the page's autoplay does today; no stop and re-prepare in between, unlike the path A2.15 described for this case |
+| background or popup | any | the function would have returned anyway; the page takes the player's queue | the page opens without touching playback, as today, and its controls move or resume the whole queue (AM-9) |
+
+Nothing restarts at 0:00 and nothing replaces the queue in any line: the only start is the one
+with an equal queue. The thumbnail's play control is covered by the player view while the main
+player is in the page; the mini player's button toggles play and pause (`:813-816`).
+
+**With keep-position's planned line before `:598`.** It marks the position when the page closes
+the player after loading the video the player is on. With P6 that call is not made for the
+current item, so there is no close to mark and nothing for it to restore; for every other video
+and for errors the line runs as planned. Its `onStartIntent` sees an equal queue and does
+nothing. Either feature without the other behaves as its own plan says. Merge:
+`VideoDetailFragment.kt` with `:415` changed and P1, P4, P5 inserted, against a copy with that
+line inserted before `:598`, by `git merge-file` in both directions: no conflict.
+
+**Tests, in addition to A2.10 and A2.15.** `QueueGuardWiringTest`: `VideoDetailFragment.kt`
+holds 6 marked lines; exactly one contains both `QueueGuard.playersQueueFor(result.info)` and
+`else hideMainPlayerOnLoadingNewStream()`; the file still calls
+`hideMainPlayerOnLoadingNewStream()` on two unmarked lines (Back and the error) and defines it
+once, unmarked. No new plain function, so no new unit test; the glue is device step 11.
+
+**Device script, in addition.**
+
+11. AM-11. Autoplay set to "never" (or "only on Wi-Fi" and the phone on mobile data). Main
+   player, a queue of three, the first playing at about 1:00; minimise it. In a feed tap the
+   playing video: the page comes up, the video is still playing at its position, the queue has
+   three items. Let it run into the second item: the page's title and description change with
+   it. Pause, tap the playing video in the feed again: still paused at the same position, three
+   items. Type the playing video's address into search: the same. Then cause a playback error
+   (flight mode until it fails): the player closes as it did before this feature.
+
+**Checked by reading / assumed.** Checked: the three callers and the early returns of
+`hideMainPlayerOnLoadingNewStream()`; that loading and rendering do not touch the player view;
+`pushToHistory` and `onMetadataUpdate` with the player's queue; the merge. Assumed, not run: the
+player view stays visible and correctly sized through the page's reload (nothing in the load
+path was found that hides it); `info.url` of the loaded video equals the current item's address
+(where it does not, P6 behaves as today and the player is closed, which step 11 would show).
+
+**Risks.** Back inside the page (`:511`) still closes the main player when Autoplay is not
+allowed, also when the entry it returns to is the playing video; that is leaving a page, not
+opening one, and is not in AM-11. The page now follows a background or popup player again after
+its current item was reopened, as a page that never left the player does. P6 is a changed
+upstream line: if upstream edits `:415`, the rebase conflicts and the condition is put back.
