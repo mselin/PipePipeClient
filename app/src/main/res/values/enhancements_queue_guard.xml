@@ -3,7 +3,7 @@
     <!-- queue-guard: the switch "Ask before replacing the queue" (Settings > Player) -->
     <string name="enh_queue_guard_ask_key" translatable="false">enh_queue_guard_ask</string>
     <string name="enh_queue_guard_ask_title">Ask before replacing the queue</string>
-    <string name="enh_queue_guard_ask_summary">Tapping a video or a play button asks what to do with the queue that is playing. A single video in the main player is replaced without asking</string>
+    <string name="enh_queue_guard_ask_summary">Asks what to do before a tap, a play button or a link replaces what is playing</string>
 
     <!-- queue-guard: the dialog after a video tap -->
     <string name="enh_queue_guard_add_to_queue">Add to queue</string>

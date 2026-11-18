@@ -25,9 +25,6 @@ internal object PrefsGuardSettings : GuardSettings {
     }
 }
 
-/** The one record of the process: written by [QueueGuard.noteAutoQueued], read by [HolderPlayerStateSource]. */
-internal val autoQueuedRecord = AutoQueuedRecord()
-
 /** The player as [PlayerHolder] sees it. */
 internal object HolderPlayerStateSource : PlayerStateSource {
     override fun current(): PlayerState {
@@ -40,18 +37,11 @@ internal object HolderPlayerStateSource : PlayerStateSource {
         }
         val queue = holder.player?.playQueue
         val current = queue?.item
-        // By index, not by iterating the list: hook Q1 can append on another thread meanwhile.
-        val uuids = if (queue == null) {
-            emptyList()
-        } else {
-            (0 until queue.size()).mapNotNull { queue.getItem(it)?.uuid }
-        }
         return PlayerState(
             kind = kind,
             queueSize = holder.queueSize,
             currentServiceId = current?.serviceId ?: -1,
             currentUrl = current?.url,
-            autoQueuedCount = autoQueuedRecord.countIn(uuids),
         )
     }
 }
@@ -72,6 +62,63 @@ internal class FragmentTapActions(
         StreamDialogDefaultEntry.START_HERE_ON_BACKGROUND.action.onClick(fragment, item)
 
     override fun startInPopup() = StreamDialogDefaultEntry.START_HERE_ON_POPUP.action.onClick(fragment, item)
+}
+
+/**
+ * The actions of a request that comes from no list item (plan A2.4): a control of the video page, a
+ * link, a typed address, a video from another app. Today's behaviour is [replay], which runs the
+ * hooked upstream statements again. [load] hands over the video as a queue of its own, at once or
+ * after loading it; [context] is the application context, because the load can outlive the screen
+ * that asked. [afterEnqueue] runs as soon as the load has started.
+ */
+internal class DirectTapActions(
+    private val context: Context,
+    private val load: ((PlayQueue) -> Unit) -> Unit,
+    private val replay: Runnable,
+    private val afterEnqueue: Runnable? = null,
+) : TapActions {
+    override fun openAsToday() = replay.run()
+
+    override fun enqueue() = enqueue(next = false)
+
+    override fun enqueueNext() = enqueue(next = true)
+
+    // The rules never give these two for a request that is no list tap (plan A2.2, rows 4 and 11).
+    override fun startInBackground() = openAsToday()
+
+    override fun startInPopup() = openAsToday()
+
+    private fun enqueue(next: Boolean) {
+        try {
+            load { queue -> sendOrAppend(queue, next) }
+        } finally {
+            afterEnqueue?.run()
+        }
+    }
+
+    /**
+     * Sends [queue] to the player with an enqueue intent, as the long-press "Enqueue" does. From the
+     * router the video is loaded after the router's screen has finished, and Android may then refuse to
+     * start a foreground service (an IllegalStateException). The video is not dropped for that: it is
+     * appended to the open player's queue directly, which is all the intent would have done there
+     * (`PlayerStartController.handleIntent`). The toast has been shown by then.
+     */
+    private fun sendOrAppend(queue: PlayQueue, next: Boolean) {
+        try {
+            if (next) {
+                NavigationHelper.enqueueNextOnPlayer(context, queue)
+            } else {
+                NavigationHelper.enqueueOnPlayer(context, queue)
+            }
+        } catch (refused: IllegalStateException) {
+            val target = PlayerHolder.getInstance().player?.playQueue ?: throw refused
+            val currentIndex = target.index
+            target.append(queue.streams)
+            if (next) {
+                target.move(target.size() - 1, currentIndex + 1)
+            }
+        }
+    }
 }
 
 /** The list actions of a play button that would play [queue]: today's press is [asToday]. */

@@ -4,7 +4,6 @@ import android.content.Context
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -27,12 +26,19 @@ interface TapDialogAddOn {
 
 /**
  * The queue-guard dialog: a stock AlertDialog built like upstream's long-press menu (`InfoItemDialog`),
- * three rows and a Cancel button. Dismissed without a callback when [owner] is destroyed (rotation).
+ * three rows and a Cancel button. Dismissed without a choice when [owner] is destroyed (rotation), and
+ * with [dismissOnStop] also when it is stopped, as the router does with its own chooser.
+ *
+ * [context] is an activity, or a themed wrapper around one (the router's screen has a transparent theme).
+ * [onDismiss] is called once for every dismissal, after the choice was carried out if there was one;
+ * `chosen` is `false` for Cancel, Back, a tap outside, a dropped click and a dismissal by [owner].
  */
 internal class DialogGuardUi(
-    private val activity: FragmentActivity,
+    private val context: Context,
     private val owner: LifecycleOwner,
     private val extension: TapDialogExtension?,
+    private val dismissOnStop: Boolean = false,
+    private val onDismiss: ((chosen: Boolean) -> Unit)? = null,
 ) : GuardUi {
 
     override fun askForTap(title: String, queueSize: Int, onChoice: (GuardChoice) -> Unit) {
@@ -40,14 +46,14 @@ internal class DialogGuardUi(
             heading = title,
             queueSize = queueSize,
             rows = TAP_ROWS,
-            addOn = extension?.create(activity),
+            addOn = extension?.create(context),
             onChoice = onChoice,
         )
     }
 
     override fun askForList(videoCount: Int, queueSize: Int, onChoice: (GuardChoice) -> Unit) {
         show(
-            heading = activity.resources.getQuantityString(
+            heading = context.resources.getQuantityString(
                 R.plurals.enh_queue_guard_list_count,
                 videoCount,
                 videoCount,
@@ -66,25 +72,27 @@ internal class DialogGuardUi(
         addOn: TapDialogAddOn?,
         onChoice: (GuardChoice) -> Unit,
     ) {
-        val bannerView = View.inflate(activity, R.layout.dialog_title, null)
+        val bannerView = View.inflate(context, R.layout.dialog_title, null)
         bannerView.isSelected = true
         bannerView.findViewById<TextView>(R.id.itemTitleView).text = heading
         val detailsView = bannerView.findViewById<TextView>(R.id.itemAdditionalDetails)
-        detailsView.text = activity.resources.getQuantityString(
+        detailsView.text = context.resources.getQuantityString(
             R.plurals.enh_queue_guard_queue_count,
             queueSize,
             queueSize,
         )
         detailsView.visibility = View.VISIBLE
 
-        val items = rows.map { activity.getString(it) }.toTypedArray()
-        val builder = AlertDialog.Builder(activity)
+        val items = rows.map { context.getString(it) }.toTypedArray()
+        var chosen = false
+        val builder = AlertDialog.Builder(context)
             .setCustomTitle(bannerView)
             .setItems(items) { _, index ->
                 if (!owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
                     return@setItems
                 }
                 val choice = ROW_CHOICES[index]
+                chosen = true
                 addOn?.onChoice(choice)
                 onChoice(choice)
             }
@@ -97,14 +105,23 @@ internal class DialogGuardUi(
         // As InfoItemDialog: a rotation destroys the owner, the dialog goes without calling onChoice.
         val lifecycle = owner.lifecycle
         val observer = object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                if (dismissOnStop) {
+                    dialog.dismiss()
+                }
+            }
+
             override fun onDestroy(owner: LifecycleOwner) {
                 dialog.dismiss()
                 lifecycle.removeObserver(this)
             }
         }
         lifecycle.addObserver(observer)
-        // The list dialog's owner is the activity: do not keep a dismissed dialog until it is destroyed.
-        dialog.setOnDismissListener { lifecycle.removeObserver(observer) }
+        // The owner can be the activity: do not keep a dismissed dialog until it is destroyed.
+        dialog.setOnDismissListener {
+            lifecycle.removeObserver(observer)
+            onDismiss?.invoke(chosen)
+        }
         dialog.show()
     }
 

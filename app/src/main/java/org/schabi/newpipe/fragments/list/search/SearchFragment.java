@@ -1004,6 +1004,7 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(intent -> {
+                            if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onSearchAddress(SearchFragment.this, intent, () -> { getFM().popBackStackImmediate(); activity.startActivity(intent); })) return; // ENH:queue-guard
                             getFM().popBackStackImmediate();
                             activity.startActivity(intent);
                         }, throwable -> showTextError(getString(R.string.unsupported_url))));

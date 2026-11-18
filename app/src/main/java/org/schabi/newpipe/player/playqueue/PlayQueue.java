@@ -323,7 +323,6 @@ public abstract class PlayQueue implements Serializable {
     private synchronized void appendInternal(@NonNull final List<PlayerMediaItem> items,
                                              final boolean autoQueued) {
         final List<PlayerMediaItem> itemList = new ArrayList<>(items);
-        if (autoQueued) org.schabi.newpipe.enhancements.queueguard.QueueGuard.noteAutoQueued(itemList); // ENH:queue-guard
 
         if (isShuffled()) {
             backup.addAll(itemList);
