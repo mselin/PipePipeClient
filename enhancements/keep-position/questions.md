@@ -165,3 +165,9 @@ was playing (plan 10.3, `onPageStopsPlayer` rule 2). One side effect of the plac
 decides it: going back inside the page's history from the playing video's page, without
 Autoplay, also keeps that video's position until another video is started. Is both accepted?
 Affects AM-2, AC-7.
+
+## A14 spec
+Yes to both. When the page stops the player for the video it shows and play is pressed, the
+video continues; that is the same wish as A12. Going back inside the page's history to the
+video that was playing then also keeps its position until another video is started;
+accepted.
