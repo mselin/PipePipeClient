@@ -153,3 +153,15 @@ pull request.
 Covered. A player that has been failing since an error, and is then closed by the user
 without having played on, counts as closed because of the error. AM-1 says so. The plan adds
 the hook where the player is destroyed.
+
+## Q14 plan -> spec
+A12 covers "a tap that starts the playing video again in the same player". With Autoplay
+allowed that is one start in the living player and is planned as such. With Autoplay not
+allowed (the default on mobile data) the same tap starts nothing: the page loads the video,
+stops the main player (`VideoDetailFragment.kt:598`) and waits; the video only starts when
+play is pressed, in a new player. Read strictly that is "play after the player was closed"
+(0:00). Planned with: it continues, because the page closed the player for the very video it
+was playing (plan 10.3, `onPageStopsPlayer` rule 2). One side effect of the place that
+decides it: going back inside the page's history from the playing video's page, without
+Autoplay, also keeps that video's position until another video is started. Is both accepted?
+Affects AM-2, AC-7.
