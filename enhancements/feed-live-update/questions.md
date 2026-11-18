@@ -70,3 +70,40 @@ Agreed, for every update including the final one. AC-5 says so.
 
 ## A6 spec
 Accepted as today's behaviour. AC-11 names it.
+
+## Q7 tests -> plan
+`FeedRefreshLog`: the plan marks only `batchStored()` as synchronized. `started()` is called on
+the thread that subscribes to the loader's chain and `ended()` from `doFinally`, on the thread
+that terminates or disposes it, and the notification check can run beside a manual refresh
+(risk 7), so the running count is written from more than one thread; `groupId` and
+`runningElsewhere` are read on the main thread and on the page's background thread.
+Tested with: the running count survives concurrent calls
+(`FeedRefreshLogTest.ac11_startedAndEnded_fromSeveralThreads_balance`: eight threads, as many
+`ended()` as `started()`, then nothing is running and the next refresh is seen). An atomic
+counter or a synchronized pair meets it. If that is more than the plan wants, the test goes.
+
+## Q8 tests -> plan
+`FeedListRules.progressText` with neither counts nor a message: plan 6.1 reads "without counts
+the event's message ("Processing feed…"), else "∞/∞"". Not said: whether the loading text
+stands before it ("Loading feed… ∞/∞"), and what "without counts" is when only one of the two
+numbers is -1.
+Tested with: `"∞/∞"` alone, as `FeedFragment.kt:753-759` shows it today
+(`FeedListRulesTest.ac3_progressText_withNeither_isInfinity`); "without counts" is tested only
+for both numbers -1, the one case the loader posts (`ProgressEvent(@StringRes)`), and a single
+-1 is left open. Also left open: `matches(null, null, "")`, which the page never asks.
+
+## Q9 tests -> plan
+A result that no concerned page has consumed, and the next refresh. Refresh of group 9 ends
+while only the page of group 7 is on screen: that page does not consume the result (5.2), so
+it keeps `SuccessResultEvent` (with group 9's errors) as its latest event. When the next
+refresh starts, `started(7)` or `started(-2)` changes `log.groupId` at once, but the first
+event of the new refresh is posted only after the outdated-subscriptions query and a hop to
+the main thread (`FeedLoadManager.kt:113-127`). If the page's stream emits in between (a Room
+re-emission, the "show watched" switch), the old result is decided on as a concerned SUCCESS:
+the page shows group 9's error messages as the end of a refresh and `reset()` takes the
+result away from "All". Section 4 says "the group is always set before the first event of a
+refresh", which holds; the case here is the page's old latest event, decided on before that
+first event arrives. AC-7 does not allow it; risk 1 does not name it.
+Tested with: nothing pins this sequence, in either direction. The tests pin that a page not
+concerned posts nothing and does not consume (`FeedLivePageTest.ac7_…`), and that the group
+stays the last started one after `ended()` (which the end of a refresh needs).
