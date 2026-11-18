@@ -114,3 +114,9 @@ before that choice's own toast ("Enqueued", ...). English text, with the names t
 app's own strings: "Asking is now off. To switch it on again: Settings > Player > Ask before
 replacing the queue". It is shown for every remembered choice, also when asking was already off
 or the remembered action is the one already set.
+
+## A9 spec
+Accepted.
+
+## A10 spec
+Accepted: a toast with that text, for every remembered choice.
