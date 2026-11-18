@@ -79,7 +79,9 @@ check_commits() {
                 unmarked=$(git show --format= -U0 "$commit" -- "$path" |
                     grep -E '^\+' | grep -Ev '^\+\+\+ ' | grep -Fvc "ENH:$feature" || true)
                 added=$(git show --numstat --format= "$commit" -- "$path" | awk '{print $1}')
-                removed=$(git show --numstat --format= "$commit" -- "$path" | awk '{print $2}')
+                # removed lines that carry the feature's own marker are the fork's, not upstream's
+                removed=$(git show --format= -U0 "$commit" -- "$path" |
+                    grep -E '^-' | grep -Ev '^--- ' | grep -Fvc "ENH:$feature" || true)
                 if [[ ${unmarked:-0} != 0 ]]; then
                     echo "FAIL  ${commit:0:9}  $path: $unmarked changed line(s) without ENH:$feature"
                     status=1
