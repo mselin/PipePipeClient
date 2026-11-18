@@ -453,6 +453,7 @@ public final class Player {
         if (DEBUG) {
             Log.d(TAG, "destroy() called");
         }
+        org.schabi.newpipe.enhancements.keepposition.KeepPosition.onPlayerClosed(this); // ENH:keep-position
         
         // Close popup menus before destroying to prevent crash
         closeAllPopupMenus();

@@ -85,6 +85,7 @@ class PlayerErrorHandler(private val player: Player) {
      */
     fun onPlayerError(error: PlaybackException) {
         Log.e(Player.TAG, "ExoPlayer - onPlayerError() called with:", error)
+        org.schabi.newpipe.enhancements.keepposition.KeepPosition.onErrorBegin(player) // ENH:keep-position
 
         if (error.errorCode != ERROR_CODE_BEHIND_LIVE_WINDOW) {
             player.saveStreamProgressState()
