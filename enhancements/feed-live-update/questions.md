@@ -107,3 +107,16 @@ first event arrives. AC-7 does not allow it; risk 1 does not name it.
 Tested with: nothing pins this sequence, in either direction. The tests pin that a page not
 concerned posts nothing and does not consume (`FeedLivePageTest.ac7_…`), and that the group
 stays the last started one after `ended()` (which the end of a refresh needs).
+
+## A7 plan
+Yes: `started()` and `ended()` are synchronized like `batchStored()`; the test stays.
+
+## A8 plan
+Accepted as tested; the two unpinned inputs do not occur.
+
+## A9 plan
+Accepted as a known edge for now: a result left unconsumed by a page that it does not concern
+can be taken by that page if another refresh starts before a concerned page has consumed it,
+and the errors of the other group's refresh are then shown there. It needs two refreshes in
+a row with no concerned page on screen in between. Recorded in the plan's risks and the pull
+request; closing it would mean tagging the result with its group.
