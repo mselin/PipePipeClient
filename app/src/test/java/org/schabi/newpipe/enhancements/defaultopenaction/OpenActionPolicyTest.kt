@@ -5,13 +5,14 @@ import org.junit.Test
 import org.schabi.newpipe.enhancements.queueguard.GuardChoice
 import org.schabi.newpipe.enhancements.queueguard.GuardPolicy
 import org.schabi.newpipe.enhancements.queueguard.ListEffect
+import org.schabi.newpipe.enhancements.queueguard.OpenWay
 import org.schabi.newpipe.enhancements.queueguard.PlayerKind
 import org.schabi.newpipe.enhancements.queueguard.PlayerState
 import org.schabi.newpipe.enhancements.queueguard.TapEffect
 import org.schabi.newpipe.enhancements.queueguard.TapRequest
 
 /**
- * The rule tables of plan 4.2 for the combined policy
+ * The rule tables of plan 4.2, as plan B2.2 (Amendment 2) changed them, for the combined policy
  * `OpenActionPolicy(QueueGuardPolicy(g), g, settings)` with `g = GuardSettings { ask }` ("P" in plan section
  * 6), one test per row, named after the row and the acceptance criterion in its last column. (Rows 14 to 16 name only
  * criteria of queue-guard there; their tests carry AC-4, see row 14 and questions.md, Q7.)
@@ -20,9 +21,16 @@ import org.schabi.newpipe.enhancements.queueguard.TapRequest
  * value of that column: both positions of the ask switch, the three default actions, the three "Start
  * playback in" values, Music Player Mode on and off, and every player state of the row's "playing" value
  * ([SOMETHING_PLAYING]: each player with one item and with several; [NOTHING_PLAYING]: no player, and each
- * player without a queue). Where a row depends on "worth guarding", or a test is about a single video in
- * the main player (spec AC-3, AC-4), the states are [WORTH_GUARDING] and [SINGLE_IN_MAIN], which also hold
- * the queues with auto-enqueued videos. A failure message starts with the row and names the combination.
+ * player without a queue). A failure message starts with the row and names the combination.
+ *
+ * Amendment 2 (spec AM-2, AM-3; plan B2.2, B2.7). Queue-guard's model no longer tells a queue "worth
+ * guarding" from a single video in the main player: every playing state is guarded. So row 6b is gone,
+ * the column "worth guarding" is gone, and the tests that ran over the fixtures `WORTH_GUARDING` and
+ * `SINGLE_IN_MAIN` run over [SOMETHING_PLAYING], or over [ONE_IN_MAIN] where they are about a single video
+ * in the main player (spec AC-3). The tests whose expectation turned round say so in their KDoc ("Before
+ * amendment 2 ..."). New are row 6c (a tap in the related list of the current item's page), the same tap
+ * with asking off (questions.md, Q9/A9), and the second table of B2.2: requests of another `way` than a
+ * list tap (`am3_...`).
  *
  * One policy object serves a whole test while the settings change under it, so an implementation that
  * caches a setting fails here too (plan 4.1: "Both are read on every call, never cached").
@@ -175,7 +183,8 @@ class OpenActionPolicyTest {
 
     /**
      * Row 5 on a single video in the main player. AC-12 holds there under all 18 combinations: with ask
-     * off and *Add to queue* or *Play next*, a tap on the playing video is not enqueued behind itself.
+     * off and *Add to queue* or *Play next*, a tap on the playing video is not enqueued behind itself, and
+     * with ask on it is not asked about (amendment 2: a single video is guarded now, the playing one is not).
      */
     @Test
     fun ac12_row5_tapOnTheCurrentItemOpensAsTodayOnASingleVideoInTheMainPlayerWhateverTheSettings() {
@@ -185,14 +194,16 @@ class OpenActionPolicyTest {
             row = "row 5 (single video in the main player)",
             expected = TapEffect.OPEN_AS_TODAY,
             settings = all,
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
             taps = currentItemInAnyList,
         )
     }
 
     /**
-     * Row 6. AC-4: with ask on "the default action is not used: with a queue worth guarding the dialog
-     * opens".
+     * Row 6 (plan B2.2). AC-4 with AM-2: with ask on "the default action is not used" and "a video tap
+     * follows queue-guard as amended: any loaded item is worth guarding", so the dialog opens in every
+     * player, with one item and with several. (Before amendment 2 this test ran over the fixture
+     * `WORTH_GUARDING`, which left the single video in the main player out; see the next test for that.)
      */
     @Test
     fun ac4_row6_askOn_tapAsksForAllNineCombinationsOfTheTwoSettings() {
@@ -202,43 +213,124 @@ class OpenActionPolicyTest {
             row = "row 6",
             expected = TapEffect.ASK,
             settings = nine,
-            states = WORTH_GUARDING,
+            states = SOMETHING_PLAYING,
             taps = anotherVideoInAnyList,
         )
     }
 
     /**
-     * Row 6b. AC-4: with ask on "the default action is not used: ... with a single video in the main
-     * player the tap opens the video as today" (answer A8), also with *Add to queue* or *Play next*
-     * selected, in a list with Music Player Mode on or off.
+     * Row 6 on a single video in the main player. AM-2 with AC-4: with asking on such a tap asks, whatever
+     * the default action is, in a list with Music Player Mode on or off; nothing is enqueued or opened by
+     * itself (plan B2.2: "`ASK`, in every player and for a single video too").
+     *
+     * Inverted by amendment 2. Before, this was
+     * `ac4_row6b_askOn_singleVideoInTheMainPlayerOpensAsTodayForAllNineCombinationsOfTheTwoSettings` and
+     * expected `OPEN_AS_TODAY` (row 6b of plan 4.2, answer A8: "with a single video in the main player the
+     * tap opens the video as today"). AM-2 replaces that answer and row 6b no longer exists; the state is
+     * row 6.
      */
     @Test
-    fun ac4_row6b_askOn_singleVideoInTheMainPlayerOpensAsTodayForAllNineCombinationsOfTheTwoSettings() {
+    fun am2_ac4_row6_askOn_singleVideoInTheMainPlayerAsksForAllNineCombinationsOfTheTwoSettings() {
         val nine = combinations(asks = on)
         assertEquals("combinations of the two settings", 9, nine.size)
         expectOnTap(
-            row = "row 6b",
-            expected = TapEffect.OPEN_AS_TODAY,
+            row = "row 6 (single video in the main player; row 6b before amendment 2)",
+            expected = TapEffect.ASK,
             settings = nine,
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
             taps = anotherVideoInAnyList,
         )
     }
 
     /**
-     * Rows 5, 6 and 6b together. AC-4: with ask on "a video tap behaves exactly as queue-guard specifies":
-     * in every state in which something is playing, for every tap, the answer is the one of queue-guard's
-     * policy alone on the same switch (plan section 6, AC-4: "equal to `QueueGuardPolicy` alone in both").
+     * Row 6c (plan B2.2, new). AM-2 through queue-guard's AM-2: with asking on, a tap in the list of
+     * related videos on the page of the current item opens the video as today, without a dialog, in every
+     * player and whatever the two settings are. "Row 6c ... is queue-guard's answer, not a rule of this
+     * class": the wrapper only has to pass the tap on unchanged, `relatedTo` included.
+     */
+    @Test
+    fun am2_row6c_askOn_tapInTheRelatedListOfTheCurrentItemsPageOpensAsTodayForAllNineCombinations() {
+        val nine = combinations(asks = on)
+        assertEquals("combinations of the two settings", 9, nine.size)
+        expectOnTap(
+            row = "row 6c",
+            expected = TapEffect.OPEN_AS_TODAY,
+            settings = nine,
+            states = SOMETHING_PLAYING,
+            taps = listOf(relatedTap(), relatedTap(startsListInBackground = true)),
+        )
+    }
+
+    /**
+     * The edge of row 6c: the related list of the page of a video that is not the current item is a list
+     * like any other, so with asking on its tap asks (row 6; queue-guard's AM-2 is about the playing
+     * video's page only).
+     */
+    @Test
+    fun am2_row6_askOn_tapInTheRelatedListOfAnotherVideosPageAsks() {
+        expectOnTap(
+            row = "row 6 (related list of another video's page)",
+            expected = TapEffect.ASK,
+            settings = combinations(asks = on),
+            states = SOMETHING_PLAYING,
+            taps = listOf(relatedTap(pageOf = OTHER_VIDEO)),
+        )
+    }
+
+    /**
+     * Rows 7 to 12 for the tap of row 6c with asking off (plan B2.2: "With asking off a tap in the related
+     * list of the current item's page gets the default action like any other tap (rows 7 to 12; Q9)";
+     * questions.md A9: accepted). AC-3: "a video tap on anything but the current item carries out the
+     * default action directly"; queue-guard's AM-2 only removes the dialog.
+     */
+    @Test
+    fun ac3_rows7to12_askOff_tapInTheRelatedListOfTheCurrentItemsPageGetsTheDefaultAction() {
+        val related = listOf(relatedTap())
+        val relatedInAnyList = listOf(relatedTap(), relatedTap(startsListInBackground = true))
+        expectOnTap(
+            "row 7 (related tap)",
+            TapEffect.ENQUEUE,
+            combinations(asks = off, actions = listOf(DefaultTapAction.ADD_TO_QUEUE)),
+            SOMETHING_PLAYING,
+            relatedInAnyList,
+        )
+        expectOnTap(
+            "row 8 (related tap)",
+            TapEffect.ENQUEUE_NEXT,
+            combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NEXT)),
+            SOMETHING_PLAYING,
+            relatedInAnyList,
+        )
+        val playNow = combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NOW))
+        expectOnTap("row 10 (related tap)", TapEffect.OPEN_AS_TODAY, playNow, playingIn(PlayerKind.MAIN), related)
+        expectOnTap(
+            "row 11 (related tap)",
+            TapEffect.START_BACKGROUND,
+            playNow,
+            playingIn(PlayerKind.BACKGROUND),
+            related,
+        )
+        expectOnTap("row 12 (related tap)", TapEffect.START_POPUP, playNow, playingIn(PlayerKind.POPUP), related)
+    }
+
+    /**
+     * Rows 5, 6 and 6c together (the test keeps the name plan B2.7 knows it by; row 6b is gone). AC-4 with
+     * AM-2: with ask on "a video tap behaves exactly as queue-guard specifies", now "as amended": in every
+     * state in which something is playing, a single video in the main player included, for every tap, the
+     * tap in a related list included, the answer is the one of queue-guard's policy alone on the same
+     * switch (plan B2.6, AM-2: "with asking on, equal to `QueueGuardPolicy` alone in every playing state, a
+     * single video in the main player included, for all 9 combinations").
      */
     @Test
     fun ac4_rows6and6b_askOn_tapGetsQueueGuardsAnswerInEveryPlayingState() {
         val nine = combinations(asks = on)
         assertEquals("combinations of the two settings", 9, nine.size)
+        val taps = anyTap + relatedTap() + relatedTap(startsListInBackground = true) + relatedTap(pageOf = OTHER_VIDEO)
         combined.forEach(nine) { setting ->
-            for (state in SOMETHING_PLAYING + WORTH_GUARDING + SINGLE_IN_MAIN) {
-                for (tap in anyTap) {
+            for (state in SOMETHING_PLAYING) {
+                for (tap in taps) {
                     assertEquals(
-                        "rows 5, 6, 6b: onTap under $setting, $state, $tap",
+                        "rows 5, 6, 6c: onTap under $setting, $state, $tap",
                         combined.queueGuardAlone.onTap(tap, state),
                         policy.onTap(tap, state),
                     )
@@ -324,8 +416,8 @@ class OpenActionPolicyTest {
 
     /**
      * Row 7 on a single video in the main player. AC-3: with ask off the default action is carried out
-     * "also on a single video in the main player (this is how a queue is started by tapping)". The single
-     * video may have auto-enqueued ones around it; "Start playback in" and Music Player Mode do not matter.
+     * "also on a single video in the main player (this is how a queue is started by tapping)". "Start
+     * playback in" and Music Player Mode do not matter.
      */
     @Test
     fun ac3_row7_askOff_addToQueueEnqueuesOnASingleVideoInTheMainPlayer() {
@@ -333,7 +425,7 @@ class OpenActionPolicyTest {
             row = "row 7 (single video in the main player)",
             expected = TapEffect.ENQUEUE,
             settings = combinations(asks = off, actions = listOf(DefaultTapAction.ADD_TO_QUEUE)),
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
             taps = anotherVideoInAnyList,
         )
     }
@@ -345,7 +437,7 @@ class OpenActionPolicyTest {
             row = "row 8 (single video in the main player)",
             expected = TapEffect.ENQUEUE_NEXT,
             settings = combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NEXT)),
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
             taps = anotherVideoInAnyList,
         )
     }
@@ -360,57 +452,20 @@ class OpenActionPolicyTest {
             row = "rows 9, 10 (single video in the main player)",
             expected = TapEffect.OPEN_AS_TODAY,
             settings = combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NOW)),
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
             taps = anotherVideoInAnyList,
         )
     }
 
     /**
-     * Rows 7 to 12 over the queues worth guarding, those with auto-enqueued videos included (the background
-     * player with 3/2, the main player with 3/1 and 5/3): with ask off they get the default action like
-     * any other queue. `autoQueuedCount` has no influence on the result (plan 4.2).
-     */
-    @Test
-    fun ac3_rows7to12_askOff_queuesWithAutoEnqueuedVideosGetTheDefaultAction() {
-        expectOnTap(
-            "row 7",
-            TapEffect.ENQUEUE,
-            combinations(asks = off, actions = listOf(DefaultTapAction.ADD_TO_QUEUE)),
-            WORTH_GUARDING,
-            anotherVideoInAnyList,
-        )
-        expectOnTap(
-            "row 8",
-            TapEffect.ENQUEUE_NEXT,
-            combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NEXT)),
-            WORTH_GUARDING,
-            anotherVideoInAnyList,
-        )
-        val playNow = combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NOW))
-        val withMusicPlayerMode = listOf(tapOn(startsListInBackground = true))
-        val withoutMusicPlayerMode = listOf(tapOn(startsListInBackground = false))
-        expectOnTap("row 9", TapEffect.OPEN_AS_TODAY, playNow, WORTH_GUARDING, withMusicPlayerMode)
-        val playNowIn = mapOf(
-            PlayerKind.MAIN to TapEffect.OPEN_AS_TODAY,
-            PlayerKind.BACKGROUND to TapEffect.START_BACKGROUND,
-            PlayerKind.POPUP to TapEffect.START_POPUP,
-        )
-        for ((kind, expected) in playNowIn) {
-            val states = WORTH_GUARDING.filter { it.kind == kind }
-            assertEquals("states of WORTH_GUARDING in the $kind player: $states", true, states.isNotEmpty())
-            expectOnTap("rows 10 to 12 ($kind)", expected, playNow, states, withoutMusicPlayerMode)
-        }
-    }
-
-    /**
      * Rows 6 to 8 and 11 at the edge of row 5's "current" (QG plan 3.1: same url and same service id): the
-     * url of the current item on another service is another video. It is asked about (with a queue worth
-     * guarding, row 6), or gets the default action.
+     * url of the current item on another service is another video. It is asked about (row 6, in every
+     * playing state since amendment 2), or gets the default action.
      */
     @Test
     fun ac12_ac3_rows6to8and11_sameUrlOnAnotherServiceIsNotTheCurrentItem() {
         val tap = listOf(tapOn(url = CURRENT_URL, serviceId = OTHER_SERVICE))
-        expectOnTap("row 6", TapEffect.ASK, combinations(asks = on), WORTH_GUARDING, tap)
+        expectOnTap("row 6", TapEffect.ASK, combinations(asks = on), SOMETHING_PLAYING, tap)
         expectOnTap(
             "row 7",
             TapEffect.ENQUEUE,
@@ -611,11 +666,11 @@ class OpenActionPolicyTest {
     }
 
     /**
-     * Rows 13 to 15, 17 and 18 over a single video in the main player. A dialog only opens for a queue
-     * worth guarding (row 6), but the main player can be down to a single video when the user chooses.
-     * Plan 4.2: the rows "still apply, on "playing" ...: an explicit choice is never dropped or turned into
-     * another one". AC-4: the dialog is queue-guard's, under all 18 combinations. (Row 16 is about nothing
-     * playing, which a single video is not.)
+     * Rows 13 to 15, 17 and 18 over a single video in the main player. Since amendment 2 the dialog opens
+     * there too (row 6), and the main player can be down to a single video when the user chooses. Plan
+     * 4.2: the rows apply "on "playing" ...: an explicit choice is never dropped or turned into another
+     * one". AC-4: the dialog is queue-guard's, under all 18 combinations. (Row 16 is about nothing playing,
+     * which a single video is not.)
      */
     @Test
     fun ac4_rows13to18_aDialogChoiceOnASingleVideoInTheMainPlayerIsQueueGuards() {
@@ -634,7 +689,7 @@ class OpenActionPolicyTest {
                 choice = choice,
                 expected = effect,
                 settings = all,
-                states = SINGLE_IN_MAIN,
+                states = ONE_IN_MAIN,
                 taps = anyTap,
             )
         }
@@ -717,15 +772,16 @@ class OpenActionPolicyTest {
                 asks = off,
                 actions = listOf(DefaultTapAction.ADD_TO_QUEUE, DefaultTapAction.PLAY_NEXT),
             ),
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
         )
     }
 
     /**
      * Row 21b on a single video in the main player. AC-11 offers the entry "whenever a video tap would
-     * neither open the video's page nor ask". With ask on the tap opens the page there whatever the
-     * default action is (row 6b, AC-4), and with ask off and *Play now* it does too (rows 9 and 10): no
-     * entry, as with queue-guard alone (QG AC-17: only the background and the popup player).
+     * neither open the video's page nor ask". With ask on the tap asks there whatever the default action is
+     * (row 6, AM-2; before amendment 2 it opened the page, row 6b: the result `false` is the same, plan
+     * B2.2), and with ask off and *Play now* it opens the page (rows 9 and 10): no entry, as with
+     * queue-guard alone (QG AC-17: only the background and the popup player).
      */
     @Test
     fun ac11_row21b_singleVideoInTheMainPlayer_streamDetailsIsNotOfferedWithAskOnOrPlayNow() {
@@ -735,13 +791,13 @@ class OpenActionPolicyTest {
             row = "row 21b (single video in the main player, ask on)",
             expected = false,
             settings = askOn,
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
         )
         expectStreamDetails(
             row = "row 21b (single video in the main player, ask off, PLAY_NOW)",
             expected = false,
             settings = combinations(asks = off, actions = listOf(DefaultTapAction.PLAY_NOW)),
-            states = SINGLE_IN_MAIN,
+            states = ONE_IN_MAIN,
         )
     }
 
@@ -908,8 +964,13 @@ class OpenActionPolicyTest {
     /**
      * Plan 4.2: "Asking is on" is `guardSettings.askBeforeReplacing()`, "read inside every call that needs
      * it and never cached (the user changes it in Settings, "Remember my choice" switches it off, AC-8)".
-     * One policy object, one video in the main player, *Add to queue*: the tap opens the video while asking
-     * is on (row 6b, AC-4) and enqueues while it is off (row 7, AC-3); the menu entry follows (rows 21b, 21).
+     * One policy object, one video in the main player, *Add to queue*: the tap asks while asking is on
+     * (row 6: AM-2, AC-4) and enqueues while it is off (row 7, AC-3); the menu entry follows (rows 21b, 21):
+     * `false`, `true`, `false`.
+     *
+     * Inverted by amendment 2 in its `onTap` half. Before, the tap with asking on expected `OPEN_AS_TODAY`
+     * (row 6b, AC-4 as answer A8 had it: a single video in the main player opens as today). AM-2 holds now:
+     * any loaded item is worth guarding, so the tap asks. The `offersStreamDetails` half is unchanged.
      */
     @Test
     fun ac3_ac4_theAskSwitchIsReadAtEveryTap() {
@@ -918,11 +979,11 @@ class OpenActionPolicyTest {
         combined.settings.action = DefaultTapAction.ADD_TO_QUEUE
 
         combined.askSwitch.ask = true
-        assertEquals("ask on", TapEffect.OPEN_AS_TODAY, policy.onTap(tap, oneVideoInMain))
+        assertEquals("ask on", TapEffect.ASK, policy.onTap(tap, oneVideoInMain))
         combined.askSwitch.ask = false
         assertEquals("then ask off", TapEffect.ENQUEUE, policy.onTap(tap, oneVideoInMain))
         combined.askSwitch.ask = true
-        assertEquals("then ask on again", TapEffect.OPEN_AS_TODAY, policy.onTap(tap, oneVideoInMain))
+        assertEquals("then ask on again", TapEffect.ASK, policy.onTap(tap, oneVideoInMain))
 
         assertEquals("ask on", false, policy.offersStreamDetails(oneVideoInMain))
         combined.askSwitch.ask = false
@@ -970,24 +1031,33 @@ class OpenActionPolicyTest {
     }
 
     /**
-     * AC-15 in the values of queue-guard's own criteria: with a queue worth guarding a play button opens
-     * the dialog (QG AC-10), unless the switch is off (QG AC-16); without one, i.e. while nothing is playing
-     * or with a single video in the main player, it behaves as today (QG AC-14), with the switch on and
-     * off. Neither the default action nor "Start playback in" moves a play button: not to the queue, and
-     * not to another player while nothing is playing.
+     * AC-15 in the values of queue-guard's own criteria as amended: while something is playing a play
+     * button opens the dialog (QG AC-10), unless the switch is off (QG AC-16); while nothing is playing it
+     * behaves as today (QG AC-14), with the switch on and off. Neither the default action nor "Start
+     * playback in" moves a play button: not to the queue, and not to another player while nothing is playing.
+     *
+     * Inverted by amendment 2 in one part. Before, a single video in the main player (fixture
+     * `SINGLE_IN_MAIN`) expected `PLAY_AS_TODAY` with asking on too (QG AC-14 as it was: no queue worth
+     * guarding there). AM-2 holds now: any loaded item is worth guarding, so with asking on the play button
+     * asks there as well; with asking off it still plays as today. The single video is checked by itself
+     * below so that the change cannot hide in the list of states.
      */
     @Test
     fun ac15_playButtonsAskOrPlayAsTodayWhateverTheTwoSettingsAre() {
         combined.forEach(combinations()) { setting ->
+            val whilePlaying = if (setting.ask) ListEffect.ASK else ListEffect.PLAY_AS_TODAY
             for (state in NOTHING_PLAYING) {
                 assertEquals("onListPlay under $setting, $state", ListEffect.PLAY_AS_TODAY, policy.onListPlay(state))
             }
-            for (state in WORTH_GUARDING) {
-                val expected = if (setting.ask) ListEffect.ASK else ListEffect.PLAY_AS_TODAY
-                assertEquals("onListPlay under $setting, $state", expected, policy.onListPlay(state))
+            for (state in SOMETHING_PLAYING) {
+                assertEquals("onListPlay under $setting, $state", whilePlaying, policy.onListPlay(state))
             }
-            for (state in SINGLE_IN_MAIN) {
-                assertEquals("onListPlay under $setting, $state", ListEffect.PLAY_AS_TODAY, policy.onListPlay(state))
+            for (state in ONE_IN_MAIN) {
+                assertEquals(
+                    "onListPlay on a single video in the main player under $setting, $state",
+                    whilePlaying,
+                    policy.onListPlay(state),
+                )
             }
         }
     }
@@ -1024,6 +1094,217 @@ class OpenActionPolicyTest {
                     policy.onListChoice(GuardChoice.PLAY_NEXT, state),
                 )
             }
+        }
+    }
+
+    // =============================================================================================
+    // AM-3: requests of another way than a video tap in a list (plan B2.2, second table)
+    // =============================================================================================
+
+    /**
+     * AM-3, plan B2.2: "neither the default action nor "Start playback in" ever applies to a page control,
+     * a link or a video from another app, also while nothing is playing". While nothing is playing such a
+     * request opens as today (QG A2.2 row 1) under all 18 combinations: with *Background player* or *Popup
+     * player* selected it is not sent to that player, as a list tap is (rows 3 and 4).
+     */
+    @Test
+    fun am3_nothingPlaying_aRequestOfAnotherWayOpensAsTodayWhateverStartPlaybackInSays() {
+        val all = combinations()
+        assertEquals("combinations of the three settings", 18, all.size)
+        assertEquals("ways other than the list tap", 4, NOT_LIST_WAYS.size)
+        expectOnTap(
+            row = "other way, nothing playing",
+            expected = TapEffect.OPEN_AS_TODAY,
+            settings = all,
+            states = NOTHING_PLAYING,
+            taps = REQUESTS_BY_OTHER_WAYS,
+        )
+    }
+
+    /**
+     * AM-3: "With asking off, the paths queue-guard's amendment adds (video page controls, links, videos
+     * from other apps) behave as today; the default action applies to video taps in lists only". While
+     * something is playing and asking is off, a request of another way opens as today (QG A2.2 rows 2 and
+     * 4) for every default action, *Add to queue* and *Play next* included, in every player: it is neither
+     * enqueued nor moved to the player in use.
+     */
+    @Test
+    fun am3_askOff_aRequestOfAnotherWayOpensAsTodayWhateverTheDefaultActionIs() {
+        val nine = combinations(asks = off)
+        assertEquals("combinations of the two settings", 9, nine.size)
+        expectOnTap(
+            row = "other way, ask off",
+            expected = TapEffect.OPEN_AS_TODAY,
+            settings = nine,
+            states = SOMETHING_PLAYING,
+            taps = REQUESTS_BY_OTHER_WAYS,
+        )
+    }
+
+    /**
+     * AM-3 with asking on: a request of another way gets queue-guard's answer, here in queue-guard's own
+     * values (plan B2.2: "`OPEN_AS_TODAY` ... for the current item ... and where the path would not replace
+     * the queue; else `ASK`"). For another video: a page control, and "Background player" or "Popup
+     * player" chosen for a link, would replace the queue in every player, so they ask; opening a video's
+     * page replaces the queue of the main player only (QG A2.2 rows 6 and 7).
+     */
+    @Test
+    fun am3_askOn_aRequestOfAnotherWayAsksWhereItWouldReplaceTheQueueForAllNineCombinations() {
+        val nine = combinations(asks = on)
+        assertEquals("combinations of the two settings", 9, nine.size)
+        val replacingInEveryPlayer = listOf(OpenWay.PAGE_CONTROL, OpenWay.BACKGROUND_PLAYER, OpenWay.POPUP_PLAYER)
+        expectOnTap(
+            row = "other way, ask on, replaces the queue",
+            expected = TapEffect.ASK,
+            settings = nine,
+            states = SOMETHING_PLAYING,
+            taps = replacingInEveryPlayer.map { requestBy(it) },
+        )
+        expectOnTap(
+            row = "VIDEO_PAGE, ask on, main player",
+            expected = TapEffect.ASK,
+            settings = nine,
+            states = playingIn(PlayerKind.MAIN),
+            taps = listOf(requestBy(OpenWay.VIDEO_PAGE)),
+        )
+        expectOnTap(
+            row = "VIDEO_PAGE, ask on, beside the background or popup player",
+            expected = TapEffect.OPEN_AS_TODAY,
+            settings = nine,
+            states = playingIn(PlayerKind.BACKGROUND) + playingIn(PlayerKind.POPUP),
+            taps = listOf(requestBy(OpenWay.VIDEO_PAGE)),
+        )
+        expectOnTap(
+            row = "PAGE_CONTROL or VIDEO_PAGE for the current item, ask on",
+            expected = TapEffect.OPEN_AS_TODAY,
+            settings = nine,
+            states = SOMETHING_PLAYING,
+            taps = listOf(requestForCurrentBy(OpenWay.PAGE_CONTROL), requestForCurrentBy(OpenWay.VIDEO_PAGE)),
+        )
+    }
+
+    /**
+     * AM-3, plan B2.2 second table, `onTap`: "Requests of another `way`, for every state and all 18
+     * combinations of the settings: `base.onTap`". Over the combined policy that is queue-guard's policy
+     * alone on the same switch, for every way, for another video and the current item, playing or not
+     * (plan B2.6, AM-3: "over `QueueGuardPolicy`: a request of another `way` gets the wrapped answer for
+     * all 18 combinations, playing or not").
+     */
+    @Test
+    fun am3_aRequestOfAnotherWayGetsQueueGuardsAnswerInEveryStateForAllEighteenCombinations() {
+        val all = combinations()
+        assertEquals("combinations of the three settings", 18, all.size)
+        combined.forEach(all) { setting ->
+            for (state in anyState) {
+                for (request in REQUESTS_BY_OTHER_WAYS) {
+                    assertEquals(
+                        "other way: onTap under $setting, $state, $request",
+                        combined.queueGuardAlone.onTap(request, state),
+                        policy.onTap(request, state),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * AM-3, plan B2.2 second table, `onTapChoice`: "`NONE`, `ENQUEUE`, `ENQUEUE_NEXT` (`ENQUEUE` once
+     * nothing is playing), and `OPEN_AS_TODAY` for *Play now*, never `START_BACKGROUND` or `START_POPUP`".
+     * The dialog of a page control, a link or a video from another app is queue-guard's under all 18
+     * combinations. *Play now* there is "what the pressed control does today" (QG A2.2 row 11): it is not
+     * moved to the player in use, as a list tap's *Play now* is (row 18), and after the player was closed
+     * it is not sent to "Start playback in" (row 19, AC-13, is about video taps in lists).
+     */
+    @Test
+    fun am3_aDialogChoiceForARequestOfAnotherWayIsQueueGuardsWhateverTheSettings() {
+        val all = combinations()
+        assertEquals("combinations of the three settings", 18, all.size)
+        val requests = REQUESTS_BY_OTHER_WAYS
+        expectOnTapChoice("other way, row 13", GuardChoice.CANCEL, TapEffect.NONE, all, anyState, requests)
+        expectOnTapChoice("other way, row 14", GuardChoice.ADD_TO_QUEUE, TapEffect.ENQUEUE, all, anyState, requests)
+        expectOnTapChoice(
+            "other way, row 15",
+            GuardChoice.PLAY_NEXT,
+            TapEffect.ENQUEUE_NEXT,
+            all,
+            SOMETHING_PLAYING,
+            requests,
+        )
+        expectOnTapChoice("other way, row 16", GuardChoice.PLAY_NEXT, TapEffect.ENQUEUE, all, NOTHING_PLAYING, requests)
+        expectOnTapChoice(
+            "other way, Play now while playing",
+            GuardChoice.PLAY_NOW,
+            TapEffect.OPEN_AS_TODAY,
+            all,
+            SOMETHING_PLAYING,
+            requests,
+        )
+        expectOnTapChoice(
+            "other way, Play now after the player was closed",
+            GuardChoice.PLAY_NOW,
+            TapEffect.OPEN_AS_TODAY,
+            all,
+            NOTHING_PLAYING,
+            requests,
+        )
+    }
+
+    /**
+     * AM-3 at its sharpest (plan B2.7: "nothing playing with *Background player* and asking off with *Add
+     * to queue* included"), each case next to the list tap it must differ from, on one policy object:
+     * - nothing playing, *Background player*: a list tap starts in the background player (row 3, AC-5), a
+     *   page control opens as today;
+     * - background player in use, asking off, *Add to queue*: a list tap enqueues (row 7, AC-3), a page
+     *   control and a link's "Popup player" open as today;
+     * - the dialog's *Play now* after the player was closed, *Popup player*: for a list tap the popup
+     *   player (row 19, AC-13), for a link `OPEN_AS_TODAY`.
+     */
+    @Test
+    fun am3_theDefaultActionAndStartPlaybackInApplyToListTapsOnly() {
+        val inBackground = playing(PlayerKind.BACKGROUND)
+
+        combined.set(Combination(ask = true, DefaultTapAction.PLAY_NOW, StartPlaybackIn.BACKGROUND_PLAYER))
+        assertEquals("list tap, nothing playing", TapEffect.START_BACKGROUND, policy.onTap(tapOn(), PlayerState.IDLE))
+        for (way in NOT_LIST_WAYS) {
+            assertEquals(
+                "$way, nothing playing, Background player",
+                TapEffect.OPEN_AS_TODAY,
+                policy.onTap(requestBy(way), PlayerState.IDLE),
+            )
+        }
+
+        combined.set(Combination(ask = false, DefaultTapAction.ADD_TO_QUEUE, StartPlaybackIn.VIDEO_PAGE))
+        assertEquals("list tap, ask off, Add to queue", TapEffect.ENQUEUE, policy.onTap(tapOn(), inBackground))
+        for (way in NOT_LIST_WAYS) {
+            assertEquals(
+                "$way, ask off, Add to queue",
+                TapEffect.OPEN_AS_TODAY,
+                policy.onTap(requestBy(way), inBackground),
+            )
+        }
+
+        combined.set(Combination(ask = true, DefaultTapAction.PLAY_NOW, StartPlaybackIn.POPUP_PLAYER))
+        assertEquals(
+            "list tap, Play now after the player was closed",
+            TapEffect.START_POPUP,
+            policy.onTapChoice(GuardChoice.PLAY_NOW, tapOn(), PlayerState.IDLE),
+        )
+        assertEquals(
+            "list tap, Play now in the background player",
+            TapEffect.START_BACKGROUND,
+            policy.onTapChoice(GuardChoice.PLAY_NOW, tapOn(), inBackground),
+        )
+        for (way in NOT_LIST_WAYS) {
+            assertEquals(
+                "$way, Play now after the player was closed, Popup player",
+                TapEffect.OPEN_AS_TODAY,
+                policy.onTapChoice(GuardChoice.PLAY_NOW, requestBy(way), PlayerState.IDLE),
+            )
+            assertEquals(
+                "$way, Play now in the background player",
+                TapEffect.OPEN_AS_TODAY,
+                policy.onTapChoice(GuardChoice.PLAY_NOW, requestBy(way), inBackground),
+            )
         }
     }
 }

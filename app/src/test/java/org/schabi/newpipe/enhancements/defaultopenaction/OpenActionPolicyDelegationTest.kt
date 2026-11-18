@@ -6,6 +6,7 @@ import org.junit.Test
 import org.schabi.newpipe.enhancements.queueguard.GuardChoice
 import org.schabi.newpipe.enhancements.queueguard.GuardPolicy
 import org.schabi.newpipe.enhancements.queueguard.ListEffect
+import org.schabi.newpipe.enhancements.queueguard.OpenWay
 import org.schabi.newpipe.enhancements.queueguard.PlayerKind
 import org.schabi.newpipe.enhancements.queueguard.TapEffect
 
@@ -24,6 +25,11 @@ import org.schabi.newpipe.enhancements.queueguard.TapEffect
  * of `base`"). A new switch is on.
  *
  * "`base` is pure; how often it is called is not part of the contract": no test counts calls.
+ *
+ * Amendment 2 (plan B2.2, B2.7): the wrapper gets a first clause in `onTap` and in `onTapChoice`, "a request
+ * of another `way` than `LIST_TAP` goes to the wrapped policy as it came in" (spec AM-3); the tests
+ * `am3_delegation_...` are about it. The fixtures `WORTH_GUARDING` and `SINGLE_IN_MAIN` are gone with
+ * queue-guard's `worthGuarding`; the test that used them runs over [SOMETHING_PLAYING].
  */
 class OpenActionPolicyDelegationTest {
 
@@ -189,14 +195,16 @@ class OpenActionPolicyDelegationTest {
     }
 
     /**
-     * Plan 4.2: "this class never reads `player.worthGuarding` and repeats none of QG's rules, so whether
-     * a queue is worth guarding is decided in one place". The three expectations of this class that depend
-     * on the switch, over [WORTH_GUARDING] and [SINGLE_IN_MAIN] with a wrapped policy that answers the same
-     * in all of them: a state that is or is not worth guarding gets the same result.
+     * Plan 4.2: this class "repeats none of QG's rules", and plan B2.2: it "still reads neither `relatedTo`
+     * nor the queue size", so which taps are asked about is decided in one place. The three expectations of
+     * this class that depend on the switch, over [SOMETHING_PLAYING] (before amendment 2: over the fixtures
+     * `WORTH_GUARDING` and `SINGLE_IN_MAIN`, plan B2.7) and for a tap in a related list too, with a wrapped
+     * policy that answers the same in all of them: a queue of one and a queue of three, a tap in a list and
+     * one in the related list of the current item's page, get the same result.
      * - Switch off, another video: the wrapped policy's answer to the dialog choice of the default action
-     *   (AC-3: "also on a single video in the main player").
-     * - Switch on: the wrapped policy's answer to the tap, here `ASK` also for a single video, where
-     *   queue-guard would not ask, and `OPEN_AS_TODAY` also for a queue, where it would (AC-4).
+     *   (AC-3: "also on a single video in the main player"; questions.md A9 for the related tap).
+     * - Switch on: the wrapped policy's answer to the tap, `ASK` also for the related tap, where queue-guard
+     *   would not ask, and `OPEN_AS_TODAY` also for a queue, where it would (AC-4, AM-2).
      * - The menu entry while the wrapped policy does not offer it: "switch off and not `PLAY_NOW`" (AC-11).
      * One policy object while the switch changes: it is read on every call (plan section 6, AC-4, D).
      */
@@ -207,8 +215,8 @@ class OpenActionPolicyDelegationTest {
         for (answerToTheTap in listOf(TapEffect.ASK, TapEffect.OPEN_AS_TODAY)) {
             base.tapAnswer = answerToTheTap
             forAllNineSettings { label ->
-                for (state in WORTH_GUARDING + SINGLE_IN_MAIN) {
-                    for (tap in anotherVideoInAnyList) {
+                for (state in SOMETHING_PLAYING) {
+                    for (tap in anotherVideoInAnyList + relatedTap() + relatedTap(pageOf = OTHER_VIDEO)) {
                         val where = "under $label, wrapped policy answers $answerToTheTap to the tap, $state, $tap"
 
                         askSwitch.ask = false
@@ -442,6 +450,164 @@ class OpenActionPolicyDelegationTest {
                     policy.offersStreamDetails(state),
                 )
             }
+        }
+    }
+
+    // =============================================================================================
+    // AM-3: requests of another way than a video tap in a list (plan B2.2, the two first clauses)
+    // =============================================================================================
+
+    /** Every `TapEffect`, also those queue-guard never answers to a tap (`NONE`, `ENQUEUE`, ...). */
+    private val everyTapEffect = listOf(
+        TapEffect.NONE,
+        TapEffect.OPEN_AS_TODAY,
+        TapEffect.ASK,
+        TapEffect.ENQUEUE,
+        TapEffect.ENQUEUE_NEXT,
+        TapEffect.START_BACKGROUND,
+        TapEffect.START_POPUP,
+    )
+
+    /**
+     * AM-3. Plan B2.2: "`onTap`: `tap.way != OpenWay.LIST_TAP` -> `base.onTap(tap, player)`, whatever is
+     * playing and whatever the three settings are." For a page control, a link or a video from another app
+     * the result is the wrapped policy's answer to that request, whichever effect it is: with the switch
+     * on and off, under every default action and every "Start playback in" value, while something is
+     * playing and while nothing is, for another video and for the current item.
+     *
+     * The answers to the dialog choices are scripted to differ from the answer to the tap, so a wrapper
+     * that asks `onTapChoice` in place of `onTap` (the default action, as for a list tap with the switch
+     * off) fails; and `ENQUEUE`, `NONE` or `START_POPUP` while nothing is playing can only have been passed
+     * on, where "Start playback in" would have decided for a list tap.
+     */
+    @Test
+    fun am3_delegation_aRequestOfAnotherWayGetsTheWrappedPolicysAnswerToTheRequestWhateverTheSettings() {
+        for (answer in everyTapEffect) {
+            base.tapAnswer = answer
+            // every dialog choice answers something else than the tap
+            val other = if (answer == TapEffect.ENQUEUE_NEXT) TapEffect.ENQUEUE else TapEffect.ENQUEUE_NEXT
+            base.tapChoiceAnswers = ALL_CHOICES.associateWith { other }
+            for (ask in ASK_ON_AND_OFF) {
+                askSwitch.ask = ask
+                forAllNineSettings { label ->
+                    for (state in anyState) {
+                        for (request in REQUESTS_BY_OTHER_WAYS) {
+                            assertEquals(
+                                "onTap with the switch ${if (ask) "on" else "off"} under $label, wrapped policy " +
+                                    "answers $answer, $state, $request",
+                                answer,
+                                policy.onTap(request, state),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** As above: the wrapped policy is asked `onTap` with the request and the player state as they came in. */
+    @Test
+    fun am3_delegation_theWrappedPolicyGetsTheRequestOfAnotherWayAndThePlayerStateUnchanged() {
+        base.tapAnswer = TapEffect.ASK
+        base.tapChoiceAnswers = unusualChoiceAnswers
+        for (ask in ASK_ON_AND_OFF) {
+            askSwitch.ask = ask
+            forAllNineSettings { label ->
+                for (state in anyState) {
+                    for (request in REQUESTS_BY_OTHER_WAYS) {
+                        base.forget()
+
+                        policy.onTap(request, state)
+
+                        val expected = RecordingGuardPolicy.TapCall(request, state)
+                        assertTrue(
+                            "onTap with the switch ${if (ask) "on" else "off"} under $label must ask the wrapped " +
+                                "policy onTap$expected, it asked ${base.tapCalls}",
+                            expected in base.tapCalls,
+                        )
+                        assertEquals(
+                            "the way of the request must reach the wrapped policy ($label, $state)",
+                            request.way,
+                            base.tapCalls.first { it == expected }.tap.way,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * AM-3. Plan B2.2: "`onTapChoice`: `tap.way != OpenWay.LIST_TAP` -> `base.onTapChoice(choice, tap,
+     * player)`." Every choice in the dialog of a request of another way gets the wrapped policy's answer,
+     * *Play now* while nothing is playing included: there a list tap's answer goes through "Start playback
+     * in" (row 19, AC-13), a request of another way's does not, under any of its three values. Choice,
+     * request and player state reach the wrapped policy as they came in.
+     */
+    @Test
+    fun am3_delegation_aDialogChoiceForARequestOfAnotherWayGetsTheWrappedPolicysAnswerPlayNowWhileIdleIncluded() {
+        base.tapChoiceAnswers = unusualChoiceAnswers
+        base.tapAnswer = TapEffect.ASK
+        for (ask in ASK_ON_AND_OFF) {
+            askSwitch.ask = ask
+            forAllNineSettings { label ->
+                for (state in anyState) {
+                    for (request in REQUESTS_BY_OTHER_WAYS) {
+                        for (choice in ALL_CHOICES) {
+                            base.forget()
+
+                            assertEquals(
+                                "onTapChoice($choice) with the switch ${if (ask) "on" else "off"} under $label, " +
+                                    "$state, $request",
+                                unusualChoiceAnswers.getValue(choice),
+                                policy.onTapChoice(choice, request, state),
+                            )
+
+                            val expected = RecordingGuardPolicy.TapChoiceCall(choice, request, state)
+                            assertTrue(
+                                "onTapChoice($choice) under $label must ask the wrapped policy " +
+                                    "onTapChoice$expected, it asked ${base.tapChoiceCalls}",
+                                expected in base.tapChoiceCalls,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The other side of AM-3 ("the default action applies to video taps in lists only, as before"): what
+     * the two new clauses must not swallow. On one wrapper and one wrapped policy, a list tap still gets
+     * the default action with the switch off (AC-3) and "Start playback in" while nothing is playing
+     * (AC-5), where the request of every other way gets the wrapped policy's answer to the request.
+     */
+    @Test
+    fun am3_ac3_ac5_delegation_onlyTheListTapGetsTheDefaultActionAndStartPlaybackIn() {
+        base.tapAnswer = TapEffect.OPEN_AS_TODAY
+        base.tapChoiceAnswers = unusualChoiceAnswers
+        askSwitch.ask = false
+        settings.action = DefaultTapAction.ADD_TO_QUEUE
+        settings.startIn = StartPlaybackIn.BACKGROUND_PLAYER
+        val playing = playing(PlayerKind.MAIN)
+        val idle = NOTHING_PLAYING.first()
+
+        for (way in ALL_WAYS) {
+            val isListTap = way == OpenWay.LIST_TAP
+            assertEquals(
+                "$way while something is playing, switch off, ADD_TO_QUEUE",
+                if (isListTap) unusualChoiceAnswers.getValue(GuardChoice.ADD_TO_QUEUE) else TapEffect.OPEN_AS_TODAY,
+                policy.onTap(requestBy(way), playing),
+            )
+            assertEquals(
+                "$way while nothing is playing, BACKGROUND_PLAYER",
+                if (isListTap) TapEffect.START_BACKGROUND else TapEffect.OPEN_AS_TODAY,
+                policy.onTap(requestBy(way), idle),
+            )
+            assertEquals(
+                "Play now for $way after the player was closed, BACKGROUND_PLAYER",
+                if (isListTap) TapEffect.START_BACKGROUND else unusualChoiceAnswers.getValue(GuardChoice.PLAY_NOW),
+                policy.onTapChoice(GuardChoice.PLAY_NOW, requestBy(way), idle),
+            )
         }
     }
 }

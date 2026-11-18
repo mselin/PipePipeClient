@@ -23,6 +23,10 @@ import javax.xml.parsers.DocumentBuilderFactory
  *
  * Until the Code layers of queue-guard and of this feature have written those files and lines, every test
  * here fails, and its message names the missing file, string or element.
+ *
+ * Amendment 2 (spec AM-1, plan B2.5): one new string, the notice after a remembered choice, with three
+ * places for names that come from the app's own strings (upstream's `res/values/strings.xml`, read here as
+ * a fifth file, and queue-guard's values file). The tests `am1_...` are about it.
  */
 class DefaultOpenActionResourcesTest {
 
@@ -31,6 +35,8 @@ class DefaultOpenActionResourcesTest {
     private val layoutPath = "res/layout/enhancements_default_open_action_remember.xml"
     private val queueGuardValuesPath = "res/values/enhancements_queue_guard.xml"
     private val settingsPath = "res/xml/video_audio_settings.xml"
+    private val upstreamStringsPath = "res/values/strings.xml"
+    private val mainSettingsPath = "res/xml/main_settings.xml"
 
     // the same files as failure messages name them
     private val valuesFile = "app/src/main/$valuesPath"
@@ -494,6 +500,152 @@ class DefaultOpenActionResourcesTest {
         assertTrue(
             "root element of $valuesFile must carry tools:ignore=\"MissingTranslation\", has $ignored",
             "MissingTranslation" in ignored,
+        )
+    }
+
+    // =============================================================================================
+    // AM-1: the notice "asking is now off" (plan B2.5)
+    // =============================================================================================
+
+    private val noticeName = "enh_default_open_action_asking_off"
+
+    /** English text of `<string name="[name]">` in upstream's `res/values/strings.xml`; fails if it is missing. */
+    private fun upstreamString(name: String): String {
+        val root = parse(MainFiles.file(upstreamStringsPath, "upstream's English strings")).documentElement
+        val matches = root.childrenNamed("string", name)
+        if (matches.size != 1) {
+            fail(
+                "app/src/main/$upstreamStringsPath must define <string name=\"$name\"> exactly once: the " +
+                    "notice of AM-1 is filled from it (plan B2.4), found ${matches.size}",
+            )
+        }
+        return matches.single().text()
+    }
+
+    /** Fills `%1$s`, `%2$s`, `%3$s` of [template] as `Context.getString(id, a, b, c)` does. */
+    private fun fill(template: String, first: String, second: String, third: String): String =
+        String.format(template, first, second, third)
+
+    /**
+     * AM-1, plan B2.5: the string `enh_default_open_action_asking_off` exists once in this feature's values
+     * file with the English text "Asking is now off. To switch it on again: %1$s > %2$s > %3$s" (read
+     * through the XML parser, so `&gt;` in the file is `>` here).
+     */
+    @Test
+    fun am1_noticeStringHasItsNameAndItsEnglishText() {
+        assertEquals(
+            "<string name=\"$noticeName\"> in $valuesFile",
+            "Asking is now off. To switch it on again: %1\$s > %2\$s > %3\$s",
+            string(noticeName),
+        )
+    }
+
+    /**
+     * AM-1, plan B2.5 and B2.6: "the string's text and its three placeholders". Each of `%1$s`, `%2$s` and
+     * `%3$s` occurs exactly once, in that order, and there is no other format specifier: `getString` with
+     * three arguments (plan B2.4) fills every place and nothing is left over.
+     */
+    @Test
+    fun am1_noticeStringHasExactlyTheThreePositionalPlaceholdersInOrder() {
+        val text = string(noticeName)
+        val specifiers = Regex("%(?:(\\d+)\\$)?[a-zA-Z%]").findAll(text).map { it.value }.toList()
+        assertEquals(
+            "format specifiers of <string name=\"$noticeName\"> in $valuesFile",
+            listOf("%1\$s", "%2\$s", "%3\$s"),
+            specifiers,
+        )
+        assertEquals("'%' signs in \"$text\"", 3, text.count { it == '%' })
+    }
+
+    /**
+     * AM-1 with AC-16: the notice is a text for the translators like every other one. It is a plain
+     * `<string>` without `translatable="false"` and without `formatted="false"`, which would stop Android
+     * from treating the placeholders as such.
+     */
+    @Test
+    fun am1_ac16_noticeStringIsTranslatable() {
+        val element = named("string", noticeName)
+        assertFalse(
+            "<string name=\"$noticeName\"> must not be translatable=\"false\"",
+            element.getAttribute("translatable") == "false",
+        )
+        assertFalse(
+            "<string name=\"$noticeName\"> must not be formatted=\"false\"",
+            element.getAttribute("formatted") == "false",
+        )
+    }
+
+    /**
+     * AM-1, plan B2.4: the three places are filled from `R.string.settings`,
+     * `R.string.settings_category_player_title` (both upstream's) and `R.string.enh_queue_guard_ask_title`
+     * (queue-guard's): "the screen's and the switch's own strings ..., so the message stays right in every
+     * language and after a rename". All three exist, each exactly once, with a text.
+     */
+    @Test
+    fun am1_theThreeAppStringsTheNoticeIsFilledFromExist() {
+        assertTrue("upstream's <string name=\"settings\"> has a text", upstreamString("settings").isNotEmpty())
+        assertTrue(
+            "upstream's <string name=\"settings_category_player_title\"> has a text",
+            upstreamString("settings_category_player_title").isNotEmpty(),
+        )
+        assertTrue(
+            "queue-guard's <string name=\"enh_queue_guard_ask_title\"> has a text",
+            resolve("@string/enh_queue_guard_ask_title").isNotEmpty(),
+        )
+    }
+
+    /**
+     * AM-1: the message "says that asking is now off and where to switch it on again (Settings > Player)".
+     * Plan B2.5: "With the English strings it reads: "Asking is now off. To switch it on again: Settings >
+     * Player > Ask before replacing the queue"" (questions.md Q10/A10: accepted with that text).
+     */
+    @Test
+    fun am1_filledWithTheEnglishStringsTheNoticeNamesSettingsPlayerAndTheSwitch() {
+        val filled = fill(
+            string(noticeName),
+            upstreamString("settings"),
+            upstreamString("settings_category_player_title"),
+            resolve("@string/enh_queue_guard_ask_title"),
+        )
+        assertEquals(
+            "the notice in English",
+            "Asking is now off. To switch it on again: Settings > Player > Ask before replacing the queue",
+            filled,
+        )
+    }
+
+    /**
+     * AM-1, "where to switch it on again": the three names are those of the path the user walks. Plan B2.9
+     * ("Checked in source"): `R.string.settings` and `R.string.settings_category_player_title` "are the
+     * titles of `res/xml/main_settings.xml`", i.e. of the settings screen and of its entry that opens the
+     * Player screen (`VideoAudioSettingsFragment`); and the third is the title of queue-guard's switch on
+     * that screen (`res/xml/video_audio_settings.xml`). If upstream renames a screen by pointing it to
+     * another string, this test says that the notice has to follow.
+     */
+    @Test
+    fun am1_theThreeNamesAreTheTitlesOfTheSettingsScreenThePlayerScreenAndTheSwitch() {
+        val mainSettings =
+            parse(MainFiles.file(mainSettingsPath, "upstream's top settings screen")).documentElement
+        assertEquals(
+            "android:title of the root of app/src/main/$mainSettingsPath",
+            "@string/settings",
+            mainSettings.android("title"),
+        )
+        val playerEntries = mainSettings.descendantElements()
+            .filter { it.android("fragment") == "org.schabi.newpipe.settings.VideoAudioSettingsFragment" }
+        assertEquals("entries of app/src/main/$mainSettingsPath that open the Player screen", 1, playerEntries.size)
+        assertEquals(
+            "android:title of the entry that opens the Player screen",
+            "@string/settings_category_player_title",
+            playerEntries.single().android("title"),
+        )
+
+        val switches = preferences().filter { it.android("key") == askKeyReference }
+        assertEquals("queue-guard's switch in $settingsFile", 1, switches.size)
+        assertEquals(
+            "android:title of queue-guard's switch in $settingsFile",
+            "@string/enh_queue_guard_ask_title",
+            switches.single().android("title"),
         )
     }
 }
