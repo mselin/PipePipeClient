@@ -285,3 +285,11 @@ Two things next to AM-9, found while planning it (plan A2.15).
   for a link to it) there is no dialog. Planned with: as today. To keep the queue there, the
   page would have to skip the reload when it is asked to show the item the main player is on;
   that is a further hook in the page's loading and would need its own criterion.
+
+## A21 spec
+1. Accepted, and written into the spec: with Autoplay allowed, a tap on the playing video
+   keeps the queue and goes on.
+2. Not accepted as "as today": with Autoplay only on Wi-Fi (the default) and the phone on
+   mobile data, tapping the playing video would close the player and lose the queue, which
+   is the owner's complaint. The spec gains AM-11: opening the page of the current item
+   never closes the player. The plan is to add the hook in the page's loading.
