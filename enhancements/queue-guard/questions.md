@@ -177,3 +177,72 @@ upstream marks; a second small hook is accepted for that.
 Applied: with asking on and a single video in the main player, a tap opens the video as
 today and the default action is not used; it applies once asking is off. This is recorded in
 default-open-action's spec as well.
+
+## Q15 plan -> spec
+AM-3 ends "On the page of the current item these controls behave as today", and AM-5 "A link to
+a time in the current item seeks as today". As today, both can replace a longer queue by that
+one video. Read in the code:
+- Background or popup player with a queue of three, playing X. The page of X is opened again
+  from a list (a tap on the current item, AC-8), from "Show stream details" or from "Details"
+  (AM-4, background and popup player). That page holds X alone as its queue
+  (VideoDetailFragment.kt:453-458), so its play button, Background and Popup send X alone and the
+  player drops the other two videos (PlayerStartController.kt:77, :155). Only a page that was
+  never reopened holds the player's queue and merely switches the player.
+- Main player with a queue of three, playing X: a link to a time in X builds a queue of X alone
+  (InternalUrlsHandler.java:219-222). It seeks in place only when the player's queue is X alone
+  (PlayerStartController.kt:101-105); otherwise the queue is replaced by X at that time.
+  keep-position's AC-12 describes the same.
+Planned with: as written. The current item never asks (plan A2.2, row 2), so in these two cases
+the queue is still replaced without a dialog. Alternatives if that is not wanted: ask there too
+(one more condition in row 2, "and the queue would stay"), or make the control and the link act
+on the player's queue (new behaviour: the page's buttons switch the player with the whole queue;
+the link seeks inside the queue).
+
+## Q16 plan -> spec
+AM-4, main player. There the video page is the player: it can only show the item that is
+playing, and every way of opening another video's page stops the player first
+(NavigationHelper.java:400-451, VideoDetailFragment.kt:411-424, :587-600). So "opens that
+video's page and leaves the queue as it is" cannot be done for another item without moving
+playback. Planned with (plan A2.5): "Details" on the playing item closes the queue screen and
+shows its page, playback uninterrupted; "Details" on another item moves playback to that item
+inside the queue, as a tap on its row does, and shows its page; the queue keeps its items and
+order in both. In the background and popup player "Details" stays as today: the page opens
+without playing and the queue is untouched. Is moving playback acceptable for another item in
+the main player, or should "Details" there do something else (for example nothing, or only show
+the page of the playing item)?
+
+## Q17 plan -> spec
+AM-5 asks "with a queue worth guarding" for every link and for an address typed in search; AM-6
+asks only "when the action chosen for it would replace the queue" and lets "show information"
+behave as today. They meet on one path: a link without a time in a description goes through the
+same screen as a link from another app (InternalUrlsHandler.java:150). And they miss two facts:
+- Beside the background or popup player, a timed link, an address typed in search, and "show
+  info" or "video player" for a link all only open the video's page; nothing is replaced
+  (NavigationHelper.java:417-420).
+- With the main player, "show info" replaces the queue like every other way of opening a page,
+  and it is what the chooser's "video player" entry does there (RouterActivity.java:466-480).
+Planned with one rule for AM-5 and AM-6 (plan A2.1, `replacesQueue`): the dialog opens exactly
+where carrying the request out as today would replace the queue. That is: timed links, typed
+addresses, "show info" and "video player" while the main player is in use; "background player"
+and "popup player" in every player. Beside the background or popup player the first group opens
+the page as today, without a dialog, and the page's own controls then ask (AM-3). *Play now* is
+what the path does today.
+
+## Q18 plan -> spec
+AM-2 with "Ask before replacing the queue" off. Planned with: AM-2 only removes the dialog. With
+the switch off a tap in the related list of the current item's page does what AC-16 says (Play
+now: in the background or popup player the video starts there and the page stays), and with
+default-open-action its default action (its AC-3), as before this amendment.
+
+## Q19 plan -> spec
+AM-6 says "a video opened from another app". A channel or playlist link opened with "video
+player", "background player" or "popup player" replaces the queue by that whole channel or
+playlist (RouterActivity.java:797-810). Planned with: as today, no dialog; only video links are
+covered. If they should ask, the list dialog (AC-10) would fit, but the number of videos is not
+known before the list is loaded.
+
+## Q20 plan -> spec
+AC-2: the dialog "shows the title of the tapped video". A timed link, an address typed in search
+and a link from another app know only the address until the video is loaded. Planned with: the
+dialog shows the address in place of the title; the page controls of AM-3 show the title.
+Loading the video first only to show its title would delay the dialog by a network request.
