@@ -42,6 +42,18 @@ on `feature/crash-fixes` and may use its helpers.
   log once.
 - **AC-6** Nothing else changes for the user: no setting, no text.
 
+## Amendment, 2026-11-18
+
+After the owner's crash on build 5 while playing, refreshing a group feed and navigating
+(issue mselin/PipePipe#26; no log). Reading found two candidates in upstream code.
+
+- **AC-7** A feed page that is left before its "channel not available" lookup has returned
+  never crashes; the lookup's result is dropped.
+- **AC-8** An error from a load that nothing waits for any more, because its page was left,
+  is written to the log and does not close the app, whatever caused it. An error that still
+  has a receiver but no handler closes the app as today. With the debug setting that reports
+  such errors switched on, today's behaviour is kept.
+
 ## Not covered
 
 - The cause of any pager failure. This package only stops such a failure from crashing the
