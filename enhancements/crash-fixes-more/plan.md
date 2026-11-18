@@ -517,3 +517,492 @@ Checked with `git diff origin/dev...origin/feature/<name> -- <file>` for `releas
   set; then the play button, and with C4 a seek to the end, rebuild the source although it
   plays. `LocalPlaylistManager.java:146` stays as it is (Q1).
 - **Rebase:** 10 upstream files, 39 lines, all marked, names fully qualified, no import hunks.
+
+## Amendment
+
+Spec: `spec.md`, "Amendment, 2026-11-18" (AC-7, AC-8). Line numbers are those of this branch at
+`fa3699d`; `local/feed/FeedFragment.kt` and `App.java` are identical to `origin/dev` here. Nothing
+was run or built. **[checked]** means read with `javap` in rxjava 3.1.12, rxandroid 3.0.2 or
+fragment 1.8.9. Open questions this section depends on: Q9, Q10.
+
+This section replaces three statements above: section 0, second bullet ("no new file under
+`enhancements/crashfixesmore/`"); the total "39 marked lines in 10 upstream files"; and A8(c) in
+`questions.md` where it says the wiring test fails on any file in that package. Everything else
+above stands.
+
+### A0. Result
+
+| # | Candidate | Result | Edit |
+|---|---|---|---|
+| C7 | late "channel not available" lookup, `local/feed/FeedFragment.kt:879-910`, `:960-998` | confirmed by reading | 2 inserted lines |
+| C8 | undeliverable error with a "bug" cause, `App.java:276-339` | mechanism confirmed by reading; narrower than AC-8 reads (Q10) | 4 inserted lines + 1 new Kotlin file |
+
+How RxJava hands errors to the app's handler, used by both **[checked: `RxJavaPlugins.onError`,
+`isBug`]**: `RxJavaPlugins.onError(e)` wraps `e` in `UndeliverableException` **unless** `e` itself
+is an `OnErrorNotImplementedException`, `MissingBackpressureException`, `QueueOverflowException`,
+`IllegalStateException`, `NullPointerException`, `IllegalArgumentException` or
+`CompositeException`; those reach the handler as they are. Only `RxJavaPlugins` ever builds an
+`UndeliverableException` **[checked: no other class in the jar refers to it]**, and it extends
+`IllegalStateException` **[checked]**. So the wrapper says "this error is not of a bug type", it
+does **not** say "nobody waits": see C8 and Q10.
+
+### C7 Late "channel not available" lookup (AC-7): confirmed
+
+**Sequence.** A refresh ends with a `RequestException` whose cause is a
+`ContentNotAvailableException` (deleted or terminated channel). `handleLoadedState` (`:858`, main
+thread, through the view's `LiveData` observer) calls `handleItemsErrors` (`:879`). It starts
+`Single.fromCallable { .. }.subscribeOn(io).observeOn(mainThread).subscribe(onSuccess, onError)`
+(`:884-902`); the disposable is thrown away. The user presses Back before the database answered:
+`onDestroy`, then detach, both on the main thread. Then one of:
+- **Success branch.** The callable had already read the row. `onSuccess` (main thread) calls
+  `handleFeedNotAvailable`; its first line `:965` `requireContext()` throws
+  `IllegalStateException: Fragment FeedFragment{..} not attached to a context` **[checked]**.
+  `ConsumerSingleObserver.onSuccess` catches it and calls `RxJavaPlugins.onError` **[checked]**;
+  an `IllegalStateException` is not wrapped; `App.java:302-304` finds it critical and hands it to
+  the uncaught-exception handler: the app closes.
+- **Error branch.** The callable runs after the detach: `:885` `requireContext()` throws on the io
+  thread, or the row is gone (`:887`). `onError` (main thread) logs and calls
+  `handleItemsErrors(rest)` (`:898-900`). If `rest` holds a further unavailable channel, the same
+  repeats; if what is left is not empty and has none, `:908` `ErrorUtil.showSnackbar(this, ..)`
+  runs `fragment.requireContext()` (`error/ErrorUtil.kt:79`; view and activity are null) and
+  throws. `ConsumerSingleObserver.onError` wraps both in a `CompositeException` **[checked]**,
+  which is not wrapped further; both members are `IllegalStateException`: the app closes. If
+  `rest` is empty, this branch does not crash.
+
+The window is one database read. Not observed; derived. AC-8's change does **not** cover it:
+neither error is an `UndeliverableException`.
+
+**Every `requireContext()` / `requireActivity()` reachable from the two callbacks.**
+
+| Line | Runs | With the page detached | After the fix |
+|---|---|---|---|
+| `:885` `requireContext()` in the callable | io thread, later | throws; delivered to `onError` because the lookup is not disposed | unchanged: `onError` logs "Unable to process" and calls `handleItemsErrors`, which returns at E7a |
+| `:908` -> `ErrorUtil.kt:77`, `:79` | main, same turn as the entry of `handleItemsErrors` | `:79` throws | not reached (E7a) |
+| `:965`, `:970` `requireContext()`, `:967`, `:982` ff. `getString` | main, same turn as the entry of `handleFeedNotAvailable` | throw | not reached (E7b) |
+| `:975` `requireContext()`, `:978`, `:990` in the dialog's buttons | main, at a later tap | would throw | **not changed** (see "Not fixed") |
+
+**Fix** (`local/feed/FeedFragment.kt`, 2 inserted lines, no import; `context` is
+`Fragment.getContext()`, null exactly when `requireContext()` throws **[checked]**; no local or
+field named `context` is in scope in either function).
+
+E7a, 1 line inserted after `:879` `    private fun handleItemsErrors(errors: List<Throwable>) {`,
+directly before `:880` `        errors.forEachIndexed { i, t ->`:
+```
+        if (context == null) return // ENH:crash-fixes-more
+```
+E7b, 1 line inserted after `:964` `    ) {` (end of the parameter list of
+`handleFeedNotAvailable`), directly before `:965`
+`        val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())`:
+```
+        if (context == null) return // ENH:crash-fixes-more
+```
+Both guards and everything they protect run in one main-thread turn, and a detach happens only on
+the main thread, so nothing can detach between guard and use.
+
+**The lookup is deliberately NOT added to `disposables`.** That was the proposal of the
+investigation; reading shows it would open a crash path that does not exist today, and with the
+two guards it adds nothing.
+- `disposables` is disposed in `onDestroy` (`:463`), never cleared in `onDestroyView`. So a
+  lookup started just before another page is opened on top would not be disposed anyway; one
+  started just before Back would be.
+- Once it is disposed while the callable has not finished, whatever the callable throws goes to
+  `RxJavaPlugins.onError` instead of `onError` **[checked: `SingleFromCallable.subscribeActual`
+  tests `d.isDisposed()`; `SubscribeOnObserver.dispose` disposes `d`]**. The callable throws
+  `IllegalStateException` twice: `requireContext()` at `:885` on a page detached in the meantime,
+  and `:887` "Subscription not found". An `IllegalStateException` is not wrapped and is critical:
+  the app would close, where today the same error ends in the `Log.e` of `:899`. AC-8 does not
+  catch it either (not undeliverable).
+- Joining would therefore need two more changed lines (`:885` to the application context, `:887`
+  to another exception type) to undo its own side effect: 5 lines instead of 2.
+- If the join is wanted all the same, ask the plan; the three extra lines are:
+  `:885` `NewPipeDatabase.getInstance(org.schabi.newpipe.App.getApp()).subscriptionDAO() // ENH:crash-fixes-more`,
+  `:887` `?: throw java.util.NoSuchElementException("Subscription not found: ${t.subscriptionId}") // ENH:crash-fixes-more`,
+  `:902` `).let { disposables.add(it) } // ENH:crash-fixes-more`.
+
+**Why `context == null` and not `!isAdded` (Q9).** `isAdded` is `mHost != null && mAdded`, and
+`mAdded` is false for a page that lies under another page on the back stack **[checked:
+`FragmentStore.removeFragment`]**, while a feed that is a tab of the main page keeps `mAdded`.
+Today a result that arrives for a feed page under another page shows its dialog or snackbar on the
+activity and does not crash. `context == null` changes nothing there and drops the result only
+for a page that is gone, which is where the crash is.
+
+**Regression risk.** For an attached page both guards are false: no change. For a destroyed page
+the "channel not available" dialog and the snackbar for the remaining errors are not shown; they
+would have crashed.
+
+**Not fixed, seen while reading.** `:975` and `:990`: the buttons of the dialog use
+`requireContext()` / `getString` when tapped. The dialog belongs to the activity and is modal, so
+the page cannot be left by Back while it is open; a navigation started from outside (a link, a
+notification) that pops the feed page under the open dialog would make "Unsubscribe" crash. This
+is after the lookup has returned, so outside AC-7 as written (Q9).
+
+### C8 Errors nobody waits for (AC-8): mechanism confirmed, narrower than the criterion (Q10)
+
+**Today's handler, read line by line** (`App.java:276-339`):
+1. `:279-280` logs the class name of what it got.
+2. `:282-289` `actual` = the cause if the argument is an `UndeliverableException`, else the
+   argument.
+3. `:291-296` `errors` = the members if `actual` is a `CompositeException`, else `[actual]`.
+4. `:298-306` for each member in order: if its cause chain (itself included, subclasses included,
+   `ktx/Throwable.kt:50`) holds `IOException` or `InterruptedException` (`SocketException` and
+   `InterruptedIOException` are subclasses), **return**. Else if it holds `NullPointerException`,
+   `IllegalArgumentException`, `OnErrorNotImplementedException`, `MissingBackpressureException`
+   or `IllegalStateException`: hand **that member** to the thread's uncaught-exception handler
+   (`reportException`, `:334-338`) and return.
+5. `:310-314` nothing matched: with `isDisposedRxExceptionsReported()` (false in `App`, the debug
+   setting `allow_disposed_exceptions_key` in `DebugApp.kt:62`) hand `actual` to the
+   uncaught-exception handler; else do nothing (the log line there is commented out).
+
+**Sequence.** A page is left while it loads; `BaseListInfoFragment.java:83-88` (and `:107`,
+`:165`, `:194`) disposes the worker. The extraction then fails with an exception that is not of a
+bug type itself but has one in its cause chain, for example
+`ParsingException("Could not parse .. as a Long", NumberFormatException)`
+(`YoutubeStreamExtractor.java:455`; the extractor has 261 `catch (Exception e)` sites, most of
+which rethrow like this). `SingleFromCallable` finds itself disposed and calls
+`RxJavaPlugins.onError` **[checked]**, which wraps it. Step 4 finds the
+`IllegalArgumentException` in the chain: the app closes. The mechanism is certain; that such a
+response occurred on the device is not known.
+
+**What the change can and cannot tell apart (Q10).**
+- An error that is itself `NullPointerException`, `IllegalStateException`,
+  `IllegalArgumentException` (or one of the other four types above) reaches the handler
+  **unwrapped whether or not anybody waits**. The handler cannot tell "the page was left" from "a
+  callback has a bug". These keep closing the app. AC-8's "whatever caused it" cannot be met for
+  them.
+- The other way round: an exception of any other type thrown **inside a callback of a live
+  subscriber** (`onSuccess`, `onNext`) is also wrapped as undeliverable **[checked:
+  `ConsumerSingleObserver.onSuccess`, `LambdaObserver`]**. Today it closes the app if its chain
+  holds a bug type and is dropped without a trace otherwise; after the change both are a log line.
+- `OnErrorNotImplementedException` (a live subscriber without error handler) is never wrapped
+  **[checked: `Functions.OnErrorMissingConsumer`]**: unchanged.
+
+**New file** `app/src/main/java/org/schabi/newpipe/enhancements/crashfixesmore/UndeliveredErrors.kt`
+(plain Kotlin, no Android import; uses the RxJava exception classes and the same
+`hasAssignableCause` the handler uses, so the chain walk is identical). It must not contain the
+text `ENH:crash-fixes-more` anywhere, comments included (the wiring test counts marked lines in
+all of `app/src/main`).
+```kotlin
+package org.schabi.newpipe.enhancements.crashfixesmore
+
+import io.reactivex.rxjava3.exceptions.CompositeException
+import io.reactivex.rxjava3.exceptions.MissingBackpressureException
+import io.reactivex.rxjava3.exceptions.OnErrorNotImplementedException
+import io.reactivex.rxjava3.exceptions.UndeliverableException
+import org.schabi.newpipe.ktx.hasAssignableCause
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.net.SocketException
+
+object UndeliveredErrors {
+    enum class Action { IGNORE, LOG, REPORT, CRASH }
+
+    const val LOG_TAG = "UndeliveredErrors"
+    const val LOG_MESSAGE = "Undelivered error, logged and not rethrown"
+
+    @JvmStatic
+    fun decide(throwable: Throwable, reportDisposed: Boolean): Action {
+        val undeliverable = throwable is UndeliverableException
+        val actual: Throwable? = if (undeliverable) throwable.cause else throwable
+        val errors: List<Throwable?> = if (actual is CompositeException) actual.exceptions else listOf(actual)
+        for (error in errors) {
+            if (error.hasAssignableCause(
+                    IOException::class.java, SocketException::class.java,
+                    InterruptedException::class.java, InterruptedIOException::class.java
+                )
+            ) {
+                return Action.IGNORE
+            }
+            if (error.hasAssignableCause(
+                    NullPointerException::class.java, IllegalArgumentException::class.java,
+                    OnErrorNotImplementedException::class.java, MissingBackpressureException::class.java,
+                    IllegalStateException::class.java
+                )
+            ) {
+                return if (undeliverable && !reportDisposed) Action.LOG else Action.CRASH
+            }
+        }
+        return when {
+            reportDisposed -> Action.REPORT
+            undeliverable -> Action.LOG
+            else -> Action.IGNORE
+        }
+    }
+}
+```
+Meaning of the actions, in terms of today's handler: `IGNORE` = it returns and does nothing more
+(step 4 "return", and step 5 with the setting off); `CRASH` = step 4, the member goes to the
+uncaught-exception handler; `REPORT` = step 5 with the setting on, `actual` goes to the
+uncaught-exception handler; `LOG` = new.
+
+**Decision table.** `U(x)` = `UndeliverableException(x)`; "chain" = the throwable and its causes;
+io = `IOException` or `InterruptedException`; bug = the five types of step 4. For a
+`CompositeException` the rows are applied to its members in order and the first member that is
+"io" or "bug" decides; if none is, the last row group applies.
+
+| Argument | Unwrapped error's chain | setting off: today | setting off: new | setting on: today = new |
+|---|---|---|---|---|
+| `U(x)` | holds io (even if it also holds a bug type) | IGNORE | IGNORE | IGNORE |
+| `U(x)` | holds a bug type, no io | CRASH | **LOG** | CRASH |
+| `U(x)` | neither | IGNORE (silent) | **LOG** | REPORT |
+| not `U` | holds io | IGNORE | IGNORE | IGNORE |
+| not `U` | holds a bug type, no io | CRASH | CRASH | CRASH |
+| not `U` | neither | IGNORE (silent) | IGNORE | REPORT |
+
+`decide` returns `LOG` only for an `UndeliverableException` with the setting off, by construction;
+for every other input it equals today's handler. Rows the tests must hold, with the setting
+off / on:
+
+| # | Argument | off | on |
+|---|---|---|---|
+| 1 | `U(IOException())`, `U(SocketException())`, `U(InterruptedIOException())`, `U(InterruptedException())` | IGNORE | IGNORE |
+| 2 | `U(RuntimeException(InterruptedException()))` | IGNORE | IGNORE |
+| 3 | `U(Exception("parse", NullPointerException()))` | LOG (today CRASH) | CRASH |
+| 4 | `U(Exception("parse", NumberFormatException()))` | LOG (today CRASH) | CRASH |
+| 5 | `U(Exception("parse", IllegalStateException()))` | LOG (today CRASH) | CRASH |
+| 6 | `U(Exception(Exception(Exception(NullPointerException()))))` | LOG (today CRASH) | CRASH |
+| 7 | `U(RuntimeException("plain"))`, `U(IndexOutOfBoundsException())` | LOG (today silent) | REPORT |
+| 8 | `U(Exception(IOException(NullPointerException())))`, `U(Exception(NullPointerException().initCause(IOException())))` | IGNORE | IGNORE |
+| 9 | `NullPointerException()`, `IllegalStateException()`, `IllegalArgumentException()`, `MissingBackpressureException()` | CRASH | CRASH |
+| 10 | `OnErrorNotImplementedException(RuntimeException())`, `OnErrorNotImplementedException(NullPointerException())` | CRASH | CRASH |
+| 11 | `OnErrorNotImplementedException(IOException())` | IGNORE | IGNORE |
+| 12 | `QueueOverflowException()`, `RuntimeException("plain")` | IGNORE | REPORT |
+| 13 | `IOException()`, `RuntimeException(InterruptedException())` | IGNORE | IGNORE |
+| 14 | `CompositeException(RuntimeException(), RuntimeException())` | IGNORE | REPORT |
+| 15 | `CompositeException(NullPointerException(), IOException())` | CRASH | CRASH |
+| 16 | `CompositeException(IOException(), NullPointerException())` | IGNORE | IGNORE |
+| 17 | `CompositeException(RuntimeException(), IOException())` | IGNORE | IGNORE |
+| 18 | `CompositeException(RuntimeException(), IllegalStateException())` (the shape of C7's error branch) | CRASH | CRASH |
+| 19 | `RuntimeException(U(RuntimeException()))` (a wrapper inside: it is an `IllegalStateException`) | CRASH | CRASH |
+| 20 | built by hand, RxJava never does: `U(NullPointerException())`, `U(U(RuntimeException()))`, `U(CompositeException(RuntimeException(), NullPointerException()))` | LOG | CRASH |
+| 21 | built by hand: `U(CompositeException(IOException(), NullPointerException()))` | IGNORE | IGNORE |
+| 22 | built by hand: `U(CompositeException(RuntimeException(), RuntimeException()))` | LOG | REPORT |
+
+**Edit** (`App.java`, 4 lines inserted after `:280`
+`                        + "throwable = [" + throwable.getClass().getName() + "]");`, directly
+before the blank line `:281`; no import, no blank line; `Log` is imported at `:10`):
+```
+                if (org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.decide(throwable, isDisposedRxExceptionsReported()) == org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.Action.LOG) { // ENH:crash-fixes-more
+                    Log.e(org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.LOG_TAG, org.schabi.newpipe.enhancements.crashfixesmore.UndeliveredErrors.LOG_MESSAGE, throwable); // ENH:crash-fixes-more
+                    return; // ENH:crash-fixes-more
+                } // ENH:crash-fixes-more
+```
+- **Only `LOG` is acted on.** For every other answer the unchanged upstream lines `:282-314` run
+  and decide as today. The other three values exist so that the table can be tested; a mistake in
+  them cannot change what the app does, and `LOG` cannot be returned for an error that is not
+  undeliverable. That is the whole safety argument of this edit.
+- The whole wrapper is logged, so the line carries the stack trace of the cause.
+  `adb logcat -s UndeliveredErrors:E` finds it; the existing line `:279` still precedes it.
+- `isDisposedRxExceptionsReported()` is now read for every error instead of only in step 5. In
+  `App` it is `false`; in `DebugApp` it reads a cached preference and may run on any thread.
+- The two fully qualified lines are longer than 100 columns, like the parent's in
+  `RouterActivity.java`; no check in the build enforces a width.
+
+**Regression risk.** With the debug setting on: none, `decide` never answers `LOG`. With it off:
+exactly rows 3-7 change. A live subscriber without error handler, a bug-type error thrown by a
+callback, a missing-backpressure error: unchanged.
+
+### Marked lines after the amendment
+
+| File | Marked lines | |
+|---|---|---|
+| the 10 files of "Verification" | 39 | unchanged, line for line |
+| `local/feed/FeedFragment.kt` | 2 | E7a, E7b |
+| `App.java` | 4 | C8 |
+| **Total** | **45 marked lines in 12 upstream files** | |
+| `enhancements/crashfixesmore/UndeliveredErrors.kt` | 0 | new file, the only one in that package in `app/src/main` |
+
+No resources, no settings, no build file changes: unchanged.
+
+### What changes in `CrashFixesMoreWiringTest`
+
+1. Constants: add `FEED_FRAGMENT = "$NEWPIPE/local/feed/FeedFragment.kt"` and
+   `APP = "$NEWPIPE/App.java"`. `PLANNED` gains `FEED_FRAGMENT to 2` and `APP to 4` (12 entries).
+   `PLANNED_TOTAL` 39 -> **45**. The class comment's "39 lines in 10 upstream files" -> "45 lines
+   in 12".
+2. `ac6_wiring_onlyThePlannedFilesAreMarked`: no change of logic; it passes with the new map. It
+   also proves that `UndeliveredErrors.kt` holds no marked line.
+3. `ac6_wiring_noResourcesAndNoOwnClasses`: the resource half is unchanged. The last assertion
+   (`assertFalse(.. ownPackage.exists())`) becomes: the directory
+   `app/src/main/java/org/schabi/newpipe/enhancements/crashfixesmore` exists and its file list is
+   exactly `[UndeliveredErrors.kt]`. The test's name may become
+   `ac6_wiring_noResourcesAndOneOwnClass`.
+4. `ac6_wiring_filesThePlanLeavesAlone`: add `$NEWPIPE/error/ErrorUtil.kt` and
+   `$NEWPIPE/fragments/list/BaseListInfoFragment.java` (0 marked lines each).
+5. New `ac7_wiring_feedPage` (`Source("AC-7", FEED_FRAGMENT)`):
+   `expectEdit("E7a", listOf("if (context == null) return"), after = "private fun handleItemsErrors(errors: List<Throwable>) {", before = "errors.forEachIndexed { i, t ->")`;
+   `expectEdit("E7b", listOf("if (context == null) return"), ..)` cannot be told from E7a by its
+   text, and `expectEdit` wants exactly one start. So: `expectCount(2, ..)`, then for the two
+   marked indices in order assert the neighbours: first as above; second
+   `after = ") {"`, `before = "val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())"`.
+   And, for "the lookup is not joined": `expectUntouched` for the three lines the join would
+   have changed: `NewPipeDatabase.getInstance(requireContext()).subscriptionDAO()`,
+   `?: throw IllegalStateException("Subscription not found: ${t.subscriptionId}")` and
+   `return // this will be called on the remaining errors by handleFeedNotAvailable()`.
+6. New `ac8_wiring_errorHandler` (`Source("AC-8", APP)`): `expectEdit("C8", listOf(` the four
+   lines above, the first two compared in full `), after = "+ \"throwable = [\" + throwable.getClass().getName() + \"]\");")`,
+   `expectCount(4, ..)`, and `expectUntouched` for the upstream lines the function mirrors, so
+   that a rebase which changes them fails here and the function is revisited:
+   `IOException.class, SocketException.class,`;
+   `InterruptedException.class, InterruptedIOException.class);`;
+   `NullPointerException.class, IllegalArgumentException.class, // bug in app`;
+   `OnErrorNotImplementedException.class, MissingBackpressureException.class,`;
+   `IllegalStateException.class); // bug in operator`;
+   `if (throwable instanceof UndeliverableException) {`;
+   `if (actualThrowable instanceof CompositeException) {`;
+   `if (isDisposedRxExceptionsReported()) {`; `reportException(error);`;
+   `reportException(actualThrowable);`.
+7. Every other test of the class, `TabAdapterFinishUpdateTest` and the three instrumented tests:
+   unchanged.
+
+### Tests to write
+
+**JVM** (`app/src/test/java/org/schabi/newpipe/enhancements/crashfixesmore/`, JUnit 4, no new
+dependency; `android.util.Log` is not touched by `decide`):
+- **T1 `UndeliveredErrorsTest`**, one test per row group, named `ac8_..`: rows 1-22 with the
+  setting off and on. Rows 3-7 are "the one change"; all others are "as today".
+- **T2, in the same class: today's handler written out a second time in the test** (steps 2-5
+  above, returning IGNORE / CRASH / REPORT), and a generated matrix (every exception type of the
+  table, plain, as cause at depth 1 and 2, as first and second member of a `CompositeException`,
+  wrapped in `U` and not, setting off and on) with the assertion: `decide == today`, except
+  `decide == LOG` exactly where the argument is an `UndeliverableException`, the setting is off
+  and `today != IGNORE-by-io`, that is where today's step 4 did not return for an io cause.
+- **T3 `UndeliveredErrorsRxTest`: what RxJava really hands over** (real RxJava on the JVM;
+  `RxJavaPlugins.setErrorHandler` with a recorder in `@Before`, `RxJavaPlugins.reset()` in
+  `@After`; no scheduler, everything synchronous):
+  - `RxJavaPlugins.onError(Exception("x", NullPointerException()))` -> the recorder gets an
+    `UndeliverableException` whose cause is that exception; `decide(.., false) == LOG`.
+  - for each of `NullPointerException`, `IllegalStateException`, `IllegalArgumentException`,
+    `CompositeException`, `OnErrorNotImplementedException`, `MissingBackpressureException`,
+    `QueueOverflowException`: `RxJavaPlugins.onError(e)` -> the recorder gets the same instance.
+  - nobody waits: `Single.create<Int> { saved = it }.subscribe({}, {})`, dispose, then
+    `saved.onError(Exception("late", NumberFormatException()))` -> wrapped; `LOG` / `CRASH`.
+    The same with `saved.onError(NullPointerException())` -> unwrapped; `CRASH` (the limit of Q10).
+  - a receiver without handler: `Single.error<Int>(RuntimeException("x")).subscribe { }` ->
+    `OnErrorNotImplementedException`, unwrapped; `CRASH` with the setting off and on.
+  - a live callback that throws: `Single.just(1).subscribe({ throw IndexOutOfBoundsException() }, {})`
+    -> wrapped; `LOG` (the risk named below, pinned so that it is not a surprise);
+    `{ throw NullPointerException() }` -> unwrapped; `CRASH`.
+- **Wiring**: as listed above.
+- Optional, if the Tests layer finds it worth the machinery: run the real compiled handler (the
+  anonymous `Consumer` in `App`) under a class loader with a recording `android.util.Log`, as
+  `TabAdapterFinishUpdateTest` does, and compare it with `decide` over the matrix of T2. Without
+  it, "equal to today's handler" rests on T2's copy and on the wiring test's untouched lines.
+
+**Instrumented** (by hand, package `...enhancements.crashfixesmore`, existing dependencies and
+`MainActivityPages.kt`). Both use the fact that the app's handler calls
+`Thread.currentThread().getUncaughtExceptionHandler()`: a test sets a recording handler on the
+thread concerned (`Thread.setUncaughtExceptionHandler`) and restores the old one, so a failure is
+an assertion with a stack trace and not a dead process.
+- **I3 `FeedPageLateLookupTest.ac7_pageLeftBeforeLookupReturns_nothingThrown`**: on the test
+  thread insert a `SubscriptionEntity` through `subscriptionDAO()` and keep its uid;
+  `showPage(FeedFragment.newInstance())`; set the recorder on the main thread; then **in one
+  main-thread turn**: by reflection call the private `handleItemsErrors(java.util.List)` with
+  `listOf(FeedLoadService.RequestException(uid, "0:url", ContentNotAvailableException("gone")), RuntimeException("other"))`,
+  then `supportFragmentManager.popBackStackImmediate()` and assert `page.context == null`. Then
+  `letFramesRun(2000)`. Expect: the recorder is empty. Today the recorder gets
+  `IllegalStateException .. not attached to a context` on the success branch, or a
+  `CompositeException` member from `ErrorUtil.showSnackbar` on the error branch; the second list
+  entry is there so that **both** branches fail today, whichever the io thread takes. Second
+  test, control, `ac7_pageStillThere_dialogIsShown`: the same without the pop; expect the
+  recorder empty and, as far as it can be read without a UI library, no exception; the dialog
+  itself is checked in D7.
+- **I4 `UndeliveredErrorHandlerTest`** (the real handler of the debug app): set the preference
+  `allow_disposed_exceptions_key` to false (restore afterwards), recorder on the test's own
+  thread, then from that thread:
+  `RxJavaPlugins.onError(Exception("x", NullPointerException()))` -> recorder empty
+  (`ac8_undeliverable_isNotRethrown`; today: one entry);
+  `RxJavaPlugins.onError(OnErrorNotImplementedException(RuntimeException("x")))` -> one entry,
+  that exception (`ac8_receiverWithoutHandler_closesAsToday`);
+  `RxJavaPlugins.onError(NullPointerException())` -> one entry;
+  with the preference true: the first call -> one entry
+  (`ac8_debugSettingOn_asToday`).
+
+**Device script.**
+- **D7** (AC-7) Subscribe to a channel that has been deleted or terminated, put it in a group,
+  refresh the group. Control: staying on the page, the "could not load feed" dialog for that
+  channel appears, as before. Then: refresh again and press Back in the moment the progress ends;
+  repeat ten times. No crash; when the page was left in time, no dialog appears on the page
+  behind. The window cannot be hit reliably by hand: I3 is the check.
+- **D8** (AC-8) Release-like behaviour, debug setting "report out-of-lifecycle errors" off: open
+  twenty channels, playlists and searches on a slow network and press Back while each loads;
+  refresh a large group meanwhile. No crash. Afterwards `adb logcat -d -s UndeliveredErrors:E`:
+  every entry is a load that was left; note each cause in the pull request. Then switch the
+  setting on and repeat five times: an undeliverable error may now close the app with the report
+  screen, as before the change.
+
+### AC coverage (amendment)
+
+| AC | Fix | Unit test | Instrumented / device |
+|---|---|---|---|
+| AC-7 | E7a, E7b (criterion as in Q9) | `ac7_wiring_feedPage` | I3, D7 |
+| AC-8 | `UndeliveredErrors.decide`, 4 lines in `App.java` (criterion as in Q10) | T1, T2, T3, `ac8_wiring_errorHandler` | I4, D8 |
+| AC-6 | no resource, no setting; with the debug setting on, AC-8 changes nothing | `ac6_wiring_*` as changed above | controls in D7, D8 |
+
+### Order of work (amendment)
+
+After the test commit: 9. `UndeliveredErrors.kt` and the 4 lines in `App.java`, one commit (the
+lines do not compile without the file). 10. The 2 lines in `FeedFragment.kt`. Each can be
+reverted alone. 11. I3, I4, D7, D8; results in the pull request.
+
+### Merging with the other branches (amendment)
+
+Checked with `git diff origin/dev...origin/feature/<name> -- <file>` for all 13 feature branches.
+
+| File | Other branch and its hunks | Ours | Textual | Behaviour |
+|---|---|---|---|---|
+| `local/feed/FeedFragment.kt` | `subscription-scale`: 1 line after `:245`, 1 after `:253`. `queue-guard` / `default-open-action`: `:331`, `:338`, `:347`, `:349` changed, 1 line after `:781`. `release-views`: none | after `:879`, after `:964` | no conflict: 98 unchanged lines between `:781` and `:879` | `subscription-scale` delivers a refresh that ended off screen at the next return to a feed page: more moments in which a lookup starts, same window; the guards do not depend on it |
+| `App.java` | `backup-safety`: 1 line after `:107`. `tls-checks`: 1 line after `:131`, 1 after `:134` | after `:280` | no conflict: 145 unchanged lines between | independent |
+| `error/ErrorUtil.kt`, `fragments/list/BaseListInfoFragment.java` | not edited by this plan | | | |
+
+In the merged build the lines move (the investigation's `:882`, `:968` are these); the wiring test
+finds them by their neighbours, not by number.
+
+### Checked and assumed (amendment)
+
+| Statement | Status |
+|---|---|
+| `RxJavaPlugins.onError` wraps in `UndeliverableException` unless `isBug`; `isBug` = the seven types named in A0 | checked (rxjava 3.1.12) |
+| Only `RxJavaPlugins` constructs `UndeliverableException`; it extends `IllegalStateException` | checked |
+| If the handler throws, RxJava hands that to the thread's uncaught-exception handler | checked |
+| `SingleFromCallable`: a throwing callable goes to the observer if not disposed, else to `RxJavaPlugins.onError` | checked |
+| `ConsumerSingleObserver.onSuccess`: a throwing callback -> `RxJavaPlugins.onError(e)`; `onError`: -> `RxJavaPlugins.onError(CompositeException(original, e))`; the same in `LambdaObserver.onError` | checked |
+| Disposing the outer disposable reaches the callable's disposable through `ObserveOnSingleObserver` and `SubscribeOnObserver` | checked |
+| `Single.subscribe(Consumer)` uses `Functions.ON_ERROR_MISSING`, which calls `RxJavaPlugins.onError(OnErrorNotImplementedException(e))` | checked |
+| `SingleCreate.Emitter.onError` after dispose -> `RxJavaPlugins.onError` (test T3) | checked |
+| A disposed main-thread delivery is removed from the handler queue | checked (rxandroid 3.0.2, `ScheduledRunnable.dispose`); not relied on by the fix |
+| `Fragment.getContext()` is null iff `mHost` is null; `requireContext()` throws exactly then; `isAdded` also needs `mAdded`, cleared for a page under another page | checked (fragment 1.8.9) |
+| `onDestroy` and detach run on the main thread, in that order | assumed (as in C2a above) |
+| An `AlertDialog` built on the activity can be shown while the fragment's view is gone | assumed; this is today's behaviour and is not changed |
+| A `const val` and a `@JvmStatic fun` of a Kotlin `object`, and its nested enum, are reachable from Java as written in the 4 lines | not compiled; `LateDialog.canShow` of the parent is called the same way |
+| The extractor produces non-bug exceptions with a bug-type cause | read (`YoutubeStreamExtractor.java:455`, `:679`); that it happened on the device: not known |
+
+### Risks (amendment)
+
+- **What a swallowed undeliverable error can hide.** (1) A callback of a live subscriber that
+  throws an exception of a non-bug type whose chain holds a bug type (for example a
+  `RuntimeException` wrapping a `NullPointerException`, thrown inside `onSuccess`): today a crash
+  with a report, afterwards a log line and a page that stays as it was, typically still
+  "loading". RxJava gives the handler no way to tell this from a load that was left (T3 pins the
+  case). (2) A failure inside a pipeline after its page was left that points at a real defect of
+  the extractor or the database: no crash report any more. Errors of that kind that are a plain
+  `NullPointerException` and the like still close the app (Q10), so the worst offenders stay
+  visible.
+- **How it is found.** One `Log.e` per swallowed error with the fixed tag `UndeliveredErrors`,
+  the fixed text `Undelivered error, logged and not rethrown` and the full stack trace including
+  the cause chain: `adb logcat -s UndeliveredErrors:E`. The debug setting "report out-of-lifecycle
+  errors" turns the old behaviour back on without a new build; D8 has both runs. The log is lost
+  with the log buffer: a user who reports "the page stayed empty" has no report to attach.
+- **More log lines than before.** Row 7 was silent; a cancelled load that fails with, say, a
+  `ParsingException` now writes a stack trace. Cancelled network calls (io) stay silent.
+- **AC-8 is met only for errors RxJava marks undeliverable** (Q10). An extractor
+  `NullPointerException` thrown directly after its page was left still closes the app.
+- **AC-7 without the join** leaves the lookup running after the page is gone, for one database
+  read; it holds the page that long. Its result ends in a guard.
+- **AC-7 is derived, not observed**, and it may not be the crash of issue #26: that one has no
+  log. I3 shows the defect and the fix; it does not show what happened on the device.
+- **The copy in `decide` can age.** If upstream changes the handler's lists, `decide` no longer
+  mirrors it. Because only `LOG` is acted on, the effect is limited to which undeliverable errors
+  are logged instead of handled by upstream's code; the wiring test's untouched lines fail on
+  such a rebase.
+- **Rebase:** 12 upstream files, 45 lines, all marked, names fully qualified, no import hunks; one
+  new file.
