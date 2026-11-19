@@ -71,3 +71,49 @@ Accepted as today's behaviour, and stated in AC-6.
 
 ## A7 spec
 Accepted: only the Subscriptions tab's menu gets the entry.
+
+## Q8 tests -> plan
+Sections 2 and 13 count "six Android glue files" and "the ten files of sections 4-7". The
+plan names seven glue files: `CooldownRefresh.kt`, `RoomCooldownData.kt`, `CooldownStore.kt`
+(5.1), `SkippedMessageUi.kt` (6.2), `CooldownChooser.kt` (7), `GroupCooldownUi.kt` (7.1),
+`SubscriptionCooldownUi.kt` (7.2); section 15 lists the same seven. With the four plain files
+that is eleven. Working assumption: the eleven named files are meant and the two counts are
+slips. `NewFilesSourceTest.thePackageHasThePlansFiles` expects exactly these eleven.
+
+## Q9 tests -> plan
+AC-7 and AC-9 in the loader: which of the three ways `select` goes (notification check:
+the scope itself, nothing recorded as skipped; forced ids; cooldown decision) is decided in
+`CooldownRefresh.select`, and that the notification check neither clears nor publishes a
+report is decided in its constructor and in `done()` (5.1, 5.3). `CooldownRefresh` takes a
+`Context` and is glue, so no JVM test can run these branches: "with
+`ignoreOutdatedThreshold = true` everything is loaded and nothing is reported as skipped"
+has no running test. Working assumption: accepted as planned. The tests cover it as far as
+text can: `NewFilesSourceTest` checks that `CooldownRefresh.kt` has the plan's three
+signatures and names `ignore` in the constructor, `select` and `done`, `plusYears(100)`,
+`CooldownRules.forced(`, `CooldownRules.select(`, `SkipReports.app.clear()` and
+`SkipReports.app.publish(` once each; the wiring test checks that `NotificationWorker.kt`
+is unedited and still passes `ignoreOutdatedThreshold = true`, and that the `if` branch of
+the threshold is unchanged. Whether the branches are right is device step 7 (and 9 for the
+forced set). A plain function for the three-way choice (for example
+`CooldownRules.choose(ignore, forced, …)`) would make it testable; the tests do not ask
+for one.
+
+## Q10 tests -> plan
+Section 8 defines `enh_refresh_cooldown_groups_key` and
+`enh_refresh_cooldown_subscriptions_key`; 5.1 does not say whether `CooldownStore` gets the
+preference names from them or writes the literals of 3.1. Working assumption: from the two
+string resources (otherwise they are unused). `NewFilesSourceTest` expects `CooldownStore.kt`
+to name both `R.string.…_key`; the resources test pins their values, and the instrumented
+test reads and writes the preferences under the literal names of 3.1.
+
+## Q11 tests -> plan
+Left open by sections 3.2 and 4, and not pinned by any test, so the Code layer may take
+either reading: (a) `with(key, seconds)` with seconds that `parse` would drop (negative,
+ten digits, not a choice): the plan validates the key only, and then `parse(format(v))`
+no longer equals `v`; the tests call `with` with choices only. (b) seconds with leading
+zeros (`7:0473fe05=0300`): "1 to 9 digits, and one of the global setting's values" reads as
+kept (300); a comparison of the text with the values would drop it. (c) "split at its last
+`=`": no input tells it from a split at the first `=`, since neither a valid key nor valid
+seconds can contain `=`; the tests only expect such entries to be dropped. (d) 4.4:
+`take` by a page of another feed after the 60 seconds: whether the report is kept or
+dropped is not in the table.
