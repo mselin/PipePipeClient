@@ -299,4 +299,10 @@ abstract class FeedDAO {
         outdatedThreshold: OffsetDateTime,
         @NotificationMode notificationMode: Int
     ): Flowable<List<SubscriptionEntity>>
+    @Query("SELECT * FROM feed_last_updated") // ENH:refresh-cooldown
+    abstract fun cooldownLastUpdated(): List<FeedLastUpdatedEntity> // ENH:refresh-cooldown
+    @Query("SELECT * FROM feed_group_subscription_join") // ENH:refresh-cooldown
+    abstract fun cooldownMemberships(): List<org.schabi.newpipe.database.feed.model.FeedGroupSubscriptionEntity> // ENH:refresh-cooldown
+    @Query("SELECT * FROM feed_group") // ENH:refresh-cooldown
+    abstract fun cooldownGroups(): List<org.schabi.newpipe.database.feed.model.FeedGroupEntity> // ENH:refresh-cooldown
 }

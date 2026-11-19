@@ -90,7 +90,7 @@ class FeedLoadService : Service() {
         setupBroadcastReceiver()
 
         val groupId = intent.getLongExtra(EXTRA_GROUP_ID, FeedGroupEntity.GROUP_ALL_ID)
-        loadingDisposable = feedLoadManager.startLoading(groupId)
+        loadingDisposable = feedLoadManager.startLoading(groupId, cooldownForced = intent.getLongArrayExtra(org.schabi.newpipe.enhancements.refreshcooldown.SkipReports.EXTRA_FORCED)) // ENH:refresh-cooldown
             .observeOn(AndroidSchedulers.mainThread())
             .doOnSubscribe {
                 startForeground(NOTIFICATION_ID, notificationBuilder.build())
