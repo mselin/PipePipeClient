@@ -50,3 +50,24 @@ AC-3 names the long-press menu "on the Subscriptions tab" (`SubscriptionFragment
 channel list page of a group (`SubscriptionListFragment.kt:238-290`) has a similar menu with
 a variable number of entries. Working assumption: only the Subscriptions tab's menu gets the
 entry.
+
+## A1 spec
+Corrected: the setting is under Settings > Feed.
+
+## A2 spec
+Accepted, and stated in AC-4.
+
+## A3 spec
+Accepted: no row in the dialog that creates a group. AC-2 says so.
+
+## A4 spec
+Accepted, and stated in AC-8.
+
+## A5 spec
+Accepted.
+
+## A6 spec
+Accepted as today's behaviour, and stated in AC-6.
+
+## A7 spec
+Accepted: only the Subscriptions tab's menu gets the entry.
