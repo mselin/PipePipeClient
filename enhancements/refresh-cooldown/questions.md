@@ -117,3 +117,18 @@ kept (300); a comparison of the text with the values would drop it. (c) "split a
 seconds can contain `=`; the tests only expect such entries to be dropped. (d) 4.4:
 `take` by a page of another feed after the 60 seconds: whether the report is kept or
 dropped is not in the table.
+
+## A8 plan
+Eleven files; the count in the plan's summary is wrong, the list is right.
+
+## A9 plan
+Accepted as planned. The three-way choice stays in the glue and is covered by text checks, the
+wiring test and device step 7. The notification check's file carries no line of this feature,
+which the wiring test pins.
+
+## A10 plan
+Yes: the store takes the two preference names from the key resources.
+
+## A11 plan
+The four details are free for the Code layer; none of them is reachable from stored values
+the feature itself writes.
