@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Button xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/enh_refresh_cooldown_group_button"
+    style="@style/Widget.AppCompat.Button.Borderless"
+    android:layout_width="0dp"
+    android:layout_height="48dp"
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:textAllCaps="false"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/selected_subscription_count_view" />

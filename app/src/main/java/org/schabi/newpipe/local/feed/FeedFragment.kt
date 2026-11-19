@@ -734,6 +734,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
         }
 
         updateRefreshViewState()
+        if (result is FeedState.LoadedState) org.schabi.newpipe.enhancements.refreshcooldown.SkippedMessageUi.offer(this, groupId, result.itemsErrors.isNotEmpty()) // ENH:refresh-cooldown
     }
 
     override fun handleError() {

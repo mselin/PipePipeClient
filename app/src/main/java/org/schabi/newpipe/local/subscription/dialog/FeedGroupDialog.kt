@@ -301,6 +301,7 @@ class FeedGroupDialog : DialogFragment(), BackPressable {
             Toast.makeText(requireContext(), getString(R.string.feed_group_dialog_empty_selection), Toast.LENGTH_SHORT).show()
             return
         }
+        org.schabi.newpipe.enhancements.refreshcooldown.GroupCooldownUi.save(feedGroupCreateBinding.optionsRoot, groupId, name) // ENH:refresh-cooldown
 
         when (groupId) {
             NO_GROUP_SELECTED -> viewModel.createGroup(name, icon, selectedSubscriptions)
@@ -320,6 +321,7 @@ class FeedGroupDialog : DialogFragment(), BackPressable {
         if (feedGroupCreateBinding.groupNameInput.text.isNullOrBlank()) {
             feedGroupCreateBinding.groupNameInput.setText(name)
         }
+        org.schabi.newpipe.enhancements.refreshcooldown.GroupCooldownUi.attach(feedGroupCreateBinding.optionsRoot, feedGroupEntity) // ENH:refresh-cooldown
     }
 
     private val subscriptionPickerItemListener = OnItemClickListener { item, view ->
