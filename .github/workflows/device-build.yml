@@ -37,7 +37,8 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      # the same debug key as earlier device builds, so a new build installs over the last one
+      # the same debug key as earlier device builds, so a new build installs over the last one;
+      # passed to the build directly, because the runner keeps its Android settings elsewhere
       - name: Debug signing key
         env:
           DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
@@ -46,12 +47,29 @@ jobs:
             echo "::error::The repository secret DEBUG_KEYSTORE_B64 is missing (Settings > Secrets and variables > Actions)."
             exit 1
           fi
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/device-test.keystore"
 
       - name: Build
         working-directory: PipePipeClient
-        run: ./gradlew :app:assembleDebug -DskipFormatKtlint --stacktrace
+        run: >
+          ./gradlew :app:assembleDebug -DskipFormatKtlint --stacktrace
+          -Pandroid.injected.signing.store.file="$RUNNER_TEMP/device-test.keystore"
+          -Pandroid.injected.signing.store.password=android
+          -Pandroid.injected.signing.key.alias=AndroidDebugKey
+          -Pandroid.injected.signing.key.password=android
+
+      - name: The APK carries the device-test key
+        working-directory: PipePipeClient
+        env:
+          EXPECTED: da396bcc37f9663e132a9a12559d22dfd1c24f03754eff2b671c5ba58b136c8a
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          apk=$(ls app/build/outputs/apk/debug/*-arm64-v8a-debug.apk)
+          actual=$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          if [ "$actual" != "$EXPECTED" ]; then
+            echo "::error::The APK is signed with $actual, not the device-test key $EXPECTED; it would not install over earlier device builds."
+            exit 1
+          fi
 
       - name: Draft pre-release with the APK
         working-directory: PipePipeClient
