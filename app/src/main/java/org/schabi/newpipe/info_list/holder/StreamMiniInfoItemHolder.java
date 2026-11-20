@@ -28,6 +28,7 @@ public class StreamMiniInfoItemHolder extends InfoItemHolder {
     public final TextView itemUploaderView;
     public final TextView itemDurationView;
     private final AnimatedProgressBar itemProgressView;
+    private final org.schabi.newpipe.enhancements.subscriptionscale.RowWatchState watched = new org.schabi.newpipe.enhancements.subscriptionscale.RowWatchState(); // ENH:subscription-scale
 
     StreamMiniInfoItemHolder(final InfoItemBuilder infoItemBuilder, final int layoutId,
                              final ViewGroup parent) {
@@ -51,6 +52,7 @@ public class StreamMiniInfoItemHolder extends InfoItemHolder {
             return;
         }
         final StreamInfoItem item = (StreamInfoItem) infoItem;
+        watched.cancel(); // ENH:subscription-scale
 
         itemVideoTitleView.setText(item.getName());
         itemUploaderView.setText(item.getUploaderName());
@@ -60,8 +62,8 @@ public class StreamMiniInfoItemHolder extends InfoItemHolder {
             itemDurationView.setBackgroundColor(ContextCompat.getColor(itemBuilder.getContext(),
                     R.color.paid_video_background_color));
             itemDurationView.setVisibility(View.VISIBLE);
-            final StreamStateEntity paidState = historyRecordManager.loadStreamState(infoItem)
-                    .blockingGet()[0];
+            final StreamStateEntity paidState = watched.cached(item); // ENH:subscription-scale
+            watched.refresh(item, historyRecordManager, itemProgressView); // ENH:subscription-scale
             if (paidState != null && item.getDuration() > 0) {
                 itemProgressView.setVisibility(View.VISIBLE);
                 itemProgressView.setMax((int) item.getDuration());
@@ -76,8 +78,8 @@ public class StreamMiniInfoItemHolder extends InfoItemHolder {
                     R.color.duration_background_color));
             itemDurationView.setVisibility(View.VISIBLE);
 
-            final StreamStateEntity state = historyRecordManager.loadStreamState(infoItem)
-                    .blockingGet()[0];
+            final StreamStateEntity state = watched.cached(item); // ENH:subscription-scale
+            watched.refresh(item, historyRecordManager, itemProgressView); // ENH:subscription-scale
             if (state != null) {
                 itemProgressView.setVisibility(View.VISIBLE);
                 itemProgressView.setMax((int) item.getDuration());
@@ -126,7 +128,7 @@ public class StreamMiniInfoItemHolder extends InfoItemHolder {
                             final HistoryRecordManager historyRecordManager) {
         final StreamInfoItem item = (StreamInfoItem) infoItem;
 
-        final StreamStateEntity state = historyRecordManager.loadStreamState(infoItem).blockingGet()[0];
+        final StreamStateEntity state = watched.cached(infoItem); // ENH:subscription-scale
         if (state != null && item.getDuration() > 0
                 && item.getStreamType() != StreamType.LIVE_STREAM) {
             itemProgressView.setMax((int) item.getDuration());

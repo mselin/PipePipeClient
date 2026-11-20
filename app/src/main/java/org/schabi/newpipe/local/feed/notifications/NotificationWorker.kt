@@ -41,6 +41,7 @@ class NotificationWorker(
     override fun createWork(): Single<Result> = if (areNotificationsEnabled(applicationContext)) {
         feedLoadManager.startLoading(
             ignoreOutdatedThreshold = true,
+            retainNewStreams = true, // ENH:subscription-scale
             groupId = FeedLoadManager.GROUP_NOTIFICATION_ENABLED
         )
             .doOnSubscribe { showLoadingFeedForegroundNotification() }

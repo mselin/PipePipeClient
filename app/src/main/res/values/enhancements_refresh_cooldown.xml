@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enh_refresh_cooldown_groups_key" translatable="false">enh_refresh_cooldown_groups</string>
+    <string name="enh_refresh_cooldown_subscriptions_key" translatable="false">enh_refresh_cooldown_subscriptions</string>
+    <string name="enh_refresh_cooldown_title">Refresh cooldown</string>
+    <string name="enh_refresh_cooldown_entry">Refresh cooldown: %s</string>
+    <string name="enh_refresh_cooldown_use_default">Use default</string>
+    <string name="enh_refresh_cooldown_refresh_anyway">Refresh anyway</string>
+    <plurals name="enh_refresh_cooldown_skipped">
+        <item quantity="one">%d channel was skipped because of its cooldown</item>
+        <item quantity="other">%d channels were skipped because of their cooldown</item>
+    </plurals>
+</resources>

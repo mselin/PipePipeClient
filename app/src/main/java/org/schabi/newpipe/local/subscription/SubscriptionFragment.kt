@@ -90,6 +90,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
 
     override fun onResume() {
         super.onResume()
+        viewModel.setOnScreen(true) // ENH:subscription-scale
         setupBroadcastReceiver()
 
         // Sync the search view with the current filter state
@@ -102,6 +103,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
 
     override fun onPause() {
         super.onPause()
+        viewModel.setOnScreen(false) // ENH:subscription-scale
         itemsListState = binding.itemsList.layoutManager?.onSaveInstanceState()
         feedGroupsListState = feedGroupsCarousel?.onSaveInstanceState()
         importExportItemExpandedState = importExportItem.isExpanded
@@ -295,7 +297,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
         val commands = arrayOf(
             getString(R.string.share),
             getString(R.string.open_in_browser),
-            getString(R.string.unsubscribe)
+            getString(R.string.unsubscribe), org.schabi.newpipe.enhancements.refreshcooldown.SubscriptionCooldownUi.entry(requireContext(), selectedItem) // ENH:refresh-cooldown
         )
 
         val actions = DialogInterface.OnClickListener { _, i ->
@@ -306,6 +308,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
                 )
                 1 -> ShareUtils.openUrlInBrowser(requireContext(), selectedItem.url)
                 2 -> deleteChannel(selectedItem)
+                3 -> org.schabi.newpipe.enhancements.refreshcooldown.SubscriptionCooldownUi.choose(requireContext(), selectedItem) // ENH:refresh-cooldown
             }
         }
 
