@@ -292,7 +292,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
         val commands = arrayOf(
             getString(R.string.share),
             getString(R.string.open_in_browser),
-            getString(R.string.unsubscribe)
+            getString(R.string.unsubscribe), org.schabi.newpipe.enhancements.refreshcooldown.SubscriptionCooldownUi.entry(requireContext(), selectedItem) // ENH:refresh-cooldown
         )
 
         val actions = DialogInterface.OnClickListener { _, i ->
@@ -303,6 +303,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
                 )
                 1 -> ShareUtils.openUrlInBrowser(requireContext(), selectedItem.url)
                 2 -> deleteChannel(selectedItem)
+                3 -> org.schabi.newpipe.enhancements.refreshcooldown.SubscriptionCooldownUi.choose(requireContext(), selectedItem) // ENH:refresh-cooldown
             }
         }
 
