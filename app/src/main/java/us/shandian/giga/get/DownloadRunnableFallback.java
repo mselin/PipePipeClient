@@ -4,6 +4,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import org.schabi.newpipe.enhancements.downloadfixes.ResumeCheck; // ENH:download-fixes
 import org.schabi.newpipe.streams.io.SharpStream;
 
 import java.io.IOException;
@@ -89,6 +90,12 @@ public class DownloadRunnableFallback extends Thread {
             }
 
             mF = mMission.storage.getStream();
+            final ResumeCheck.Action enhResume = ResumeCheck.decide(start, mConn.getResponseCode(), mConn.getHeaderField("Content-Range")); // ENH:download-fixes
+            if (enhResume != ResumeCheck.Action.CONTINUE) start = 0; // ENH:download-fixes
+            mMission.done = mMission.offsets[mMission.current] - mMission.offsets[0] + start; // ENH:download-fixes
+            if (mMission.unknownLength) mMission.length = start; // ENH:download-fixes
+            if (enhResume == ResumeCheck.Action.DISCARD_AND_REQUEST_AGAIN) throw new IOException("resume not honoured, asking for the whole resource"); // ENH:download-fixes
+            if (enhResume == ResumeCheck.Action.RESTART_WITH_THIS_BODY && mMission.unknownLength && mF.canSetLength()) mF.setLength(mMission.offsets[mMission.current]); // ENH:download-fixes
             mF.seek(mMission.offsets[mMission.current] + start);
 
             mIs = mConn.getInputStream();
