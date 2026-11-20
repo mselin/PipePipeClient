@@ -184,7 +184,7 @@ public class DownloadInitializer extends Thread {
                     return;
                 }
 
-                if (e instanceof IOException && e.getMessage().contains("Permission denied")) {
+                if (e instanceof IOException && org.schabi.newpipe.enhancements.crashfixes.ErrorMessages.contains(e, "Permission denied")) { // ENH:crash-fixes
                     mMission.notifyError(DownloadMission.ERROR_PERMISSION_DENIED, e);
                     return;
                 }
