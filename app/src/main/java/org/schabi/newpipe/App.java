@@ -105,6 +105,7 @@ public class App extends MultiDexApplication {
                     + "Aborting initialization of App[onCreate]");
             return;
         }
+        org.schabi.newpipe.enhancements.backupsafety.BackupImportStartup.run(this); // ENH:backup-safety
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             registerCarConnectionReceiver();
