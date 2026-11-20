@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules> <!-- ENH:backup-safety -->
+    <cloud-backup>
+        <include domain="database" path="newpipe.db" />
+        <include domain="database" path="newpipe.db-wal" />
+        <include domain="database" path="newpipe.db-shm" />
+        <include domain="database" path="newpipe.db-journal" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="newpipe.db" />
+        <include domain="database" path="newpipe.db-wal" />
+        <include domain="database" path="newpipe.db-shm" />
+        <include domain="database" path="newpipe.db-journal" />
+    </device-transfer>
+</data-extraction-rules>

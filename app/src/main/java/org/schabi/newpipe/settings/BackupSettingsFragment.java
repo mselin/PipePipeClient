@@ -110,6 +110,7 @@ public class BackupSettingsFragment extends BasePreferenceFragment {
 
         final Preference exportDataPreference = requirePreference(R.string.export_data);
         exportDataPreference.setOnPreferenceClickListener((final Preference p) -> {
+            if (org.schabi.newpipe.enhancements.backupsafety.ExportOptionsUi.intercept(p, manager)) { return true; } // ENH:backup-safety
             NoFileManagerSafeGuard.launchSafe(
                     requestExportPathLauncher,
                     StoredFileHelper.getNewPicker(requireContext(),
@@ -180,6 +181,7 @@ public class BackupSettingsFragment extends BasePreferenceFragment {
             return true;
         });
         requirePreference(R.string.export_settings_only_key).setOnPreferenceClickListener(p -> {
+            if (org.schabi.newpipe.enhancements.backupsafety.ExportOptionsUi.intercept(p, manager)) { return true; } // ENH:backup-safety
             NoFileManagerSafeGuard.launchSafe(
                     exportSettingsOnlyLauncher,
                     StoredFileHelper.getNewPicker(requireContext(),
@@ -351,7 +353,7 @@ public class BackupSettingsFragment extends BasePreferenceFragment {
             new AlertDialog.Builder(requireActivity())
                     .setMessage(R.string.override_current_data)
                     .setPositiveButton(R.string.ok, (d, id) ->
-                            importDatabase(file, lastImportDataUri))
+                            org.schabi.newpipe.enhancements.backupsafety.BackupImportUi.start(this, file, () -> finishImport(lastImportDataUri))) // ENH:backup-safety
                     .setNegativeButton(R.string.cancel, (d, id) ->
                             d.cancel())
                     .create()

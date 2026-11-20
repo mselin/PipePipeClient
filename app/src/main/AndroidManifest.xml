@@ -60,7 +60,7 @@
         android:theme="@style/OpeningTheme"
         android:resizeableActivity="true"
         android:enableOnBackInvokedCallback="false"
-        tools:ignore="AllowBackup">
+        android:fullBackupContent="@xml/enhancements_backup_rules" android:dataExtractionRules="@xml/enhancements_data_extraction_rules" tools:ignore="AllowBackup,ENH:backup-safety">
         <activity
                 android:name=".MainActivity"
                 android:label="@string/app_name"

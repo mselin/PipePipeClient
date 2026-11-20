@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content> <!-- ENH:backup-safety -->
+    <include domain="database" path="newpipe.db" />
+    <include domain="database" path="newpipe.db-wal" />
+    <include domain="database" path="newpipe.db-shm" />
+    <include domain="database" path="newpipe.db-journal" />
+</full-backup-content>
