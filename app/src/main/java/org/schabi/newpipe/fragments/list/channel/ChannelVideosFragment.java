@@ -703,13 +703,13 @@ public class ChannelVideosFragment extends BaseListInfoFragment<StreamInfoItem, 
         monitorSubscription(result);
 
         playlistControlBinding.playlistCtrlPlayAllButton
-                .setOnClickListener(view -> NavigationHelper
+                .setOnClickListener(view -> org.schabi.newpipe.enhancements.queueguard.QueueGuard // ENH:queue-guard
                         .playOnMainPlayer(activity, getPlayQueue()));
         playlistControlBinding.playlistCtrlPlayPopupButton
-                .setOnClickListener(view -> NavigationHelper
+                .setOnClickListener(view -> org.schabi.newpipe.enhancements.queueguard.QueueGuard // ENH:queue-guard
                         .playOnPopupPlayer(activity, getPlayQueue(), false));
         playlistControlBinding.playlistCtrlPlayBgButton
-                .setOnClickListener(view -> NavigationHelper
+                .setOnClickListener(view -> org.schabi.newpipe.enhancements.queueguard.QueueGuard // ENH:queue-guard
                         .playOnBackgroundPlayer(activity, getPlayQueue(), false));
     }
 
