@@ -1,0 +1,76 @@
+name: Device build
+
+# Builds the debug APK of build/device-test and attaches it to a draft pre-release.
+# Draft releases are visible only to people with write access to the repository.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'build/device-test'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: device-build
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: PipePipeClient
+
+      # the client build includes ../PipePipeExtractor; device builds use the extractor's own
+      # build/device-test branch, which carries its open fixes
+      - uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository_owner }}/PipePipeExtractor
+          ref: build/device-test
+          path: PipePipeExtractor
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 25
+          distribution: temurin
+          cache: gradle
+
+      # the same debug key as earlier device builds, so a new build installs over the last one
+      - name: Debug signing key
+        env:
+          DEBUG_KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_B64" ]; then
+            echo "::error::The repository secret DEBUG_KEYSTORE_B64 is missing (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+
+      - name: Build
+        working-directory: PipePipeClient
+        run: ./gradlew :app:assembleDebug -DskipFormatKtlint --stacktrace
+
+      - name: Draft pre-release with the APK
+        working-directory: PipePipeClient
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk=$(ls app/build/outputs/apk/debug/*-arm64-v8a-debug.apk)
+          short=${GITHUB_SHA::7}
+          tag="device-test-$(date -u +%Y%m%d-%H%M)-$short"
+          cp "$apk" "PipePipe-device-test-$short-arm64-v8a-debug.apk"
+          gh release create "$tag" "PipePipe-device-test-$short-arm64-v8a-debug.apk" \
+            --draft --prerelease --target "$GITHUB_SHA" \
+            --title "Device test $short" \
+            --notes "Debug build of build/device-test at $short, arm64-v8a. Signed with the device-test debug key, so it installs over earlier device builds."
+
+      - name: Keep the newest five device builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,isDraft,createdAt \
+            --jq '[.[] | select(.isDraft and (.tagName | startswith("device-test-")))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
+          while read -r old; do gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes; done
