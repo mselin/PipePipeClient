@@ -170,7 +170,7 @@ public final class PlaylistAppendDialog extends PlaylistDialog {
 
         final Toast successToast = Toast.makeText(getContext(), toastText, Toast.LENGTH_SHORT);
 
-        if (playlist.thumbnailUrl.equals("drawable://" + R.drawable.dummy_thumbnail_playlist)) {
+        if (("drawable://" + R.drawable.dummy_thumbnail_playlist).equals(playlist.thumbnailUrl)) { // ENH:crash-fixes-more
             playlistDisposables.add(manager
                     .changePlaylistThumbnail(playlist.uid, streams.get(0).getThumbnailUrl())
                     .observeOn(AndroidSchedulers.mainThread())

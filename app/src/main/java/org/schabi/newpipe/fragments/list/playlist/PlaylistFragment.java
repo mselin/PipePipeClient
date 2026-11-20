@@ -269,7 +269,7 @@ public class PlaylistFragment extends BaseListInfoFragment<StreamInfoItem, Playl
                             .stream()
                             .map(StreamEntity::new)
                             .collect(Collectors.toList()),
-                    dialog -> dialog.show(getFM(), TAG)
+                    org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(this, dialog -> dialog.show(getFM(), TAG)) // ENH:crash-fixes-more
             ));
         } else {
             return super.onOptionsItemSelected(item);

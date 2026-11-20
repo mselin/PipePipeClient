@@ -183,7 +183,7 @@ class DetailActions(
     private fun showPlaylistDialog(streams: List<StreamEntity>) {
         val fm = fragment.parentFragmentManager
         disposables.add(PlaylistDialog.createCorrespondingDialog(fragment.context, streams) {
-            it.show(fm, TAG)
+            if (org.schabi.newpipe.enhancements.crashfixes.LateDialog.canShow(fm)) it.show(fm, TAG) // ENH:crash-fixes-more
         })
     }
 
