@@ -1,0 +1,61 @@
+# Questions: group-sort
+
+## Q1 spec -> user
+Where should the option live? The spec puts it in Settings > Appearance (AC-1) so no existing
+screen changes. The alternative is a sort choice inside the reorder dialog, which is easier
+to find but changes that dialog.
+
+## Q2 spec -> user
+With a name order selected, should the reorder dialog stay usable? The spec keeps it working
+with a notice (AC-10). The alternative is to disable it until *Manual* is selected again.
+
+## Q3 spec -> user
+Should numbers in names sort by value ("Mix 2" before "Mix 10", AC-5), or strictly character
+by character ("Mix 10" before "Mix 2")?
+
+## A1 user
+"Settings > Appearance"
+Applied: unchanged (AC-1).
+
+## A2 user
+"Reorder dialog." Follow-up choice: "Stay usable with a notice".
+Applied: unchanged (AC-10).
+
+## A3 user
+"By character. User needs to create groups like 001 - First, ZZZ - Last, ZZZZ - Last of
+last."
+Applied: plain character-by-character comparison, no number values and no language-specific
+rules, so prefixes like these sort predictably (AC-5).
+
+## Q4 plan -> spec
+AC-5 fixes the order of digits, A-Z and letters outside A-Z, but not where spaces and symbols
+sort. The plan assumes plain character-code order after folding letters to lower case: space and
+`! " # $ % & ' ( ) * + , - . /` before digits; `: ; < = > ? @ [ \ ] ^ _` and the backtick
+between digits and letters; `{ | } ~` after "z" but before "Ä". Example: "- Top" < "001" <
+"[old]" < "_misc" < "A Team" < "A-Team" < "music" < "~last" < "Äpfel". Is that the intended
+order? The examples already in AC-5 sort the same either way; only names that start with or
+contain symbols are affected (AC-5, and through it AC-3/AC-4).
+
+## A4 spec
+Yes. "By character" (A3) means plain character-code order after ignoring case, symbols and
+spaces included, exactly as the plan assumed. AC-5 now says so and has an example with a
+leading symbol. The plan's algorithm and fixture F4 stand.
+
+## Q5 tests -> plan
+AC-5 says names are compared "by character code". Section 5 compares per UTF-16 unit, so a
+character outside the BMP is ordered by its first unit and not by its code point: an emoji such
+as U+1F3B5 (units 0xD83C 0xDFB5) sorts before every character from U+E000 to U+FFFF, for
+example before fullwidth letters (U+FF21 and up), although its code is higher. A group named
+U+1F3B5 " Music" comes before one named U+FF2D U+FF36 (fullwidth "MV"); by code point it is the
+other way round. Only that order differs between the two readings (a character outside the BMP
+against one from U+E000 to U+FFFF); every other pair sorts the same. For the same reason the
+case of letters outside the BMP (Deseret, Adlam) is not ignored. Is the UTF-16 unit order
+intended, and does AC-5 need a sentence for it? Until answered the tests follow section 5 as
+written: `ac5_charactersOutsideTheBmpCompareByUtf16Unit` expects the emoji name first, with the
+assumption in its KDoc. No other test depends on the answer (AC-5, and through it AC-3/AC-4).
+
+## A5 plan
+The plan stands: names are compared per UTF-16 unit. That is the intended reading of "by
+character code", and spec AC-5 now says so. The only names affected are those with emoji or
+other characters outside the basic plane, which sort after ordinary letters either way. The
+test stands.

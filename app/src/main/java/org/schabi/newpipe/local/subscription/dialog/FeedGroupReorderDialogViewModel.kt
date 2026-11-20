@@ -20,7 +20,7 @@ class FeedGroupReorderDialogViewModel(application: Application) : AndroidViewMod
 
     private var actionProcessingDisposable: Disposable? = null
 
-    private var groupsDisposable = feedDatabaseManager.groups()
+    private var groupsDisposable = org.schabi.newpipe.enhancements.groupsort.GroupSortHooks.manualGroups(feedDatabaseManager) // ENH:group-sort
         .take(1)
         .subscribeOn(Schedulers.io())
         .subscribe(mutableGroupsLiveData::postValue)

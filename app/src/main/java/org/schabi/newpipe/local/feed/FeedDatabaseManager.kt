@@ -36,7 +36,7 @@ class FeedDatabaseManager(context: Context) {
             .atStartOfDay().atOffset(ZoneOffset.UTC)
     }
 
-    fun groups() = feedGroupTable.getAll()
+    fun groups() = org.schabi.newpipe.enhancements.groupsort.GroupSortHooks.sortedGroups(feedGroupTable.getAll()) // ENH:group-sort
 
     fun database() = database
 
