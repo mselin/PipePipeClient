@@ -122,6 +122,7 @@ class PlayerClickController(private val player: Player) :
             onSleepTimerClicked()
         } else if (v.id == binding.fullScreenButton.id) {
             player.setRecovery()
+            org.schabi.newpipe.enhancements.keepposition.KeepPosition.onSwitchToMainPlayer(player) // ENH:keep-position
             if (player.popupPlayerSelected()) {
                 // Clean up popup properly before switching to main player
                 player.service.stopService()

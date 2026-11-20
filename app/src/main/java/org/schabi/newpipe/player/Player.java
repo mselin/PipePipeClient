@@ -453,6 +453,7 @@ public final class Player {
         if (DEBUG) {
             Log.d(TAG, "destroy() called");
         }
+        org.schabi.newpipe.enhancements.keepposition.KeepPosition.onPlayerClosed(this); // ENH:keep-position
         
         // Close popup menus before destroying to prevent crash
         closeAllPopupMenus();
@@ -498,6 +499,7 @@ public final class Player {
     }
 
     void reloadPlayQueueManager() {
+        org.schabi.newpipe.enhancements.keepposition.KeepPosition.onReload(this); // ENH:keep-position
         if (playQueueManager != null) {
             playQueueManager.dispose();
         }
@@ -1224,7 +1226,7 @@ public final class Player {
     MediaSource sourceOf(final PlayerMediaItem item, final StreamInfo info) {
         final long recoveryPosition = playQueue == null
                 ? PlayQueue.RECOVERY_UNSET : playQueue.getRecoveryPosition(item);
-        final long initialPositionMs = shouldSeek()
+        final long initialPositionMs = org.schabi.newpipe.enhancements.keepposition.KeepPosition.shouldSeekOnLoad(this, item) // ENH:keep-position
                 && recoveryPosition != PlayQueue.RECOVERY_UNSET
                 ? recoveryPosition : 0;
         return sourceResolver.resolve(playerType, isAudioOnly, info, initialPositionMs,

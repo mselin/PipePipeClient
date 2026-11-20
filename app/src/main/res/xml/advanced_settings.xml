@@ -38,6 +38,7 @@
                 android:title="@string/always_start_from_beginning_title"
                 app:singleLineTitle="false"
                 app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat android:defaultValue="true" android:key="@string/enh_keep_position_key" android:title="@string/enh_keep_position_title" android:summary="@string/enh_keep_position_summary" app:singleLineTitle="false" app:iconSpaceReserved="false" /> <!-- ENH:keep-position -->
 
         <SwitchPreferenceCompat
                 android:defaultValue="false"
