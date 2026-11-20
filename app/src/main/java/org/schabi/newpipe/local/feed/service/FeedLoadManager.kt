@@ -72,6 +72,7 @@ class FeedLoadManager(private val context: Context) {
     fun startLoading(
         groupId: Long = FeedGroupEntity.GROUP_ALL_ID,
         ignoreOutdatedThreshold: Boolean = false,
+        retainNewStreams: Boolean = false, // ENH:subscription-scale
     ): Single<List<Notification<FeedUpdateInfo>>> {
         val defaultSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
         val useFeedExtractor = defaultSharedPreferences.getBoolean(
@@ -264,6 +265,7 @@ class FeedLoadManager(private val context: Context) {
             .observeOn(Schedulers.io())
             .buffer(BUFFER_COUNT_BEFORE_INSERT)
             .doOnNext(DatabaseConsumer())
+            .map { batch -> org.schabi.newpipe.enhancements.subscriptionscale.FeedResultRetention.retain(batch, retainNewStreams) } // ENH:subscription-scale
             .subscribeOn(Schedulers.io())
             .toList()
             .flatMap { x -> postProcessFeed().toSingleDefault(x.flatten()) }
