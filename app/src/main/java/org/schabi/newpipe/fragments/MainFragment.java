@@ -135,6 +135,16 @@ public class MainFragment extends BaseFragment
             updateTabLayoutPosition();
         }
     }
+    @Override // ENH:release-views
+    public void onDestroyView() { // ENH:release-views
+        if (binding != null && pagerAdapter != null) { // ENH:release-views
+            pagerAdapter.keepItems = true; // ENH:release-views
+            binding.pager.setAdapter(null); // ENH:release-views
+            pagerAdapter.keepItems = false; // ENH:release-views
+        } // ENH:release-views
+        binding = null; // ENH:release-views
+        super.onDestroyView(); // ENH:release-views
+    } // ENH:release-views
 
     @Override
     public void onDestroy() {
@@ -301,6 +311,7 @@ public class MainFragment extends BaseFragment
             extends FragmentStatePagerAdapterMenuWorkaround {
         private final Context context;
         private final List<Tab> internalTabsList;
+        private boolean keepItems; // ENH:release-views
 
         private SelectedTabsPagerAdapter(final Context context,
                                          final FragmentManager fragmentManager,
@@ -345,5 +356,12 @@ public class MainFragment extends BaseFragment
         public boolean sameTabs(final List<Tab> tabsToCompare) {
             return internalTabsList.equals(tabsToCompare);
         }
+        @Override // ENH:release-views
+        public void destroyItem(@NonNull final ViewGroup container, final int position, // ENH:release-views
+                                @NonNull final Object object) { // ENH:release-views
+            if (!keepItems) { // ENH:release-views
+                super.destroyItem(container, position, object); // ENH:release-views
+            } // ENH:release-views
+        } // ENH:release-views
     }
 }

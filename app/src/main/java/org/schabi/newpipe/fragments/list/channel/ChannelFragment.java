@@ -138,6 +138,15 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
         binding.viewPager.setAdapter(tabAdapter);
         binding.tabLayout.setupWithViewPager(binding.viewPager);
     }
+    @Override // ENH:release-views
+    public void onDestroyView() { // ENH:release-views
+        if (binding != null && binding.tabLayout.getSelectedTabPosition() >= 0) { // ENH:release-views
+            lastTab = binding.tabLayout.getSelectedTabPosition(); // ENH:release-views
+        } // ENH:release-views
+        binding = null; // ENH:release-views
+        tabAdapter = null; // ENH:release-views
+        super.onDestroyView(); // ENH:release-views
+    } // ENH:release-views
 
     @Override
     public void onSaveInstanceState(final @NonNull Bundle outState) {
@@ -378,7 +387,7 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
         if (binding != null) {
             objectsToSave.add(binding.tabLayout.getSelectedTabPosition());
         } else {
-            objectsToSave.add(0);
+            objectsToSave.add(lastTab); // ENH:release-views
         }
     }
 
@@ -416,6 +425,10 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(result -> {
                     isLoading.set(false);
+                    if (binding == null) { // ENH:release-views
+                        currentInfo = result; // ENH:release-views
+                        return; // ENH:release-views
+                    } // ENH:release-views
                     handleResult(result);
                 }, throwable -> showError(new ErrorInfo(throwable, UserAction.REQUESTED_STREAM,
                         url == null ? "no url" : url, serviceId)));
