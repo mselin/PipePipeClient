@@ -11,6 +11,11 @@ import us.shandian.giga.hls.manifest.HlsByteRange
 import us.shandian.giga.hls.manifest.HlsEncryptionKey
 import us.shandian.giga.hls.manifest.UnsupportedHlsPlaylistException
 import us.shandian.giga.hls.state.HlsResourceCheckpoint
+import org.schabi.newpipe.enhancements.downloadfixes.HlsBufferPolicy // ENH:download-fixes
+import org.schabi.newpipe.enhancements.downloadfixes.SegmentBuffer // ENH:download-fixes
+import org.schabi.newpipe.enhancements.downloadfixes.SegmentCharge // ENH:download-fixes
+import org.schabi.newpipe.enhancements.downloadfixes.SegmentMemoryBudget // ENH:download-fixes
+import org.schabi.newpipe.enhancements.downloadfixes.SegmentOverBudgetException // ENH:download-fixes
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -23,6 +28,7 @@ import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
+import javax.crypto.CipherInputStream // ENH:download-fixes
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -112,6 +118,7 @@ class HlsSegmentFileTransferEngine(
                             url = withManifestCookie(playlist.initSegment.url, resolved.rawMediaPlaylistUrl),
                             byteRange = playlist.initSegment.byteRange,
                             defaultByteRangeStart = 0L,
+                            charge = SegmentMemoryBudget(HlsBufferPolicy.LIMIT_BYTES).open(), copies = 2, // ENH:download-fixes
                         )
                         val decrypted = decryptHlsBytes(
                             encrypted = memory.bytes,
@@ -210,6 +217,7 @@ class HlsSegmentFileTransferEngine(
         val executor = Executors.newFixedThreadPool(parallelism)
         val completion = ExecutorCompletionService<DownloadedSegment>(executor)
         val downloadedSegments = mutableMapOf<Int, DownloadedSegment>()
+        val enhBudget = SegmentMemoryBudget(HlsBufferPolicy.LIMIT_BYTES) // ENH:download-fixes
         var nextToSubmit = startSegmentIndex
         var nextToAppend = startSegmentIndex
         var submitted = 0
@@ -229,6 +237,7 @@ class HlsSegmentFileTransferEngine(
                     mediaSequence = playlist.mediaSequence,
                     keyCache = keyCache,
                     defaultByteRangeStart = byteRangeStarts[segmentIndex],
+                    budget = enhBudget, // ENH:download-fixes
                 )
             })
             submitted++
@@ -281,6 +290,8 @@ class HlsSegmentFileTransferEngine(
                 while (true) {
                     val next = downloadedSegments.remove(nextToAppend) ?: break
                     val expectedOutputBytes = estimatedOutputBytes()
+                    val enhStreamed = if (next.unbuffered) enhStreamSegment(playlist, next.segmentIndex, rawMediaPlaylistUrl, keyCache, byteRangeStarts[next.segmentIndex], output, currentOutputPosition, listener) else null // ENH:download-fixes
+                    if (enhStreamed != null) currentOutputPosition += enhStreamed.bytesWritten // ENH:download-fixes
                     currentOutputPosition += appendDownloadedSegment(
                         downloaded = next,
                         output = output,
@@ -288,8 +299,10 @@ class HlsSegmentFileTransferEngine(
                         expectedOutputBytes = expectedOutputBytes,
                         listener = listener,
                     )
+                    next.charge?.release() // ENH:download-fixes
                     lastStatusCode = next.statusCode
                     lastFinalUrl = next.finalUrl
+                    if (enhStreamed != null) { lastStatusCode = enhStreamed.statusCode; lastFinalUrl = enhStreamed.finalUrl } // ENH:download-fixes
                     nextToAppend++
                     onCheckpoint(
                         checkpointFor(
@@ -305,7 +318,7 @@ class HlsSegmentFileTransferEngine(
                     )
                 }
 
-                while (nextToSubmit < playlist.segments.size && submitted - completed < parallelism) {
+                while (nextToSubmit < playlist.segments.size && submitted - completed < parallelism && HlsBufferPolicy.maySubmit(nextToSubmit, nextToAppend, parallelism)) { // ENH:download-fixes
                     submitNextSegment()
                 }
             }
@@ -329,15 +342,24 @@ class HlsSegmentFileTransferEngine(
         mediaSequence: Long,
         keyCache: MutableMap<String, ByteArray>,
         defaultByteRangeStart: Long,
+        budget: SegmentMemoryBudget, // ENH:download-fixes
     ): DownloadedSegment {
         ensureRunning()
+        val charge = budget.open() // ENH:download-fixes
+        try { // ENH:download-fixes
         val result = retryPolicy.withRetries {
+            charge.release() // ENH:download-fixes
+            try { // ENH:download-fixes
             downloadPartToMemory(
                 url = withManifestCookie(segment.url, rawMediaPlaylistUrl),
                 byteRange = segment.byteRange,
                 defaultByteRangeStart = defaultByteRangeStart,
+                charge = charge, copies = if (segment.encryptionKey != null) 2 else 1, // ENH:download-fixes
             )
+            } catch (enhOver: SegmentOverBudgetException) { charge.release(); null } // ENH:download-fixes
         }
+        if (result == null) return enhUnbufferedSegment(segmentIndex, segment, rawMediaPlaylistUrl) // ENH:download-fixes
+        if (segment.encryptionKey != null) try { charge.acquire(result.bytes.size.toLong()) } catch (enhOver: SegmentOverBudgetException) { return enhUnbufferedSegment(segmentIndex, segment, rawMediaPlaylistUrl) } // ENH:download-fixes
         val bytes = decryptHlsBytes(
             encrypted = result.bytes,
             encryptionKey = segment.encryptionKey,
@@ -345,14 +367,36 @@ class HlsSegmentFileTransferEngine(
             rawMediaPlaylistUrl = rawMediaPlaylistUrl,
             keyCache = keyCache,
         )
+        charge.settle(bytes.size.toLong()) // ENH:download-fixes
         return DownloadedSegment(
             segmentIndex = segmentIndex,
             bytes = bytes,
             expectedBytes = result.expectedBytes.takeIf { it > 0 } ?: bytes.size.toLong(),
             statusCode = result.statusCode,
             finalUrl = result.finalUrl,
+            charge = charge, // ENH:download-fixes
         )
+        } catch (enhFailure: Throwable) { charge.release(); throw enhFailure } // ENH:download-fixes
     }
+    private fun enhUnbufferedSegment(segmentIndex: Int, segment: HlsSegment, rawMediaPlaylistUrl: String): DownloadedSegment = // ENH:download-fixes
+        DownloadedSegment(segmentIndex, ByteArray(0), segment.byteRange?.length ?: -1L, 0, rawMediaPlaylistUrl, unbuffered = true) // ENH:download-fixes
+    @Throws(IOException::class) // ENH:download-fixes
+    private fun enhStreamSegment(playlist: HlsMediaPlaylist, segmentIndex: Int, rawMediaPlaylistUrl: String, keyCache: MutableMap<String, ByteArray>, defaultByteRangeStart: Long, output: RandomAccessFile, outputPosition: Long, listener: TransferProgressListener?): TransferResult { // ENH:download-fixes
+        val segment = playlist.segments[segmentIndex] // ENH:download-fixes
+        return retryPolicy.withRetries { // ENH:download-fixes
+            ensureRunning() // ENH:download-fixes
+            val cipher = segment.encryptionKey?.let { enhSegmentCipher(it, playlist.mediaSequence + segmentIndex, rawMediaPlaylistUrl, keyCache) } // ENH:download-fixes
+            downloadPart(withManifestCookie(segment.url, rawMediaPlaylistUrl), segment.byteRange, defaultByteRangeStart, output, outputPosition, listener, transform = { input -> if (cipher != null) CipherInputStream(input, cipher) else input }) // ENH:download-fixes
+        } // ENH:download-fixes
+    } // ENH:download-fixes
+    @Throws(IOException::class) // ENH:download-fixes
+    private fun enhSegmentCipher(encryptionKey: HlsEncryptionKey, sequenceNumber: Long, rawMediaPlaylistUrl: String, keyCache: MutableMap<String, ByteArray>): Cipher { // ENH:download-fixes
+        if (!encryptionKey.method.equals("AES-128", ignoreCase = true)) throw UnsupportedHlsPlaylistException("Unsupported HLS encryption: ${encryptionKey.method}") // ENH:download-fixes
+        val keyUrl = encryptionKey.url ?: throw UnsupportedHlsPlaylistException("HLS encryption key URI is missing") // ENH:download-fixes
+        val key = synchronized(keyCache) { keyCache[keyUrl] ?: downloadEncryptionKey(withManifestCookie(keyUrl, rawMediaPlaylistUrl)).also { keyCache[keyUrl] = it } } // ENH:download-fixes
+        val iv = encryptionKey.iv?.let { parseIv(it) } ?: ivFromSequence(sequenceNumber) // ENH:download-fixes
+        return try { Cipher.getInstance("AES/CBC/PKCS5Padding").also { it.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), IvParameterSpec(iv)) } } catch (error: Exception) { throw IOException("HLS AES-128 decrypt failed", error) } // ENH:download-fixes
+    } // ENH:download-fixes
 
     @Throws(IOException::class)
     private fun resolveMediaPlaylist(manifestUrl: String): ResolvedMediaPlaylist {
@@ -412,6 +456,7 @@ class HlsSegmentFileTransferEngine(
         output: RandomAccessFile,
         outputPosition: Long,
         listener: TransferProgressListener?,
+        transform: (InputStream) -> InputStream = { it }, // ENH:download-fixes
     ): TransferResult {
         val rangeStart = byteRange?.offset ?: if (byteRange == null) null else defaultByteRangeStart
         val rangeEnd = byteRange?.let { rangeStart!! + it.length - 1 }
@@ -427,7 +472,7 @@ class HlsSegmentFileTransferEngine(
                 }
 
                 val expectedBytes = expectedBytes(byteRange, connection.contentLengthLong)
-                val bytesWritten = connection.inputStream.use { input ->
+                val bytesWritten = transform(connection.inputStream).use { input -> // ENH:download-fixes
                     copyPart(
                         input = input,
                         output = output,
@@ -452,6 +497,7 @@ class HlsSegmentFileTransferEngine(
         url: String,
         byteRange: HlsByteRange?,
         defaultByteRangeStart: Long,
+        charge: SegmentCharge, copies: Int = 1, // ENH:download-fixes
     ): MemoryTransferResult {
         val rangeStart = byteRange?.offset ?: if (byteRange == null) null else defaultByteRangeStart
         val rangeEnd = byteRange?.let { rangeStart!! + it.length - 1 }
@@ -465,8 +511,9 @@ class HlsSegmentFileTransferEngine(
                     throw TransferHttpException(statusCode)
                 }
 
+                charge.checkDeclared(expectedBytes(byteRange, connection.contentLengthLong), copies) // ENH:download-fixes
                 val bytes = connection.inputStream.use { input ->
-                    copyPartToMemory(input, initialMemoryBufferCapacity(connection.contentLengthLong))
+                    copyPartToMemory(input, charge, initialMemoryBufferCapacity(connection.contentLengthLong)) // ENH:download-fixes
                 }
 
                 return MemoryTransferResult(
@@ -511,9 +558,9 @@ class HlsSegmentFileTransferEngine(
     }
 
     @Throws(IOException::class)
-    private fun copyPartToMemory(input: InputStream, initialCapacity: Int = config.bufferSize): ByteArray {
+    private fun copyPartToMemory(input: InputStream, charge: SegmentCharge, initialCapacity: Int = config.bufferSize): ByteArray { // ENH:download-fixes
         val buffer = ByteArray(config.bufferSize)
-        val output = ByteArrayOutputStream(initialCapacity)
+        val output = SegmentBuffer(charge, initialCapacity) // ENH:download-fixes
 
         while (true) {
             ensureRunning()
@@ -610,7 +657,7 @@ class HlsSegmentFileTransferEngine(
                 if (statusCode < 200 || statusCode > 299) {
                     throw TransferHttpException(statusCode)
                 }
-                val key = connection.inputStream.use { input -> copyPartToMemory(input, AES_128_KEY_BYTES) }
+                val key = connection.inputStream.use { input -> copyPartToMemory(input, SegmentMemoryBudget(HlsBufferPolicy.KEY_LIMIT_BYTES).open(), AES_128_KEY_BYTES) } // ENH:download-fixes
                 if (key.size != AES_128_KEY_BYTES) {
                     throw IOException("Invalid HLS AES-128 key size: ${key.size}")
                 }
@@ -801,6 +848,8 @@ class HlsSegmentFileTransferEngine(
         val expectedBytes: Long,
         val statusCode: Int,
         val finalUrl: String,
+        val unbuffered: Boolean = false, // ENH:download-fixes
+        val charge: SegmentCharge? = null, // ENH:download-fixes
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) {

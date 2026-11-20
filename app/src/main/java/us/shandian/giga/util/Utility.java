@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat;
 import androidx.documentfile.provider.DocumentFile;
 import com.grack.nanojson.JsonParserException;
 import org.schabi.newpipe.R;
+import org.schabi.newpipe.enhancements.downloadfixes.PendingStateFiles; // ENH:download-fixes
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException;
 import org.schabi.newpipe.extractor.services.bilibili.BilibiliService;
@@ -86,6 +87,9 @@ public class Utility {
 
     public static void writeToFile(@NonNull File file, @NonNull Serializable serializable) {
 
+        final Exception enhError = PendingStateFiles.tryWriteAtomically(file, serializable); // ENH:download-fixes
+        if (enhError != null) Log.e("Utility", "State not saved, previous state kept: " + file, enhError); // ENH:download-fixes
+        if (true) return; // ENH:download-fixes
         try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(file)))) {
             objectOutputStream.writeObject(serializable);
         } catch (Exception e) {
