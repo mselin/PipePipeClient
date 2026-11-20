@@ -659,6 +659,7 @@ public abstract class BaseListFragment<I, N> extends BaseStateFragment<I>
 
     private void onStreamSelected(final StreamInfoItem selectedItem) {
         onItemSelected(selectedItem);
+        if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onVideoTap(this, selectedItem, false, () -> onStreamSelected(selectedItem))) return; // ENH:queue-guard
         NavigationHelper.openVideoDetailFragment(requireContext(), getFM(),
                 selectedItem.getServiceId(), selectedItem.getUrl(), selectedItem.getName(),
                 null, false);

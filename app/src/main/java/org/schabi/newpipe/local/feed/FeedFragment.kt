@@ -328,14 +328,14 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
             binding.playlistCtrlPlayAllButton.setOnClickListener {
                 val playQueue = getPlayQueue()
                 if (playQueue.streams.isNotEmpty()) {
-                    NavigationHelper.playOnMainPlayer(activity, playQueue)
+                    org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnMainPlayer(activity, playQueue) // ENH:queue-guard
                 }
             }
 
             binding.playlistCtrlPlayPopupButton.setOnClickListener {
                 val playQueue = getPlayQueue()
                 if (playQueue.streams.isNotEmpty()) {
-                    NavigationHelper.playOnPopupPlayer(activity, playQueue, false)
+                    org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnPopupPlayer(activity, playQueue, false) // ENH:queue-guard
                 }
             }
 
@@ -344,9 +344,9 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
                 if (playQueue.streams.isNotEmpty()) {
                     val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                     if (prefs.getBoolean(getString(R.string.random_music_play_mode_key), false)) {
-                        NavigationHelper.playOnBackgroundPlayerShuffled(activity, playQueue, false)
+                        org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnBackgroundPlayerShuffled(activity, playQueue, false) // ENH:queue-guard
                     } else {
-                        NavigationHelper.playOnBackgroundPlayer(activity, playQueue, false)
+                        org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnBackgroundPlayer(activity, playQueue, false) // ENH:queue-guard
                     }
                 }
             }
@@ -779,6 +779,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
             }
             if (item is StreamItem && !isRefreshing) {
                 val stream = item.streamWithState.stream
+                if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onVideoTap(this@FeedFragment, stream.toStreamInfoItem(), autoBackgroundPlaying) { onItemClick(item, view) }) return // ENH:queue-guard
 
                 if (autoBackgroundPlaying) {
                     // Find the index of the clicked item

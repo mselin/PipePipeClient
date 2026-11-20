@@ -412,7 +412,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
         when (result) {
             is VideoDetailViewModel.LoadResult.Success -> {
                 isLoading.set(false)
-                hideMainPlayerOnLoadingNewStream()
+                val playing = org.schabi.newpipe.enhancements.queueguard.QueueGuard.playersQueueFor(result.info); if (playing != null) vm.playQueue = playing else hideMainPlayerOnLoadingNewStream() // ENH:queue-guard
                 render(result.info, rebuildTabs = true)
                 header?.showContent()
                 if (result.addToBackStack) {
@@ -521,6 +521,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
     // Players
 
     private fun openBackgroundPlayer() {
+        if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onPageControl(this, vm.currentInfo) { openBackgroundPlayer() }) return // ENH:queue-guard
         player?.changeFullscreen(false)
         // FIXME Workaround #7427
         player?.setRecovery()
@@ -537,6 +538,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
             PermissionHelper.showPopupEnablementToast(activity)
             return
         }
+        if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onPageControl(this, vm.currentInfo) { openPopupPlayer() }) return // ENH:queue-guard
         // See UI changes while the remote play queue changes
         val player = player
         if (player == null) {
@@ -572,6 +574,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
 
     /** The queue to play: the current queue, or the current stream alone if there is none. */
     private fun playQueueForIntent(): PlayQueue? {
+        org.schabi.newpipe.enhancements.queueguard.QueueGuard.playersQueueFor(vm.currentInfo)?.let { return it } // ENH:queue-guard
         val queue = vm.playQueue
         if (queue != null && !queue.isEmpty) {
             return queue
@@ -815,6 +818,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
                 player.hideControls(0, 0)
                 playerView?.showSystemUi()
             } else {
+                if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onPageControl(this@VideoDetailFragment, vm.currentInfo) { onPlayPauseClicked() }) return // ENH:queue-guard
                 beginStartupTrace()
                 autoPlayEnabled = true // forcefully start playing
                 openVideoPlayer(false)
@@ -833,6 +837,7 @@ class VideoDetailFragment : BaseStateFragment<StreamInfo>(), BackPressable,
             this@VideoDetailFragment.openPopupPlayer()
 
         override fun playInMainPlayer() {
+            if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onPageControl(this@VideoDetailFragment, vm.currentInfo) { playInMainPlayer() }) return // ENH:queue-guard
             beginStartupTrace()
             autoPlayEnabled = true // forcefully start playing
             // FIXME Workaround #7427

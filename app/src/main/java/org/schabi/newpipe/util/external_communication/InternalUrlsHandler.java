@@ -127,6 +127,7 @@ public final class InternalUrlsHandler {
         }
 
         if (linkType == StreamingService.LinkType.STREAM && seconds != -1) {
+            if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onTimedLink(context, service, matchedUrl, seconds, () -> playOnMain(context, matchedUrl, service, seconds, disposables))) return true; // ENH:queue-guard
             return playOnMain(context, matchedUrl, service, seconds, disposables);
         } else {
             NavigationHelper.openRouterActivity(context, matchedUrl);
