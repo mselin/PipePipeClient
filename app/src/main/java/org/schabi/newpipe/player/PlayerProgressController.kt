@@ -278,7 +278,7 @@ class PlayerProgressController(private val player: Player) : SeekBar.OnSeekBarCh
 
         player.seekTo(seekBar.progress.toLong())
         if (wasPlaying || player.simpleExoPlayer.duration == seekBar.progress.toLong()) {
-            player.simpleExoPlayer.play()
+            if (player.isLiveIdle()) player.play() else player.simpleExoPlayer.play() // ENH:crash-fixes-more
         }
 
         val binding = player.binding

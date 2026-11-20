@@ -182,7 +182,7 @@ class PlayerClickController(private val player: Player) :
         PlaylistDialog.createCorrespondingDialog(
             player.context,
             playQueue.streams.map { StreamEntity(it) },
-        ) { dialog -> dialog.show(fragmentManager, Player.TAG) }
+        ) { dialog -> if (org.schabi.newpipe.enhancements.crashfixes.LateDialog.canShow(fragmentManager)) dialog.show(fragmentManager, Player.TAG) } // ENH:crash-fixes-more
     }
 
     fun onMuteUnmuteButtonClicked() {

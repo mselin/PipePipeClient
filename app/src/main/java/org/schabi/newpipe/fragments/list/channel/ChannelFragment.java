@@ -72,6 +72,7 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
     private final CompositeDisposable disposables = new CompositeDisposable();
     private SubscriptionManager subscriptionManager;
     private int lastTab;
+    private ChannelInfo lateBlockedResult; // ENH:crash-fixes-more
 
     private MenuItem menuNotifyButton;
     private MenuItem menuSearchButton;
@@ -359,7 +360,7 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
 
         tabAdapter.notifyDataSetUpdate();
 
-        for (int i = 0; i < tabAdapter.getCount(); i++) {
+        for (int i = 0; i < Math.min(tabAdapter.getCount(), binding.tabLayout.getTabCount()); i++) { // ENH:crash-fixes-more
             binding.tabLayout.getTabAt(i).setText(tabAdapter.getItemTitle(i));
         }
 
@@ -405,6 +406,20 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
             handleResult(currentInfo);
         }
     }
+    @Override // ENH:crash-fixes
+    public void onResume() { // ENH:crash-fixes
+        super.onResume(); // ENH:crash-fixes
+        if (lateBlockedResult != null) { // ENH:crash-fixes-more
+            final ChannelInfo late = lateBlockedResult; // ENH:crash-fixes-more
+            lateBlockedResult = null; // ENH:crash-fixes-more
+            handleResult(late); // ENH:crash-fixes-more
+        } // ENH:crash-fixes-more
+        // the tabs were dropped by TabAdapter if the result arrived after onStop // ENH:crash-fixes
+        if (currentInfo != null && tabAdapter != null && tabAdapter.getCount() == 0 // ENH:crash-fixes
+                && !isContentUnsupported()) { // ENH:crash-fixes
+            updateTabs(); // ENH:crash-fixes
+        } // ENH:crash-fixes
+    } // ENH:crash-fixes
 
     @Override
     public void startLoading(final boolean forceLoad) {
@@ -450,6 +465,10 @@ public class ChannelFragment extends BaseStateFragment<ChannelInfo>
             if (blockedChannels.contains(channelName) || (channelKey != null
                     && prefs.getStringSet(getString(R.string.filter_by_channel_id_key) + "_set",
                     new HashSet<>()).contains(channelKey))) {
+                if (getView() == null || getParentFragmentManager().isStateSaved()) { // ENH:crash-fixes-more
+                    lateBlockedResult = result; // ENH:crash-fixes-more
+                    return; // ENH:crash-fixes-more
+                } // ENH:crash-fixes-more
                 Toast.makeText(requireContext(),
                         R.string.channel_is_blocked,
                         Toast.LENGTH_SHORT).show();

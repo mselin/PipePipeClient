@@ -618,6 +618,10 @@ public class RouterActivity extends AppCompatActivity {
                                 getThemeWrapperContext(),
                                 Collections.singletonList(new StreamEntity(info)),
                                 playlistDialog -> {
+                                    if (!org.schabi.newpipe.enhancements.crashfixes.LateDialog.canShow(getSupportFragmentManager())) { // ENH:crash-fixes-more
+                                        finish(); // ENH:crash-fixes-more
+                                        return; // ENH:crash-fixes-more
+                                    } // ENH:crash-fixes-more
                                     playlistDialog.setOnDismissListener(dialog -> finish());
 
                                     playlistDialog.show(
@@ -650,6 +654,10 @@ public class RouterActivity extends AppCompatActivity {
                     }
 
                     final FragmentManager fm = getSupportFragmentManager();
+                    if (!org.schabi.newpipe.enhancements.crashfixes.LateDialog.canShow(fm)) { // ENH:crash-fixes-more
+                        finish(); // ENH:crash-fixes-more
+                        return; // ENH:crash-fixes-more
+                    } // ENH:crash-fixes-more
                     final DownloadDialog downloadDialog =
                             DownloadDialog.newInstance(this, result);
                     downloadDialog.setOnDismissListener(dialog -> finish());

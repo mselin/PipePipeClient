@@ -141,6 +141,18 @@ public class TabAdapter extends FragmentPagerAdapter {
                             @NonNull final Object object) {
         fragmentManager.beginTransaction().remove((Fragment) object).commitNowAllowingStateLoss();
     }
+    private boolean pagerFailed; // ENH:crash-fixes-more
+    @Override // ENH:crash-fixes-more
+    public void finishUpdate(@NonNull final ViewGroup container) { // ENH:crash-fixes-more
+        try { // ENH:crash-fixes-more
+            super.finishUpdate(container); // ENH:crash-fixes-more
+        } catch (final IllegalStateException e) { // ENH:crash-fixes-more
+            if (!pagerFailed) { // ENH:crash-fixes-more
+                Log.e("TabAdapter", "The pager failed; this adapter adds no more tabs", e); // ENH:crash-fixes-more
+            } // ENH:crash-fixes-more
+            pagerFailed = true; // ENH:crash-fixes-more
+        } // ENH:crash-fixes-more
+    } // ENH:crash-fixes-more
 
     @Override
     public void notifyDataSetChanged() {

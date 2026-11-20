@@ -62,10 +62,10 @@ public final class QueueItemMenuUtil {
                 PlaylistDialog.createCorrespondingDialog(
                         context,
                         Collections.singletonList(new StreamEntity(item)),
-                        dialog -> dialog.show(
+                        org.schabi.newpipe.enhancements.crashfixes.LateDialog.ifCanShow(fragmentManager, dialog -> dialog.show( // ENH:crash-fixes
                                 fragmentManager,
                                 "QueueItemMenuUtil@append_playlist"
-                        )
+                        )) // ENH:crash-fixes
                 );
 
                 return true;
@@ -84,7 +84,9 @@ public final class QueueItemMenuUtil {
                 fetchStreamInfoAndSaveToDatabase(context, item.getServiceId(), item.getUrl(),
                         info -> {
                             final DownloadDialog downloadDialog = DownloadDialog.newInstance(context, info);
-                            downloadDialog.show(fragmentManager, "downloadDialog");
+                            if (org.schabi.newpipe.enhancements.crashfixes.LateDialog.canShow(fragmentManager)) { // ENH:crash-fixes
+                                downloadDialog.show(fragmentManager, "downloadDialog"); // ENH:crash-fixes
+                            } // ENH:crash-fixes
                         });
                 return true;
             } else {
