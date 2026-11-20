@@ -65,11 +65,13 @@ jobs:
         run: |
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           apk=$(ls app/build/outputs/apk/debug/*-arm64-v8a-debug.apk)
-          actual=$("$apksigner" verify --print-certs "$apk" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          out=$("$apksigner" verify --print-certs "$apk" 2>&1 || true)
+          actual=$(printf '%s\n' "$out" | grep -i -m1 'certificate SHA-256 digest' | awk '{print $NF}' | tr -d ':' | tr 'A-F' 'a-f') || true
           if [ "$actual" != "$EXPECTED" ]; then
-            echo "::error::The APK is signed with $actual, not the device-test key $EXPECTED; it would not install over earlier device builds."
+            echo "::error::$(basename "$apk") is signed with '${actual}', not the device-test key $EXPECTED. $apksigner said: $(printf '%s' "$out" | head -c 600 | tr '\n' ' ')"
             exit 1
           fi
+          echo "::notice::$(basename "$apk") carries the device-test key ($actual)"
 
       - name: Draft pre-release with the APK
         working-directory: PipePipeClient
