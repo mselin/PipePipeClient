@@ -28,7 +28,30 @@ class PrefsKeepPositionSettings(private val context: Context) : KeepPositionSett
 }
 
 object KeepPosition {
-    private val tracker by lazy { KeepPositionTracker(PrefsKeepPositionSettings(App.getApp())) }
+    private val settings by lazy { PrefsKeepPositionSettings(App.getApp()) }
+    private val tracker by lazy { KeepPositionTracker(settings) }
+
+    private const val TAG = "KeepPosition"
+
+    /** Debug builds only (plan, "Diagnostics"): one line per hook call. */
+    private inline fun log(message: () -> String) {
+        if (org.schabi.newpipe.MainActivity.DEBUG) {
+            android.util.Log.d(TAG, message())
+        }
+    }
+
+    private fun switches(): String {
+        val context = App.getApp()
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        return "keep=${settings.keepPosition} alwaysStart=${settings.alwaysStartFromBeginning}" +
+            " history=${prefs.getBoolean(context.getString(R.string.enable_watch_history_key), true)}" +
+            " resume=${prefs.getBoolean(context.getString(R.string.enable_playback_resume_key), true)}"
+    }
+
+    private fun d(item: PlayerMediaItem?): String = item?.let { "${it.uuid.take(8)} ${it.url}" } ?: "none"
+
+    private fun p(player: Player?): String =
+        if (player == null) "player=none" else "player=${Integer.toHexString(System.identityHashCode(player))}/${player.playerType}"
 
     /**
      * H1: `Player.reloadPlayQueueManager()`. Upstream's `setRecovery()` stores nothing while the
@@ -41,6 +64,7 @@ object KeepPosition {
         val position = tracker.onReload(
             player, item?.uuid, player.currentPosition, isLive(player), dur(player)
         )
+        log { "H1 reload ${p(player)} item=${d(item)} pos=${player.currentPosition} dur=${dur(player)} live=${isLive(player)} -> mark pos=$position stored=${queue?.let { q -> item?.let { q.getRecoveryPosition(it) } }} ${switches()}" }
         storeIfUnset(queue, item, position)
     }
 
@@ -52,24 +76,32 @@ object KeepPosition {
         val position = tracker.onSwitch(
             player, item?.uuid, player.currentPosition, isLive(player), dur(player)
         )
+        log { "H6 switch ${p(player)} item=${d(item)} pos=${player.currentPosition} -> mark pos=$position" }
         storeIfUnset(queue, item, position)
     }
 
     /** H2: `Player.sourceOf`, the start position given to the source. */
     @JvmStatic
-    fun shouldSeekOnLoad(player: Player, item: PlayerMediaItem): Boolean =
-        tracker.shouldSeekOnLoad(player, item.uuid)
+    fun shouldSeekOnLoad(player: Player, item: PlayerMediaItem): Boolean {
+        val seek = tracker.shouldSeekOnLoad(player, item.uuid)
+        log { "H2 load ${p(player)} item=${d(item)} stored=${player.playQueue?.getRecoveryPosition(item)} -> seek=$seek ${switches()}" }
+        return seek
+    }
 
     /** H3: `PlayerTransportController.onPlaybackSynchronize`, after `setCurrentItem`. */
     @JvmStatic
     fun onSynchronize(player: Player, item: PlayerMediaItem) {
         tracker.onSynchronize(player, item.uuid, itemAddress(item.serviceId, item.url))
+        log { "H3 synchronize ${p(player)} item=${d(item)}" }
     }
 
     /** H4: `PlayerTransportController.onPlaybackSynchronize`, the seek to the stored position. */
     @JvmStatic
-    fun shouldSeekOnSynchronize(player: Player, item: PlayerMediaItem): Boolean =
-        tracker.shouldSeekOnSynchronize(player, item.uuid)
+    fun shouldSeekOnSynchronize(player: Player, item: PlayerMediaItem): Boolean {
+        val seek = tracker.shouldSeekOnSynchronize(player, item.uuid)
+        log { "H4 seek-on-synchronize ${p(player)} item=${d(item)} stored=${player.playQueue?.getRecoveryPosition(item)} -> seek=$seek" }
+        return seek
+    }
 
     /** H5: `PlayerStartController.handleIntent`, the seek in place. */
     @JvmStatic
@@ -77,12 +109,16 @@ object KeepPosition {
         player: Player,
         linkQueue: PlayQueue,
         oldPlayerType: PlayerService.PlayerType
-    ): Boolean = tracker.shouldSeekInPlace(
-        player,
-        linkQueue.item?.uuid,
-        player.playQueue?.item?.uuid,
-        oldPlayerType != player.playerType
-    )
+    ): Boolean {
+        val seek = tracker.shouldSeekInPlace(
+            player,
+            linkQueue.item?.uuid,
+            player.playQueue?.item?.uuid,
+            oldPlayerType != player.playerType
+        )
+        log { "H5 seek-in-place ${p(player)} link=${d(linkQueue.item)} playing=${d(player.playQueue?.item)} from=$oldPlayerType -> seek=$seek" }
+        return seek
+    }
 
     /** H7: `InternalUrlsHandler.playOnMain`, a queue built from a timestamp link. */
     @JvmStatic
@@ -113,12 +149,16 @@ object KeepPosition {
             player, item?.uuid, item?.let(::address), player.currentPosition, isLive(player),
             dur(player)
         )
+        log { "E1 error ${p(player)} item=${d(item)} pos=${player.currentPosition} dur=${dur(player)} live=${isLive(player)} -> failing=${tracker.isFailing(player)}" }
     }
 
     /** D1: `Player.destroy()`, which every close passes, before the ExoPlayer is released. */
     @JvmStatic
     fun onPlayerClosed(player: Player) {
+        val item = player.playQueue?.item
+        val failing = tracker.isFailing(player)
         tracker.onPlayerClosed(player, player.currentPosition, dur(player), player.isPlaying)
+        log { "D1 closed ${p(player)} item=${d(item)} pos=${player.currentPosition} dur=${dur(player)} playing=${player.isPlaying} failing=$failing -> close mark pos=${item?.let { tracker.peekClosePosition(address(it) ?: "") }}" }
     }
 
     /**
@@ -136,6 +176,7 @@ object KeepPosition {
             player.currentState.isCompleted, dur(player), player.isPlaying,
             itemAddress(pageServiceId, pageUrl)
         )
+        log { "F1 page stops player ${p(player)} item=${d(item)} pos=${player.currentPosition} page=$pageServiceId:$pageUrl -> close mark pos=${tracker.peekClosePosition(itemAddress(pageServiceId, pageUrl) ?: "")}" }
     }
 
     /**
@@ -152,6 +193,7 @@ object KeepPosition {
             player.currentState.isCompleted, dur(player), new?.uuid, new?.let(::address),
             player.playQueue == newQueue
         )
+        log { "G1 start ${p(player)} playing=${d(playing)} pos=${player.currentPosition} new=${d(new)} sameQueue=${player.playQueue == newQueue} newStored=${new?.let { newQueue.getRecoveryPosition(it) }} -> claim pos=$position ${switches()}" }
         if (new != null && position > 0) {
             newQueue.setRecovery(newQueue.index, position)
         }
@@ -160,6 +202,7 @@ object KeepPosition {
     private fun storeIfUnset(queue: PlayQueue?, item: PlayerMediaItem?, position: Long) {
         if (queue != null && item != null && shouldStore(position, queue.getRecoveryPosition(item))) {
             queue.setRecovery(queue.index, position)
+            log { "   stored $position for ${d(item)}" }
         }
     }
 
