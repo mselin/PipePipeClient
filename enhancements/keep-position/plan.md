@@ -889,3 +889,15 @@ lines. 6. M9 to M18 on a device.
 AC coverage added: AM-1 = E1, D1, F1 rule (1), G1 row 5, H2 to H4 (M9, M10, M16, M17);
 AM-2 = G1 row 4, F1 rule (2) with G1 row 5, H2 to H4 (M12 to M15); AM-3 = glue of H1 and H6,
 `carried` (M11); AM-4 = none.
+
+## Diagnostics (2026-11-22)
+
+The owner reports that after playback stops and is started again, the video still begins at
+0:00 (issue mselin/PipePipe#25, after amendment 2). The path cannot be told from reading.
+
+In debug builds (`MainActivity.DEBUG`), the glue `KeepPosition.kt` logs every hook call under
+the tag `KeepPosition`: the hook, the player, the item (first 8 characters of its uuid and its
+address), the position and whether the duration is known, the decision or the position the
+tracker returned, what was stored in the queue, and the settings that decide: "Keep position",
+"Always start play from beginning", watch history and "Resume playback". No behaviour
+changes; the tracker and the hook lines are untouched. Release builds log nothing.
