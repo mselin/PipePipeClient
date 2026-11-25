@@ -117,6 +117,11 @@ public class CommentsFragment extends BaseListInfoFragment<CommentsInfoItem, Com
                              @Nullable final Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_comments, container, false);
     }
+    @Override // ENH:release-views
+    public void onDestroyView() { // ENH:release-views
+        emptyStateDesc = null; // ENH:release-views
+        super.onDestroyView(); // ENH:release-views
+    } // ENH:release-views
 
     @Override
     public void onDestroy() {
@@ -168,6 +173,9 @@ public class CommentsFragment extends BaseListInfoFragment<CommentsInfoItem, Com
 
     @Override
     public void handleResult(@NonNull final CommentsInfo result) {
+        if (emptyStateDesc == null) { // ENH:release-views
+            return; // ENH:release-views
+        } // ENH:release-views
         super.handleResult(result);
 
         if (replies == null && preComment == null) {

@@ -129,6 +129,11 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
         super.onDestroy()
         disposables.dispose()
     }
+    override fun onDestroyView() { // ENH:release-views
+        _binding?.itemsList?.adapter = null // ENH:release-views
+        _binding = null // ENH:release-views
+        super.onDestroyView() // ENH:release-views
+    } // ENH:release-views
 
     // ////////////////////////////////////////////////////////////////////////
     // Menu

@@ -248,6 +248,8 @@ public abstract class BaseLocalListFragment<I, N> extends BaseStateFragment<I>
         }
         itemsList = null;
         itemListAdapter = null;
+        headerRootBinding = null; // ENH:release-views
+        footerRootBinding = null; // ENH:release-views
     }
 
     /*//////////////////////////////////////////////////////////////////////////
