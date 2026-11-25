@@ -78,10 +78,9 @@ class RefreshCooldownWiringTest {
          * pin the same text).
          */
         val EARLIER_LINES = linkedMapOf(
+            // subscription-scale has no line left here since upstream 5.6.0 (plan amendment of 2026-11-25)
             FEED_LOAD_MANAGER to listOf(
-                "retainNewStreams: Boolean = false, // $SCALE",
                 ".doOnNext { ${LIVE_P}FeedRefreshLog.app.batchStored() } // $LIVE",
-                ".map { batch -> ${SCALE_P}FeedResultRetention.retain(batch, retainNewStreams) } // $SCALE",
                 ".doOnSubscribe { ${LIVE_P}FeedRefreshLog.app.started(groupId) } // $LIVE",
                 ".doFinally { ${LIVE_P}FeedRefreshLog.app.ended() } // $LIVE"
             ),
@@ -113,9 +112,7 @@ class RefreshCooldownWiringTest {
                 "viewModel.setOnScreen(true) // $SCALE",
                 "viewModel.setOnScreen(false) // $SCALE"
             ),
-            NOTIFICATION_WORKER to listOf(
-                "retainNewStreams = true, // $SCALE"
-            ),
+            NOTIFICATION_WORKER to emptyList(),
             FEED_VIEW_MODEL to listOf(
                 "private val onScreenGate = ${SCALE_P}OnScreenGate() // $SCALE",
                 "private val live = ${LIVE_P}FeedLiveUpdate<StreamWithState, StreamItem>(groupId) // $LIVE",
@@ -231,11 +228,10 @@ class RefreshCooldownWiringTest {
         val cooldown = file.marked("val cooldown = ${P}CooldownRefresh(context, groupId, ignoreOutdatedThreshold, cooldownForced)")
 
         file.expectAdjacent(
-            "the parameter directly follows subscription-scale's parameter and is the last one",
+            "the parameter directly follows ignoreOutdatedThreshold and is the last one",
             file.one("ignoreOutdatedThreshold: Boolean = false,"),
-            file.one("retainNewStreams: Boolean = false, // $SCALE"),
             parameter,
-            file.one("): Single<List<Notification<FeedUpdateInfo>>> {")
+            file.one("): Single<List<FeedUpdateInfo>> {")
         )
         file.expectAdjacent(
             "`val cooldown` directly follows the `filterFutureItems` statement",
@@ -341,13 +337,21 @@ class RefreshCooldownWiringTest {
         val file = loader("AC-8")
         val done = file.marked(".doOnSuccess { cooldown.done() }")
 
+        val batch = file.one(".doOnNext { ${LIVE_P}FeedRefreshLog.app.batchStored() } // $LIVE")
+        val subscribeOn = file.one(".subscribeOn(Schedulers.io())")
         file.expectAdjacent(
-            "the end of startLoading's chain: stored, counted, slimmed, collected, published, post-processed, started and ended",
+            "the batch is stored and counted",
             file.one(".buffer(BUFFER_COUNT_BEFORE_INSERT)"),
             file.one(".doOnNext(DatabaseConsumer())"),
-            file.one(".doOnNext { ${LIVE_P}FeedRefreshLog.app.batchStored() } // $LIVE"),
-            file.one(".map { batch -> ${SCALE_P}FeedResultRetention.retain(batch, retainNewStreams) } // $SCALE"),
-            file.one(".subscribeOn(Schedulers.io())"),
+            batch
+        )
+        file.expectOrder(
+            "plan amendment of 2026-11-25: then upstream trims it (`forNotification()`)",
+            batch, file.all.indexOfFirst { it.contains("forNotification()") }, subscribeOn
+        )
+        file.expectAdjacent(
+            "the end of startLoading's chain: collected, published, post-processed, started and ended",
+            subscribeOn,
             file.one(".toList()"),
             done,
             file.one(".flatMap { x -> postProcessFeed().toSingleDefault(x.flatten()) }"),
@@ -616,14 +620,13 @@ class RefreshCooldownWiringTest {
 
         assertEquals("AC-7: no line of NotificationWorker.kt carries $MARKER", emptyList<String>(), file.mine.map { file.all[it].trim() })
         file.expectAdjacent(
-            "AC-7: the notification check's call, as subscription-scale left it",
+            "AC-7: the notification check's call, as upstream has it",
             call,
             file.one("ignoreOutdatedThreshold = true,"),
-            file.one("retainNewStreams = true, // $SCALE"),
             file.one("groupId = FeedLoadManager.GROUP_NOTIFICATION_ENABLED"),
-            call + 4
+            call + 3
         )
-        file.expectLine("the call closes", call + 4, ")")
+        file.expectLine("the call closes", call + 3, ")")
         assertEquals("AC-7: it passes no forced ids", 0, Sources.count(file.text, "cooldownForced"))
         assertEquals("AC-7: it does not mention this feature", 0, Sources.count(file.text, "refreshcooldown"))
     }
@@ -671,19 +674,18 @@ class RefreshCooldownWiringTest {
     fun unchanged_theLinesOfTheTwoFeaturesBelow_areWhereTheirOwnTestsExpectThem() {
         val loader = Marked("the features below", FEED_LOAD_MANAGER)
         val batch = loader.one(".doOnNext { ${LIVE_P}FeedRefreshLog.app.batchStored() } // $LIVE")
-        val retain = loader.one(".map { batch -> ${SCALE_P}FeedResultRetention.retain(batch, retainNewStreams) } // $SCALE")
         val post = loader.one(".flatMap { x -> postProcessFeed().toSingleDefault(x.flatten()) }")
         val started = loader.one(".doOnSubscribe { ${LIVE_P}FeedRefreshLog.app.started(groupId) } // $LIVE")
         val ended = loader.one(".doFinally { ${LIVE_P}FeedRefreshLog.app.ended() } // $LIVE")
         loader.expectAdjacent("feed-live-update: batchStored directly after the DatabaseConsumer", loader.one(".doOnNext(DatabaseConsumer())"), batch)
-        loader.expectOrder("both features: stored, counted, slimmed, collected, post-processed", batch, retain, loader.one(".toList()"), post)
+        loader.expectOrder(
+            "stored, counted, trimmed by upstream (plan amendment of 2026-11-25), collected, post-processed",
+            batch, loader.all.indexOfFirst { it.contains("forNotification()") }, loader.one(".toList()"), post
+        )
         loader.expectAdjacent("feed-live-update: started and ended directly after postProcessFeed() and last", post, started, ended)
         loader.expectLine("the chain ends with ended()", ended + 1, "}")
-        loader.expectAdjacent(
-            "subscription-scale: its parameter follows ignoreOutdatedThreshold",
-            loader.one("ignoreOutdatedThreshold: Boolean = false,"), loader.one("retainNewStreams: Boolean = false, // $SCALE")
-        )
-        loader.expectIn("startLoading", batch, retain, started, ended)
+        assertEquals("subscription-scale's parameter is gone", 0, Sources.count(loader.text, "retainNewStreams"))
+        loader.expectIn("startLoading", batch, started, ended)
 
         val feed = Marked("the features below", FEED_FRAGMENT)
         assertEquals("onPause", feed.functionAround(feed.one("viewModel.setOnScreen(false) // $SCALE")))
