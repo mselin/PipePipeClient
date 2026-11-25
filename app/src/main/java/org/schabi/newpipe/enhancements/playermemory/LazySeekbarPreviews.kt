@@ -58,8 +58,12 @@ class LazySeekbarPreviews(
     private var failedPage = NO_PAGE
     private var failedAtMs = 0L
 
-    /** The player is on a new item (or reloaded the same one). Loads nothing. */
-    fun resetFrom(context: Context, framesets: List<Frameset>) {
+    /**
+     * The player is on a new item (or reloaded the same one): everything of the old one is
+     * dropped and nothing is chosen yet. Upstream calls this at the item change and [resetFrom]
+     * at the first touch of the seekbar. Loads nothing.
+     */
+    fun clear() {
         state.onNewItem()
         download?.cancel(true)
         download = null
@@ -67,6 +71,11 @@ class LazySeekbarPreviews(
         frameset = null
         table = null
         failedPage = NO_PAGE
+    }
+
+    /** The item's seekbar is touched for the first time: the frameset is chosen. Loads nothing. */
+    fun resetFrom(context: Context, framesets: List<Frameset>) {
+        clear()
 
         val type = SeekbarPreviewThumbnailHelper.getSeekbarPreviewThumbnailType(context)
         if (type == SeekbarPreviewThumbnailType.NONE) {
