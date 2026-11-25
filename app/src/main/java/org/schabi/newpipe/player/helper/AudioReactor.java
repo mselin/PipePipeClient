@@ -34,6 +34,7 @@ public class AudioReactor implements AudioManager.OnAudioFocusChangeListener, An
     private final AudioManager audioManager;
 
     private final AudioFocusRequestCompat request;
+    private java.util.function.BooleanSupplier resumeOverride = () -> false; // ENH:crash-fixes
 
     public AudioReactor(@NonNull final Context context,
                         @NonNull final ExoPlayer player) {
@@ -48,6 +49,9 @@ public class AudioReactor implements AudioManager.OnAudioFocusChangeListener, An
                 .setOnAudioFocusChangeListener(this)
                 .build();
     }
+    public void setResumeOverride(@NonNull final java.util.function.BooleanSupplier override) { // ENH:crash-fixes
+        this.resumeOverride = override; // ENH:crash-fixes
+    } // ENH:crash-fixes
 
     public void dispose() {
         abandonAudioFocus();
@@ -110,6 +114,9 @@ public class AudioReactor implements AudioManager.OnAudioFocusChangeListener, An
         animateAudio(DUCK_AUDIO_TO, 1.0f);
 
         if (PlayerHelper.isResumeAfterAudioFocusGain(context)) {
+            if (resumeOverride.getAsBoolean()) { // ENH:crash-fixes
+                return; // ENH:crash-fixes
+            } // ENH:crash-fixes
             player.play();
         }
     }

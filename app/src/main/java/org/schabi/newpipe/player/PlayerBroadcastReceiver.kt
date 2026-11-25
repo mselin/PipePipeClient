@@ -38,7 +38,7 @@ class PlayerBroadcastReceiver(private val player: Player) {
             is DetailPlayerEvents.Event.SeekTo -> {
                 player.seekTo(event.seconds * 1000L)
                 if (player.progressController.wasPlaying) {
-                    player.simpleExoPlayer.play()
+                    if (player.isLiveIdle()) player.play() else player.simpleExoPlayer.play() // ENH:crash-fixes
                 }
             }
             DetailPlayerEvents.Event.DetailResumed -> {
