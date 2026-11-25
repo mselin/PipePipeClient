@@ -60,13 +60,13 @@ class FeedLiveWiringTest {
             FEED_FRAGMENT to 12
         )
 
-        /** `subscription-scale`'s marked lines in the same files, whole (its plan, sections 3 and 5.2). */
+        /**
+         * `subscription-scale`'s marked lines in the same files, whole (its plan, section 5.2; its
+         * section 3 is withdrawn since upstream 5.6.0, so `FeedLoadManager.kt` carries none).
+         */
         val PARENT_LINES = linkedMapOf(
             FEED_STATE to emptyList(),
-            FEED_LOAD_MANAGER to listOf(
-                "retainNewStreams: Boolean = false, // $PARENT",
-                ".map { batch -> ${PARENT_P}FeedResultRetention.retain(batch, retainNewStreams) } // $PARENT"
-            ),
+            FEED_LOAD_MANAGER to emptyList(),
             FEED_VIEW_MODEL to listOf(
                 "private val onScreenGate = ${PARENT_P}OnScreenGate() // $PARENT",
                 ".let { onScreenGate.gate(it) } // $PARENT",
@@ -566,7 +566,11 @@ class FeedLiveWiringTest {
         }
     }
 
-    /** The place of `subscription-scale`'s lines that this feature builds on: the gate before the throttle and the query, the retention after the store. */
+    /**
+     * The place of `subscription-scale`'s lines that this feature builds on: the gate before the
+     * throttle and the query. In the loader (plan amendment of 2026-11-25) the batch is counted
+     * after it is stored and before upstream's own trimming of the results.
+     */
     @Test
     fun unchanged_subscriptionScalesLinesAreWhereTheyWere() {
         val model = Marked("subscription-scale", FEED_VIEW_MODEL)
@@ -586,9 +590,10 @@ class FeedLiveWiringTest {
         )
         val loader = Marked("subscription-scale", FEED_LOAD_MANAGER)
         loader.expectOrder(
-            "the batch is slimmed after it is stored and before the results are collected",
+            "stored, counted, then trimmed by upstream (`forNotification()`), then collected",
             loader.one(".doOnNext(DatabaseConsumer())"),
-            loader.one(".map { batch -> ${PARENT_P}FeedResultRetention.retain(batch, retainNewStreams) } // $PARENT"),
+            loader.marked(".doOnNext { ${P}FeedRefreshLog.app.batchStored() }"),
+            loader.all.indexOfFirst { it.contains("forNotification()") },
             loader.one(".toList()")
         )
         val fragment = Marked("subscription-scale", FEED_FRAGMENT)
