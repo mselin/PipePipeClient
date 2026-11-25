@@ -337,3 +337,23 @@ while step 4 is in place keeps that one file.
 - **Left as is**: `SubscriptionManager.updateFromInfo` still writes unchanged rows, so the slim
   list query still runs once per batch while the tab is on screen (background, six short
   columns); `SubscriptionFragment.onResume` (`:100`) still re-applies the filter.
+
+## Amendment, 2026-11-25: AC-1 is upstream's now
+
+Upstream 5.6.0 changed `FeedLoadManager.startLoading` to return `Single<List<FeedUpdateInfo>>`
+and added, right after `.doOnNext(DatabaseConsumer())`, a `.map` that keeps only channels with
+new streams through `FeedUpdateInfo.forNotification()`. `NotificationWorker` no longer filters
+on its own. Section 3 (M6) is therefore withdrawn:
+
+- `FeedResultRetention.kt` is deleted, with its tests (`FeedResultRetentionTest`).
+- The three marked lines of section 3 are gone: the `retainNewStreams` parameter and the `.map`
+  line in `FeedLoadManager.kt`, the `retainNewStreams = true` argument in `NotificationWorker.kt`.
+  They were dropped when the branch was rebased onto 5.6.0, where they conflicted with
+  upstream's change.
+- Counts for the wiring test: **33 marked lines in 9 upstream files** (20 added, 13 changed);
+  `FeedLoadManager.kt` and `NotificationWorker.kt` carry none.
+- The wiring test pins that upstream still provides AC-1: a line with `forNotification()`
+  between `.doOnNext(DatabaseConsumer())` and `.toList()` in `FeedLoadManager.kt`, and no
+  `retainNewStreams` anywhere. If upstream ever drops its trimming, that test fails and AC-1
+  needs a fork part again.
+- `NewFilesSourceTest`: five plain files instead of six.
