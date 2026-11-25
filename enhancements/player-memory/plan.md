@@ -353,3 +353,44 @@ Risks:
 - `PlayerServiceForAuto` cannot be checked without Android Auto or the Desktop Head Unit.
 - Numbers in D2 are trends, not thresholds: PSS varies by device; the heap dump counts are the
   pass criterion.
+
+## Amendment, 2026-11-25: on upstream 5.6.0 (spec amendment of the same day)
+
+**What changed upstream** (`aa31606`, `player/PlayerProgressController.kt`):
+- `resetPreviewThumbnails(frames)` (`:44-48`) now calls `seekbarPreviewThumbnailHolder.clear()`,
+  blanks the preview image and keeps the frames in `pendingPreviewFrames` (`:37`).
+- `onStartTrackingTouch` (`:257-263`) calls `seekbarPreviewThumbnailHolder.resetFrom(player.context, frames)`
+  once per item, with the pending frames, before `changeState` and `saveWasPlaying()`.
+- `SeekbarPreviewThumbnailHolder` gained `public void clear()`.
+
+**This fix on top.** The three hook lines of section 3 keep their text and places: the import
+(`:18`), the field (`:36`) and `onSeekbarTouched` directly after `saveWasPlaying()` (`:270`).
+The holder's interface grows by one method, which upstream now calls at `:45`:
+
+```kotlin
+fun clear()                                                      // new item, nothing chosen yet
+fun resetFrom(context: Context, framesets: List<Frameset>)       // first touch: choose the frameset
+```
+
+- `clear()`: the first half of section 3's `resetFrom`: `state.onNewItem()`, the running
+  download cancelled with `Future.cancel(true)`, `cache.clear()`, no frameset and no table, the
+  failed page forgotten. No network. This is now where AC-2 is met.
+- `resetFrom`: calls `clear()`, then picks the frameset and builds the table as before. Still
+  no network: the download starts from `onSeekbarTouched` on the next line run, so the order in
+  `onStartTrackingTouch` is upstream's `resetFrom`, then this fix's `onSeekbarTouched`.
+- Calls arrive in this order for an item: `clear()` at the item change, `getBitmapAt` possibly
+  (it arms the state but has no table, so it requests nothing and returns empty), `resetFrom`
+  and `onSeekbarTouched` at the first touch. `resetFrom` disarms again and the touch re-arms;
+  that is one more generation, not a lost request.
+- Nothing is changed in upstream's lines: `pendingPreviewFrames` and the deferral are kept
+  (the owner's decision). Upstream's holder is still unused.
+
+**Could regress, upstream's own.** Seeking with the D-pad or keyboard, without a touch, no
+longer shows previews until the seekbar has been touched once on that item: upstream's
+deferral never reaches `resetFrom` from a key. Section 3's "this covers D-pad seeking" now
+holds only after a touch. Not changed here.
+
+**Tests.** `PlayerMemoryWiringTest`: `resetFrom(player.context, frames)` is unmarked and in
+`onStartTrackingTouch`, before the touch line; `seekbarPreviewThumbnailHolder.clear()` is
+unmarked and in `resetPreviewThumbnails`; still 3 marked lines in the file. `NewFilesSourceTest`:
+the planned signatures include `fun clear()`, and `resetFrom` calls it.
