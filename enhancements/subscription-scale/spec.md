@@ -21,3 +21,14 @@ Costs that grow with the number of subscriptions. Findings M6, J1, J2 and J3 in
 - **AC-6** With 1600 subscriptions, opening the Subscriptions tab and scrolling a channel's
   video list stay smooth on the owner's device (device check; no number is promised).
 - **AC-7** No new setting.
+
+## Amendment, 2026-11-25: AC-1 is upstream's now
+
+Upstream 5.6.0 (commit `0e5081f`, "fix: Memory usage keeps growing with the number of
+subscriptions during feed refresh") trims every stored batch of a refresh itself: it keeps only
+the channels with new videos, slimmed to what the new-video notifications need. That provides
+AC-1. The owner chose upstream's version on 2026-11-25; this fix no longer carries its own.
+
+- **AC-1** (replaces the text above) During a refresh, memory does not grow with the number of
+  subscriptions. Provided by upstream; this fix adds nothing to the feed loader or the
+  notification run.
