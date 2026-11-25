@@ -7,19 +7,18 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The "wiring" tests: the marked lines the plan puts into eleven upstream files, read as text.
+ * The "wiring" tests: the marked lines the plan puts into nine upstream files, read as text.
  * The new classes do nothing unless upstream calls them, the holders and fragments cannot run on
  * the JVM, and a rebase can drop a marked line without any other test noticing.
  *
  * Per file:
  *
  * 1. **The number of lines containing `ENH:subscription-scale`.** The plan lists every line
- *    (section 2: "23 added lines, 13 changed one for one"), so the count is exact everywhere:
+ *    (section 2, as amended on 2026-11-25: 20 added lines, 13 changed one for one), so the count
+ *    is exact everywhere:
  *
  *    | File | Lines | Plan |
  *    |---|---|---|
- *    | `FeedLoadManager.kt` | 2 | section 3: parameter, `.map` |
- *    | `NotificationWorker.kt` | 1 | section 3: argument |
  *    | `StreamMiniInfoItemHolder.java` | 7 | section 4: 2 added, 5 changed |
  *    | `StreamInfoItemHolder.java` | 7 | section 4: 2 added, 5 changed |
  *    | `ComposeItemUiHelper.kt` | 1 | section 4: `:226` changed |
@@ -29,7 +28,10 @@ import java.io.File
  *    | `SubscriptionDAO.kt` | 2 | 5.3: annotation, method |
  *    | `SubscriptionViewModel.kt` | 6 | 5.3: 4 added, 2 changed |
  *    | `SubscriptionFragment.kt` | 2 | 5.3: `onResume`, `onPause` |
- *    | total | 36 | 23 + 13 |
+ *    | total | 33 | 20 + 13 |
+ *
+ *    Section 3 (AC-1) is upstream's since 5.6.0; `FeedLoadManager.kt` and `NotificationWorker.kt`
+ *    carry no marked line, and the AC-1 tests pin that upstream still trims the results.
  *
  * 2. **What the marked lines say.** The marked lines of a file are joined, the marker and all
  *    whitespace are removed, and the plan's calls are looked up in the result. `P.` of the plan
@@ -60,10 +62,8 @@ class SubscriptionScaleWiringTest {
         const val SUBSCRIPTION_VIEW_MODEL = "java/org/schabi/newpipe/local/subscription/SubscriptionViewModel.kt"
         const val SUBSCRIPTION_FRAGMENT = "java/org/schabi/newpipe/local/subscription/SubscriptionFragment.kt"
 
-        /** File to its number of marked lines (plan sections 3 to 5; total 36 = 23 added + 13 changed). */
+        /** File to its number of marked lines (plan sections 4 and 5; total 33 = 20 added + 13 changed). */
         val EXPECTED = linkedMapOf(
-            FEED_LOAD_MANAGER to 2,
-            NOTIFICATION_WORKER to 1,
             MINI_HOLDER to 7,
             STREAM_HOLDER to 7,
             COMPOSE_HELPER to 1,
@@ -149,47 +149,37 @@ class SubscriptionScaleWiringTest {
         }
     }
 
-    // ---- section 3, M6 ----
+    // ---- section 3, M6: upstream's since 5.6.0 (plan amendment of 2026-11-25) ----
 
-    /** AC-1: `startLoading` gets the switch (default: keep nothing) and applies it to every stored batch. */
+    private fun mainLines(path: String): List<String> = MainFiles.lines("AC-1", path)
+
+    /**
+     * AC-1 is provided by upstream: `FeedLoadManager.startLoading` trims every stored batch to the
+     * channels with new streams (`forNotification()`), after the batch is stored and before the
+     * results are collected. If upstream drops it, AC-1 needs a part of this fix again.
+     */
     @Test
-    fun ac1_wiring_feedLoadManagerRetainsPerBatch() {
-        val file = Marked("AC-1", FEED_LOAD_MANAGER)
-            .expectCount("plan section 3: the parameter and the `.map` line")
-            .expectCode("retainNewStreams: Boolean = false,")
-            .expectCode(".map { batch -> ${P}FeedResultRetention.retain(batch, retainNewStreams) }")
-        file.expectOrder(
-            "the parameter belongs to startLoading; the batch is slimmed after it is stored and before the results are collected",
-            file.lineOf("fun startLoading(", marked = false),
-            file.lineOf("retainNewStreams: Boolean = false,"),
-            file.lineOf(".doOnNext(DatabaseConsumer())", marked = false),
-            file.lineOf("FeedResultRetention.retain("),
-            file.lineOf(".toList()", marked = false)
-        )
-        assertEquals("AC-1: the parameter is declared in startLoading", "startLoading", file.functionAround(file.lineOf("retainNewStreams: Boolean = false,")))
+    fun ac1_providedByUpstream_feedLoadManagerTrimsEveryStoredBatch() {
+        val all = mainLines(FEED_LOAD_MANAGER)
+        val stored = all.indexOfFirst { squeeze(it).contains(squeeze(".doOnNext(DatabaseConsumer())")) }
+        val trimmed = all.indexOfFirst { it.contains("forNotification()") }
+        val collected = all.indexOfFirst { squeeze(it) == squeeze(".toList()") }
+        assertTrue("AC-1: FeedLoadManager.kt stores each batch (`.doOnNext(DatabaseConsumer())`)", stored >= 0)
+        assertTrue("AC-1: upstream's trimming (`forNotification()`) follows the storing and comes before `.toList()`", stored < trimmed && trimmed < collected)
+        assertEquals("AC-1: FeedLoadManager.kt carries no line of this fix", 0, all.count { it.contains(MARKER) })
     }
 
-    /** AC-1: only the notification run asks for the new videos to be kept. */
+    /** AC-1: the notification run is upstream's as it is; nothing of this fix is left in it. */
     @Test
-    fun ac1_wiring_notificationWorkerAsksForTheNewStreams() {
-        val file = Marked("AC-1", NOTIFICATION_WORKER)
-            .expectCount("plan section 3: one argument of startLoading")
-            .expectCode("retainNewStreams = true,")
-        file.expectOrder(
-            "the argument is one of the startLoading call",
-            file.lineOf("feedLoadManager.startLoading(", marked = false),
-            file.lineOf("retainNewStreams = true,"),
-            file.lineOf(".doOnSubscribe {", marked = false)
-        )
+    fun ac1_providedByUpstream_noLineOfThisFixInTheNotificationWorker() {
+        assertEquals("AC-1: NotificationWorker.kt carries no line of this fix", 0, mainLines(NOTIFICATION_WORKER).count { it.contains(MARKER) })
     }
 
-    /** AC-1: "`FeedLoadService.kt` is not edited and now retains nothing": no other caller passes `true`. */
+    /** AC-1: the withdrawn switch and class are gone from every source file. */
     @Test
-    fun ac1_wiring_noOtherCallerRetains() {
-        // Fails before Code exists only through the first line; the scan itself already holds.
-        Marked("AC-1", NOTIFICATION_WORKER).expectCount("plan section 3")
-        val callers = sourceFiles().filter { MainFiles.count(it.readText(), "retainNewStreams = true") > 0 }.map { it.name }
-        assertEquals("AC-1: only the notification run keeps new streams", listOf("NotificationWorker.kt"), callers)
+    fun ac1_providedByUpstream_theWithdrawnPartIsGone() {
+        val left = sourceFiles().filter { val text = it.readText(); text.contains("retainNewStreams") || text.contains("FeedResultRetention") }.map { it.name }
+        assertEquals("AC-1: no source file mentions retainNewStreams or FeedResultRetention", emptyList<String>(), left)
     }
 
     // ---- section 4, J1 ----
@@ -392,11 +382,12 @@ class SubscriptionScaleWiringTest {
     }
 
     /**
-     * Plan section 2: marked lines in 11 upstream files, 36 in all (23 added, 13 changed), and
-     * nowhere else. A marked line in a twelfth file is an edit the plan does not have.
+     * Plan section 2, as amended on 2026-11-25: marked lines in 9 upstream files, 33 in all
+     * (20 added, 13 changed), and nowhere else. A marked line in a tenth file is an edit the plan
+     * does not have.
      */
     @Test
-    fun wiring_elevenUpstreamFiles_36MarkedLines_andNoOther() {
+    fun wiring_nineUpstreamFiles_33MarkedLines_andNoOther() {
         val helpers = MainFiles.file(HELPERS).canonicalFile
         val root = MainFiles.file("").canonicalFile
         val found = sourceFiles()
@@ -405,7 +396,7 @@ class SubscriptionScaleWiringTest {
             .filterValues { it > 0 }
 
         assertEquals("plan section 2: the marked lines per upstream file", EXPECTED.toSortedMap(), found.toSortedMap())
-        assertEquals(36, found.values.sum())
+        assertEquals(33, found.values.sum())
     }
 
     /**

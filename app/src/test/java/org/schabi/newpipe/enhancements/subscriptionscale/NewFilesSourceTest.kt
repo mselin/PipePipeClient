@@ -17,9 +17,9 @@ class NewFilesSourceTest {
 
     private val dir = "java/org/schabi/newpipe/enhancements/subscriptionscale"
 
-    /** Plan section 2: "six plain Kotlin files". */
+    /** Plan section 2: the plain Kotlin files (five since the amendment of 2026-11-25). */
     private val plain = listOf(
-        "FeedResultRetention.kt", "LatestRequest.kt", "BoundedCache.kt", "OnScreenGate.kt", "SubscriptionRows.kt", "ReusingMapper.kt"
+        "LatestRequest.kt", "BoundedCache.kt", "OnScreenGate.kt", "SubscriptionRows.kt", "ReusingMapper.kt"
     )
 
     private fun source(ac: String, name: String): String = MainFiles.lines(ac, "$dir/$name").joinToString("\n")
@@ -29,7 +29,7 @@ class NewFilesSourceTest {
     }
 
     /**
-     * PROCESS.md: decision logic is plain Kotlin with no Android imports. The six logic files
+     * PROCESS.md: decision logic is plain Kotlin with no Android imports. The five logic files
      * import nothing from `android.`, `androidx.` or RxAndroid, and do not log through Android.
      */
     @Test
