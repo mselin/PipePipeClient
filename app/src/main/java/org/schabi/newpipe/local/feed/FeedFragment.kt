@@ -877,6 +877,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
     }
 
     private fun handleItemsErrors(errors: List<Throwable>) {
+        if (context == null) return // ENH:crash-fixes-more
         errors.forEachIndexed { i, t ->
             if (t is FeedLoadService.RequestException &&
                 t.cause is ContentNotAvailableException
@@ -962,6 +963,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
         @Nullable cause: Throwable?,
         nextItemsErrors: List<Throwable>
     ) {
+        if (context == null) return // ENH:crash-fixes-more
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val isFastFeedModeEnabled = sharedPreferences.getBoolean(
             getString(R.string.feed_use_dedicated_fetch_method_key), false
