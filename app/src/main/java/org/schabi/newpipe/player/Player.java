@@ -375,6 +375,7 @@ public final class Player {
     }
 
     void setupMediaSession() {
+        if (mediaSessionManager != null) { mediaSessionManager.dispose(); } // ENH:player-memory
         playerMediaSession = new PlayerMediaSession(this, simpleExoPlayer);
         mediaSessionManager = new MediaSessionManager(context, simpleExoPlayer,
                 playerMediaSession, service.getMediaSession(),
