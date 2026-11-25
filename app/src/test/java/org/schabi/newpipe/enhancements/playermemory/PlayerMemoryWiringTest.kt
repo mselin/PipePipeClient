@@ -255,9 +255,16 @@ class PlayerMemoryWiringTest {
         val classLine = file.all.indexOfFirst { it.startsWith("class PlayerProgressController(") }
         assertTrue("the import is above the class, the field inside it", import < classLine && classLine < field)
 
-        // ":44 and :199 are unchanged: the new class has the same two method names and types."
+        // Plan amendment of 2026-11-25: upstream 5.6.0 clears at the item change and chooses
+        // the frameset at the first touch; both lines are upstream's, unmarked, and compile
+        // against the new class's clear() and resetFrom().
+        val clear = file.lineThatIs("seekbarPreviewThumbnailHolder.clear()", marked = false)
+        assertEquals("AC-2: the item change releases the old item's previews", "resetPreviewThumbnails", file.functionAround(clear))
         val reset = file.lineThatIs("seekbarPreviewThumbnailHolder.resetFrom(player.context, frames)", marked = false)
-        assertEquals("AC-2: the item change still resets the previews", "resetPreviewThumbnails", file.functionAround(reset))
+        assertEquals("AC-1: the frameset is chosen at the first touch", "onStartTrackingTouch", file.functionAround(reset))
+        val touched = file.lineThatIs("seekbarPreviewThumbnailHolder.onSeekbarTouched(seekBar.progress)", marked = true)
+        assertTrue("AC-1: chosen before the touch asks for a sheet", reset < touched)
+        assertEquals("one reset, one clear", listOf(1, 1), listOf(file.count(".resetFrom("), file.count(".clear()")))
         val bitmap = file.lineThatIs("val previewThumbnail = seekbarPreviewThumbnailHolder.getBitmapAt(progress)", marked = false)
         assertEquals("AC-7: the preview is still asked for in onProgressChanged", "onProgressChanged", file.functionAround(bitmap))
         assertEquals("AC-1: one previews object per player", 1, file.count("LazySeekbarPreviews("))

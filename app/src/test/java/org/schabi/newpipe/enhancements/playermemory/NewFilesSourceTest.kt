@@ -131,10 +131,23 @@ class NewFilesSourceTest {
         assertMentions("AC-1", name, "\"PlayerMemory\"", "D4 reads the downloads from `adb logcat -s PlayerMemory`")
     }
 
-    /** AC-2: `resetFrom` moves to a new generation, stops the running download and clears the cache. */
+    /**
+     * AC-2: `clear` (upstream 5.6.0 calls it at the item change, plan amendment of 2026-11-25)
+     * moves to a new generation, stops the running download and clears the cache; `resetFrom`
+     * begins with it.
+     */
     @Test
     fun ac2_lazyPreviews_resetReleasesAndCancels() {
         val name = "LazySeekbarPreviews.kt"
+        val lines = source("AC-2", name).lines().map { it.trim() }
+        val clearAt = lines.indexOf("fun clear() {")
+        assertTrue("AC-2: app/src/main/$dir/$name must declare `fun clear() {`", clearAt >= 0)
+        val clearBody = lines.drop(clearAt + 1).takeWhile { it != "}" }
+        for (step in listOf("state.onNewItem()", "download?.cancel(true)", "cache.clear()", "frameset = null", "table = null")) {
+            assertTrue("AC-2: clear() must do `$step`; its body: $clearBody", step in clearBody)
+        }
+        val resetAt = lines.indexOfFirst { it.startsWith("fun resetFrom(") }
+        assertEquals("AC-2: resetFrom begins with clear()", "clear()", lines.getOrNull(resetAt + 1))
         assertMentions("AC-2", name, ".onNewItem()", "a result of the old item is refused by its generation")
         assertMentions("AC-2", name, ".cancel(true)", "plan section 3: the running download is interrupted")
         assertMentions("AC-2", name, ".clear()", "the old item's sheets are released")
@@ -166,7 +179,8 @@ class NewFilesSourceTest {
         assertMentions("plan section 3", name, "class LazySeekbarPreviews(", "the class")
         assertMentions("plan section 3", name, "private val player: Player", "first constructor parameter")
         assertMentions("plan section 3", name, "private val refresh: (SeekBar, Int, Boolean) -> Unit", "second constructor parameter, ::onProgressChanged")
-        assertMentions("plan section 3", name, "fun resetFrom(context: Context, framesets: List<Frameset>)", "called at PlayerProgressController.kt:44")
+        assertMentions("plan amendment of 2026-11-25", name, "fun clear()", "called at PlayerProgressController.kt:45 since upstream 5.6.0")
+        assertMentions("plan section 3", name, "fun resetFrom(context: Context, framesets: List<Frameset>)", "called at PlayerProgressController.kt:262 since upstream 5.6.0")
         assertMentions("plan section 3", name, "fun onSeekbarTouched(positionMs: Int)", "the new hook")
         assertMentions("plan section 3", name, "fun getBitmapAt(positionInMs: Int): Optional<Bitmap>", "called at PlayerProgressController.kt:199")
     }
