@@ -805,3 +805,27 @@ Three `code(refresh-cooldown):` commits; each builds alone.
 9. **Stale entries** are never removed; they cost bytes only.
 10. **The fourth menu entry comes after "Unsubscribe"**; putting it before would change
     upstream's index lines.
+
+## Amendment, 2026-11-25: on upstream 5.6.0
+
+Upstream 5.6.0 trims every stored batch itself (a `.map` with `forNotification()` right after
+the stored batch is counted), and `startLoading` now returns `Single<List<FeedUpdateInfo>>`.
+`subscription-scale` withdrew its part there (its plan, amendment of 2026-11-25): the
+`retainNewStreams` parameter, its retention line and the `retainNewStreams = true` argument in
+`NotificationWorker.kt` are gone. This feature's five lines in `FeedLoadManager.kt` keep their
+text and their meaning; only the neighbours named in section 9 change:
+
+- `cooldownForced` directly follows `ignoreOutdatedThreshold: Boolean = false,` and is still
+  the last parameter, directly before `): Single<List<FeedUpdateInfo>> {`.
+- `.doOnSuccess { cooldown.done() }` is still directly after `.toList()` and directly before
+  the `postProcessFeed()` line. Before `.toList()` the chain is now: `DatabaseConsumer`,
+  `batchStored()`, upstream's trimming, `.subscribeOn(Schedulers.io())`.
+- `NotificationWorker.kt` is still not edited; its call is upstream's
+  `startLoading(ignoreOutdatedThreshold = true, groupId = GROUP_NOTIFICATION_ENABLED)`.
+- The list handed to `done()` and to the notification check holds only the channels with new
+  streams, trimmed. `done()` does not read it (the report comes from `select`), so nothing in
+  sections 5 and 6 changes.
+
+For the wiring test: `subscription-scale` has no marked line in `FeedLoadManager.kt` or
+`NotificationWorker.kt`; the places above replace those of section 9 and of the table in
+section 13 that name `retainNewStreams` or the retention line.
