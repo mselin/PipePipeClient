@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="enh_download_state_set_aside">
+        <item quantity="one">%d unfinished download could not be read. Its saved state was kept aside.</item>
+        <item quantity="other">%d unfinished downloads could not be read. Their saved state was kept aside.</item>
+    </plurals>
+</resources>
