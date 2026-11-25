@@ -26,3 +26,18 @@ Findings M4, M5 and M8 in `enhancements/FINDINGS.md`.
   screen, notification, headset and Bluetooth controls work as today.
 - **AC-7** Seekbar previews, once shown, look as today.
 - **AC-8** No new setting.
+
+## Amendment, 2026-11-25: on upstream 5.6.0
+
+Upstream 5.6.0 (commit `aa31606`, "perf: load seekbar previews on first drag") no longer loads
+an item's seekbar previews when the player reaches it. On a new item it drops the old item's
+previews; at the first touch of the seekbar it downloads up to 48 sheets, as before, and keeps
+them decoded. So "Today" now reads:
+
+- For every item whose seekbar is touched, up to 48 seekbar preview sheets are downloaded and
+  kept decoded. An item whose seekbar is never touched, and the background player, load none.
+
+AC-1 is now mostly upstream's; AC-2 and AC-3 are not (the 48 sheets are still loaded at once,
+about 47 MiB for large sheets, and a load for the old item still finishes the sheet in flight).
+The owner chose on 2026-11-25 to keep this fix on top of upstream's: the acceptance criteria
+stay as they are, and upstream's first-touch rule is kept, not undone.
