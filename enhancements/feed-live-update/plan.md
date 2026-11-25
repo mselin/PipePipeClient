@@ -632,3 +632,18 @@ Three `code(feed-live-update):` commits; each builds alone.
 9. **Returning to the page during a refresh** restores the saved scroll position by index
    (`FeedFragment.kt:842-845`) on a list that may have grown above it, as a reload does
    today.
+
+## Amendment, 2026-11-25: on upstream 5.6.0
+
+Upstream 5.6.0 trims every stored batch itself (a `.map` with `forNotification()` right after
+`.doOnNext(DatabaseConsumer())`), and `subscription-scale` withdrew its own retention line and
+parameter from `FeedLoadManager.kt` (its plan, amendment of 2026-11-25). `startLoading` now
+returns `Single<List<FeedUpdateInfo>>`. None of this changes this feature's three lines there:
+
+- `batchStored()` stays directly after `.doOnNext(DatabaseConsumer())`, so it still counts a
+  batch only once its transaction has committed, and before upstream's trimming.
+- `started(groupId)` and `ended()` stay the last two operators of the chain.
+
+For the wiring test: `subscription-scale` has no marked line left in `FeedLoadManager.kt`, and
+the order to pin there is `DatabaseConsumer`, `batchStored()`, upstream's `forNotification()`,
+`.toList()`.
