@@ -1,5 +1,7 @@
 # To do
 
+> Working state, decisions and the next action: [`docs/HANDOVER.md`](../docs/HANDOVER.md) (rules: [`docs/HANDOVER-PROTOCOL.md`](../docs/HANDOVER-PROTOCOL.md)).
+
 Work that is decided or waiting for a decision, in the order it should be done. Finding ids
 refer to `FINDINGS.md`. Each item that changes the app goes through spec, plan, tests and
 code as `PROCESS.md` describes, with its own pull request inside the fork.
