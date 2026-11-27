@@ -32,3 +32,17 @@ AC-1. The owner chose upstream's version on 2026-11-25; this fix no longer carri
 - **AC-1** (replaces the text above) During a refresh, memory does not grow with the number of
   subscriptions. Provided by upstream; this fix adds nothing to the feed loader or the
   notification run.
+
+## Amendment, 2026-11-27: the Subscriptions tab froze the screen
+
+On the owner's phone (debug build, about 1600 subscriptions) the app stopped responding six
+times between 24.11 and 27.11. The one complete stack trace (24.11 15:03) shows the main thread
+in the Subscriptions tab's list update, reached from a tab switch. On 27.11 the log shows three
+freezes of about 3 seconds in two minutes, each when the tab received its list or was shown
+again during a feed refresh; the third blocked a touch for 5 seconds. Each update took about the
+same time whether or not anything in the list had changed. AC-6 is not met.
+
+- **AC-8** Showing the Subscriptions tab, returning to it, filtering it and updating its list
+  do not freeze the screen. The work for one update grows in step with the number of
+  subscriptions, not faster; showing again the list it already shows does no work. Rows look,
+  change and animate as today.
