@@ -107,7 +107,9 @@ class RefreshCooldownWiringTest {
                 "if (highlightCount > 0 && !liveRefresh) { // $LIVE",
                 "if (${LIVE_P}FeedRefreshLog.app.runningElsewhere(groupId)) feedBinding.swipeRefreshLayout.isRefreshing = false // $LIVE"
             ),
-            FEED_GROUP_DIALOG to emptyList(),
+            FEED_GROUP_DIALOG to listOf(
+                "${SCALE_P}SectionUpdate.update(subscriptionMainSection, subscriptions, false) // $SCALE"
+            ),
             SUBSCRIPTION_FRAGMENT to listOf(
                 "viewModel.setOnScreen(true) // $SCALE",
                 "viewModel.setOnScreen(false) // $SCALE",
