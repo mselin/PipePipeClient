@@ -74,6 +74,11 @@ public class ChannelInfoFragment extends StateSaverFragment {
         }
         return binding.getRoot();
     }
+    @Override // ENH:release-views
+    public void onDestroyView() { // ENH:release-views
+        binding = null; // ENH:release-views
+        super.onDestroyView(); // ENH:release-views
+    } // ENH:release-views
 
     @Override
     public void onDestroy() {
