@@ -72,6 +72,7 @@ class FeedLoadManager(private val context: Context) {
     fun startLoading(
         groupId: Long = FeedGroupEntity.GROUP_ALL_ID,
         ignoreOutdatedThreshold: Boolean = false,
+        cooldownForced: LongArray? = null, // ENH:refresh-cooldown
     ): Single<List<FeedUpdateInfo>> {
         val defaultSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
         val useFeedExtractor = defaultSharedPreferences.getBoolean(
@@ -83,6 +84,7 @@ class FeedLoadManager(private val context: Context) {
             context.getString(R.string.filter_future_items_key),
             true
         )
+        val cooldown = org.schabi.newpipe.enhancements.refreshcooldown.CooldownRefresh(context, groupId, ignoreOutdatedThreshold, cooldownForced) // ENH:refresh-cooldown
 
         val outdatedThreshold = if (ignoreOutdatedThreshold) {
             OffsetDateTime.now(ZoneOffset.UTC)
@@ -93,7 +95,7 @@ class FeedLoadManager(private val context: Context) {
                         context.getString(R.string.feed_update_threshold_default_value)
                     ) ?: context.getString(R.string.feed_update_threshold_default_value)
                     ).toInt()
-            OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(thresholdOutdatedSeconds.toLong())
+            cooldown.queryThreshold(OffsetDateTime.now(ZoneOffset.UTC), thresholdOutdatedSeconds) // ENH:refresh-cooldown
         }
 
         /**
@@ -113,6 +115,7 @@ class FeedLoadManager(private val context: Context) {
             .take(1)
             // services whose plugin is missing cannot be fetched, the user is guided elsewhere
             .map { list -> list.filter { ServiceList.getById(it.serviceId) != null } }
+            .map { list -> cooldown.select(list) } // ENH:refresh-cooldown
             .doOnNext {
                 currentProgress.set(0)
                 maxProgress.set(it.size)
@@ -264,6 +267,7 @@ class FeedLoadManager(private val context: Context) {
             .observeOn(Schedulers.io())
             .buffer(BUFFER_COUNT_BEFORE_INSERT)
             .doOnNext(DatabaseConsumer())
+            .doOnNext { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.batchStored() } // ENH:feed-live-update
             // the full results are in the database now, only keep what the new streams
             // notifications need, so that memory doesn't grow with the number of subscriptions
             .map { list ->
@@ -273,7 +277,10 @@ class FeedLoadManager(private val context: Context) {
             }
             .subscribeOn(Schedulers.io())
             .toList()
+            .doOnSuccess { cooldown.done() } // ENH:refresh-cooldown
             .flatMap { x -> postProcessFeed().toSingleDefault(x.flatten()) }
+            .doOnSubscribe { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.started(groupId) } // ENH:feed-live-update
+            .doFinally { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.ended() } // ENH:feed-live-update
     }
 
     fun cancel() {

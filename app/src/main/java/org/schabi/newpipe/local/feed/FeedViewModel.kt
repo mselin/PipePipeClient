@@ -39,6 +39,8 @@ class FeedViewModel(
 
     private val mutableStateLiveData = MutableLiveData<FeedState>()
     val stateLiveData: LiveData<FeedState> = mutableStateLiveData
+    private val onScreenGate = org.schabi.newpipe.enhancements.subscriptionscale.OnScreenGate() // ENH:subscription-scale
+    private val live = org.schabi.newpipe.enhancements.feedliveupdate.FeedLiveUpdate<StreamWithState, StreamItem>(groupId) // ENH:feed-live-update
 
     private var combineDisposable = Flowable
         .combineLatest(
@@ -52,25 +54,28 @@ class FeedViewModel(
                 return@Function4 CombineResultEventHolder(t1, t2, t3, t4.firstOrNull())
             }
         )
+        .let { live.wake(it) } // ENH:feed-live-update
+        .let { onScreenGate.gate(it) } // ENH:subscription-scale
         .throttleLatest(DEFAULT_THROTTLE_TIMEOUT, TimeUnit.MILLISECONDS)
         .subscribeOn(Schedulers.io())
         .observeOn(Schedulers.io())
+        .filter { live.next(it.t1, it.t2) } // ENH:feed-live-update
         .map { (event, showPlayedItems, notLoadedCount, oldestUpdate) ->
-            val streamItems = if (event is SuccessResultEvent || event is IdleEvent)
+            val streamItems = if (live.rebuild) // ENH:feed-live-update
                 feedDatabaseManager
                     .getStreams(groupId, showPlayedItems)
                     .blockingGet(arrayListOf())
             else
                 arrayListOf()
 
-            CombineResultDataHolder(event, streamItems, notLoadedCount, oldestUpdate)
+            CombineResultDataHolder(live.shownAs(event), live.rows(streamItems), notLoadedCount, oldestUpdate) // ENH:feed-live-update
         }
         .observeOn(AndroidSchedulers.mainThread())
         .subscribe { (event, listFromDB, notLoadedCount, oldestUpdate) ->
             mutableStateLiveData.postValue(
                 when (event) {
                     is IdleEvent -> FeedState.LoadedState(listFromDB.map { e -> StreamItem(e) }, oldestUpdate, notLoadedCount)
-                    is ProgressEvent -> FeedState.ProgressState(event.currentProgress, event.maxProgress, event.progressMessage)
+                    is ProgressEvent -> FeedState.ProgressState(event.currentProgress, event.maxProgress, event.progressMessage, live.items(listFromDB) { e -> StreamItem(e) }) // ENH:feed-live-update
                     is SuccessResultEvent -> FeedState.LoadedState(listFromDB.map { e -> StreamItem(e) }, oldestUpdate, notLoadedCount, event.itemsErrors)
                     is ErrorResultEvent -> FeedState.ErrorState(event.error)
                 }
@@ -103,6 +108,7 @@ class FeedViewModel(
     fun togglePlayedItems(showPlayedItems: Boolean) {
         toggleShowPlayedItems.onNext(showPlayedItems)
     }
+    fun setOnScreen(onScreen: Boolean) = onScreenGate.setOnScreen(onScreen) // ENH:subscription-scale
 
     fun saveShowPlayedItemsToPreferences(showPlayedItems: Boolean) =
         PreferenceManager.getDefaultSharedPreferences(applicationContext).edit {
