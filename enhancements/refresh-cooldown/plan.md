@@ -829,3 +829,12 @@ text and their meaning; only the neighbours named in section 9 change:
 For the wiring test: `subscription-scale` has no marked line in `FeedLoadManager.kt` or
 `NotificationWorker.kt`; the places above replace those of section 9 and of the table in
 section 13 that name `retainNewStreams` or the retention line.
+
+## Amendment, 2026-11-27: subscription-scale's third line in `SubscriptionFragment.kt`
+
+`subscription-scale` (its plan, amendment of 2026-11-27, AC-8) changed one more line of
+`SubscriptionFragment.kt`: `updateSubscriptionItems` now calls `SectionUpdate.update(subscriptionsSection, items)`
+instead of `subscriptionsSection.update(items)`. It sits before `showLongTapDialog`, where this
+feature's two lines are, and does not touch them. Section 9 is unchanged; the wiring test's list of
+the earlier features' lines in that file gains the new line, in file order after the two
+`setOnScreen` lines.
