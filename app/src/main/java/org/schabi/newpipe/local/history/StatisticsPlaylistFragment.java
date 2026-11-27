@@ -188,6 +188,7 @@ public class StatisticsPlaylistFragment
                     return;
                 }
                 if (selectedItem instanceof StreamStatisticsEntry) {
+                    if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onVideoTap(StatisticsPlaylistFragment.this, ((StreamStatisticsEntry) selectedItem).toStreamInfoItem(), false, () -> selected(selectedItem))) return; // ENH:queue-guard
                     final StreamEntity item =
                             ((StreamStatisticsEntry) selectedItem).getStreamEntity();
                     NavigationHelper.openVideoDetailFragment(requireContext(), getFM(),
@@ -383,11 +384,11 @@ public class StatisticsPlaylistFragment
         }
 
         playlistControlBinding.playlistCtrlPlayAllButton.setOnClickListener(view ->
-                NavigationHelper.playOnMainPlayer(activity, getPlayQueue()));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnMainPlayer(activity, getPlayQueue())); // ENH:queue-guard
         playlistControlBinding.playlistCtrlPlayPopupButton.setOnClickListener(view ->
-                NavigationHelper.playOnPopupPlayer(activity, getPlayQueue(), false));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnPopupPlayer(activity, getPlayQueue(), false)); // ENH:queue-guard
         playlistControlBinding.playlistCtrlPlayBgButton.setOnClickListener(view ->
-                NavigationHelper.playOnBackgroundPlayer(activity, getPlayQueue(), false));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnBackgroundPlayer(activity, getPlayQueue(), false)); // ENH:queue-guard
 
         hideLoading();
     }

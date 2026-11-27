@@ -53,6 +53,7 @@ public final class QueueItemMenuUtil {
                 playQueue.remove(index);
                 return true;
             } else if (menuItem.getItemId() == R.id.menu_item_details) {
+                if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.openQueueItemDetails(context, playQueue, item)) return true; // ENH:queue-guard
                 NavigationHelper.openVideoDetail(context, item.getServiceId(),
                         item.getUrl(), item.getTitle(), null,
                         false);

@@ -347,6 +347,7 @@ public final class InfoItemDialog {
             if (addDefaultEntriesAutomatically) {
                 addDefaultEndEntries();
             }
+            org.schabi.newpipe.enhancements.queueguard.QueueGuard.addStreamDetailsEntry(fragment, entries); // ENH:queue-guard
             return new InfoItemDialog(this.activity, this.fragment, this.infoItem, this.entries);
         }
 

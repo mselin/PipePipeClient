@@ -275,6 +275,7 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
                     return;
                 }
                 if (selectedItem instanceof PlaylistStreamEntry) {
+                    if (org.schabi.newpipe.enhancements.queueguard.QueueGuard.onVideoTap(LocalPlaylistFragment.this, ((PlaylistStreamEntry) selectedItem).toStreamInfoItem(), autoBackgroundPlaying, () -> selected(selectedItem))) return; // ENH:queue-guard
                     final StreamEntity item =
                             ((PlaylistStreamEntry) selectedItem).getStreamEntity();
                     if (autoBackgroundPlaying){
@@ -966,9 +967,9 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
         setStreamCountAndOverallDuration(itemListAdapter.getItemsList());
 
         playlistControlBinding.playlistCtrlPlayAllButton.setOnClickListener(view ->
-                NavigationHelper.playOnMainPlayer(activity, getPlayQueue()));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnMainPlayer(activity, getPlayQueue())); // ENH:queue-guard
         playlistControlBinding.playlistCtrlPlayPopupButton.setOnClickListener(view ->
-                NavigationHelper.playOnPopupPlayer(activity, getPlayQueue(), false));
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnPopupPlayer(activity, getPlayQueue(), false)); // ENH:queue-guard
 
 
 
@@ -976,9 +977,9 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
             final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(
                     requireContext());
             if (prefs.getBoolean(getString(R.string.random_music_play_mode_key), false)) {
-                NavigationHelper.playOnBackgroundPlayerShuffled(activity, getPlayQueue(), false);
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnBackgroundPlayerShuffled(activity, getPlayQueue(), false); // ENH:queue-guard
             } else {
-                NavigationHelper.playOnBackgroundPlayer(activity, getPlayQueue(), false);
+                org.schabi.newpipe.enhancements.queueguard.QueueGuard.playOnBackgroundPlayer(activity, getPlayQueue(), false); // ENH:queue-guard
             }
 
         });
