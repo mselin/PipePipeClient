@@ -46,6 +46,31 @@ class NewFilesSourceTest {
         }
     }
 
+    /**
+     * Plan section 2 and the amendments: the package holds exactly these seven files. Two are
+     * glue and not plain: `RowWatchState` (a view and the main looper) and, since the amendment
+     * of 2026-11-27, `SectionUpdate` (Groupie and `DiffUtil`; it runs on the JVM, see
+     * `SectionUpdateTest`).
+     */
+    @Test
+    fun thePackageHoldsTheSevenPlannedFiles() {
+        source("plan amendment of 2026-11-27", "SectionUpdate.kt") // "does not exist" until Code wrote it
+        val names = MainFiles.file(dir).listFiles()!!.map { it.name }.sorted()
+        assertEquals(
+            (plain + listOf("RowWatchState.kt", "SectionUpdate.kt")).sorted(),
+            names
+        )
+    }
+
+    /** AC-8: the update hands Groupie's section a DiffUtil result of its own (the same instances again: `SectionUpdateTest`). */
+    @Test
+    fun ac8_sectionUpdate_diffsByIndexAndChecksInstancesFirst() {
+        val name = "SectionUpdate.kt"
+        assertMentions("AC-8", name, "fun update(section: Section, groups: List<Group>)", "plan amendment of 2026-11-27: the signature")
+        assertMentions("AC-8", name, "DiffUtil.calculateDiff(", "the diff is computed here, with reads by index")
+        assertMentions("AC-8", name, "section.update(groups, ", "and handed to Groupie with its result")
+    }
+
     /** AC-2: the answer is delivered on the main thread, through `LatestRequest`; nothing waits. */
     @Test
     fun ac2_rowWatchState_asksThroughLatestRequestOnTheMainThread() {
