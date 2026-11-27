@@ -284,7 +284,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
             }
         }
 
-        subscriptionsSection.update(items)
+        org.schabi.newpipe.enhancements.subscriptionscale.SectionUpdate.update(subscriptionsSection, items) // ENH:subscription-scale
     }
 
 
