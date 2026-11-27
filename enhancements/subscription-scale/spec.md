@@ -46,3 +46,14 @@ same time whether or not anything in the list had changed. AC-6 is not met.
   do not freeze the screen. The work for one update grows in step with the number of
   subscriptions, not faster; showing again the list it already shows does no work. Rows look,
   change and animate as today.
+
+## Amendment, 2026-11-27: the group editor and a group's channel page too
+
+The owner asked on 2026-11-27 for the same fix in two other lists that show subscriptions with
+the same list update: the channel picker of the group editor (all subscriptions, with a search
+box) and the page that lists a feed group's channels (opened from a feed page; for "All", every
+subscription).
+
+- **AC-9** Opening, searching and updating the group editor's channel list and a group's channel
+  page do not freeze the screen. The work for one update grows in step with the number of
+  channels listed, not faster. Rows look, change, get selected and animate as today.
