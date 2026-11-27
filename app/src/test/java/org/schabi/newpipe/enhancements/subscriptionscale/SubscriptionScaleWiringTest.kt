@@ -14,7 +14,7 @@ import java.io.File
  * Per file:
  *
  * 1. **The number of lines containing `ENH:subscription-scale`.** The plan lists every line
- *    (section 2, as amended on 2026-11-25 and 2026-11-27: 20 added lines, 14 changed one for one), so the count
+ *    (section 2, as amended on 2026-11-25 and twice on 2026-11-27: 20 added lines, 16 changed one for one), so the count
  *    is exact everywhere:
  *
  *    | File | Lines | Plan |
@@ -28,7 +28,9 @@ import java.io.File
  *    | `SubscriptionDAO.kt` | 2 | 5.3: annotation, method |
  *    | `SubscriptionViewModel.kt` | 6 | 5.3: 4 added, 2 changed |
  *    | `SubscriptionFragment.kt` | 3 | 5.3: `onResume`, `onPause`; amendment of 2026-11-27: `updateSubscriptionItems` |
- *    | total | 34 | 20 + 14 |
+ *    | `FeedGroupDialog.kt` | 1 | second amendment of 2026-11-27: `setupSubscriptionPicker` |
+ *    | `SubscriptionListFragment.kt` | 1 | second amendment of 2026-11-27: `updateSubscriptions` |
+ *    | total | 36 | 20 + 16 |
  *
  *    Section 3 (AC-1) is upstream's since 5.6.0; `FeedLoadManager.kt` and `NotificationWorker.kt`
  *    carry no marked line, and the AC-1 tests pin that upstream still trims the results.
@@ -61,8 +63,10 @@ class SubscriptionScaleWiringTest {
         const val SUBSCRIPTION_DAO = "java/org/schabi/newpipe/database/subscription/SubscriptionDAO.kt"
         const val SUBSCRIPTION_VIEW_MODEL = "java/org/schabi/newpipe/local/subscription/SubscriptionViewModel.kt"
         const val SUBSCRIPTION_FRAGMENT = "java/org/schabi/newpipe/local/subscription/SubscriptionFragment.kt"
+        const val FEED_GROUP_DIALOG = "java/org/schabi/newpipe/local/subscription/dialog/FeedGroupDialog.kt"
+        const val SUBSCRIPTION_LIST_FRAGMENT = "java/org/schabi/newpipe/local/subscription/SubscriptionListFragment.kt"
 
-        /** File to its number of marked lines (plan sections 4 and 5 and the amendments; total 34 = 20 added + 14 changed). */
+        /** File to its number of marked lines (plan sections 4 and 5 and the amendments; total 36 = 20 added + 16 changed). */
         val EXPECTED = linkedMapOf(
             MINI_HOLDER to 7,
             STREAM_HOLDER to 7,
@@ -72,7 +76,9 @@ class SubscriptionScaleWiringTest {
             FEED_FRAGMENT to 2,
             SUBSCRIPTION_DAO to 2,
             SUBSCRIPTION_VIEW_MODEL to 6,
-            SUBSCRIPTION_FRAGMENT to 3
+            SUBSCRIPTION_FRAGMENT to 3,
+            FEED_GROUP_DIALOG to 1,
+            SUBSCRIPTION_LIST_FRAGMENT to 1
         )
     }
 
@@ -387,6 +393,26 @@ class SubscriptionScaleWiringTest {
         assertEquals("AC-8: in updateSubscriptionItems", "updateSubscriptionItems", file.functionAround(file.lineOf("SectionUpdate.update(subscriptionsSection, items)")))
     }
 
+    /** AC-9 (second plan amendment of 2026-11-27): the group editor's channel list goes through `SectionUpdate`, without move detection as before. */
+    @Test
+    fun ac9_wiring_groupEditorUpdatesItsChannelListThroughSectionUpdate() {
+        val file = Marked("AC-9", FEED_GROUP_DIALOG)
+            .expectCount("second plan amendment of 2026-11-27: one line changed in setupSubscriptionPicker")
+            .expectCode("${P}SectionUpdate.update(subscriptionMainSection, subscriptions, false)")
+            .expectGone("subscriptionMainSection.update(")
+        assertEquals("AC-9: in setupSubscriptionPicker", "setupSubscriptionPicker", file.functionAround(file.lineOf("SectionUpdate.update(subscriptionMainSection, subscriptions, false)")))
+    }
+
+    /** AC-9 (second plan amendment of 2026-11-27): a group's channel page goes through `SectionUpdate`. */
+    @Test
+    fun ac9_wiring_groupChannelPageUpdatesItsListThroughSectionUpdate() {
+        val file = Marked("AC-9", SUBSCRIPTION_LIST_FRAGMENT)
+            .expectCount("second plan amendment of 2026-11-27: one line changed in updateSubscriptions")
+            .expectCode("${P}SectionUpdate.update(subscriptionsSection, items)")
+            .expectGone("subscriptionsSection.update(")
+        assertEquals("AC-9: in updateSubscriptions", "updateSubscriptions", file.functionAround(file.lineOf("SectionUpdate.update(subscriptionsSection, items)")))
+    }
+
     // ---- the whole change ----
 
     private fun sourceFiles(): List<File> {
@@ -396,12 +422,12 @@ class SubscriptionScaleWiringTest {
     }
 
     /**
-     * Plan section 2, as amended on 2026-11-25 and 2026-11-27: marked lines in 9 upstream files,
-     * 34 in all (20 added, 14 changed), and nowhere else. A marked line in a tenth file is an edit the plan
+     * Plan section 2, as amended on 2026-11-25 and twice on 2026-11-27: marked lines in 11 upstream
+     * files, 36 in all (20 added, 16 changed), and nowhere else. A marked line in a twelfth file is an edit the plan
      * does not have.
      */
     @Test
-    fun wiring_nineUpstreamFiles_34MarkedLines_andNoOther() {
+    fun wiring_elevenUpstreamFiles_36MarkedLines_andNoOther() {
         val helpers = MainFiles.file(HELPERS).canonicalFile
         val root = MainFiles.file("").canonicalFile
         val found = sourceFiles()
@@ -410,7 +436,7 @@ class SubscriptionScaleWiringTest {
             .filterValues { it > 0 }
 
         assertEquals("plan section 2: the marked lines per upstream file", EXPECTED.toSortedMap(), found.toSortedMap())
-        assertEquals(34, found.values.sum())
+        assertEquals(36, found.values.sum())
     }
 
     /**

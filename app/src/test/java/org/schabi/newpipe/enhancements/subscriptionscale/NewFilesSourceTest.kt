@@ -66,9 +66,10 @@ class NewFilesSourceTest {
     @Test
     fun ac8_sectionUpdate_diffsByIndexAndChecksInstancesFirst() {
         val name = "SectionUpdate.kt"
-        assertMentions("AC-8", name, "fun update(section: Section, groups: List<Group>)", "plan amendment of 2026-11-27: the signature")
+        assertMentions("AC-9", name, "fun update(section: Section, groups: List<Group>, detectMoves: Boolean = true)", "plan amendments of 2026-11-27: the signature, with Groupie's second parameter")
         assertMentions("AC-8", name, "DiffUtil.calculateDiff(", "the diff is computed here, with reads by index")
         assertMentions("AC-8", name, "section.update(groups, ", "and handed to Groupie with its result")
+        assertMentions("AC-9", name, "DiffUtil.calculateDiff(callback, detectMoves)", "the caller's move detection is kept")
     }
 
     /** AC-2: the answer is delivered on the main thread, through `LatestRequest`; nothing waits. */

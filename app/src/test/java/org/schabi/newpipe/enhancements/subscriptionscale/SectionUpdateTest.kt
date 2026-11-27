@@ -11,8 +11,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * AC-8 (plan amendment of 2026-11-27): `SectionUpdate.update(section, groups)` does what
- * Groupie's `section.update(groups)` does, without its quadratic item lookups.
+ * AC-8 and AC-9 (plan amendments of 2026-11-27): `SectionUpdate.update(section, groups,
+ * detectMoves)` does what Groupie's `section.update(groups, detectMoves)` does, without its
+ * quadratic item lookups.
  *
  * These tests run Groupie's real `Section` and `androidx.recyclerview`'s real `DiffUtil` on the
  * JVM; neither touches an Android framework class on these paths. What a section tells its
@@ -64,7 +65,7 @@ class SectionUpdateTest {
      * pair always gives the same instance within one world, so that two worlds built from the
      * same pairs have the same pattern of reused and new instances.
      */
-    private class World(first: List<Pair<Long, String>>) {
+    private class World(first: List<Pair<Long, String>>, private val reuse: Boolean = true) {
         private val made = HashMap<Pair<Long, String>, Row>()
         val section = Section()
         val recorder = Recorder()
@@ -74,7 +75,12 @@ class SectionUpdateTest {
             section.registerGroupDataObserver(recorder)
         }
 
-        fun rows(pairs: List<Pair<Long, String>>): List<Group> = pairs.map { made.getOrPut(it) { Row(it.first, it.second) } }
+        /**
+         * With [reuse] (the Subscriptions tab, `ReusingMapper`), the same pair gives the same
+         * instance; without (the group editor and a group's page), every list has new instances.
+         */
+        fun rows(pairs: List<Pair<Long, String>>): List<Group> =
+            pairs.map { if (reuse) made.getOrPut(it) { Row(it.first, it.second) } else Row(it.first, it.second) }
 
         fun children(): List<String> = section.groups.map { it.toString() }
     }
@@ -82,12 +88,23 @@ class SectionUpdateTest {
     private fun pairs(vararg ids: Long, text: (Long) -> String = { "r$it" }): List<Pair<Long, String>> = ids.map { it to text(it) }
 
     /** Applies [next] with SectionUpdate in one world and with Groupie's own update in a twin world. */
-    private fun assertSameAsGroupie(why: String, first: List<Pair<Long, String>>, next: List<Pair<Long, String>>) {
-        val ours = World(first)
-        val theirs = World(first)
+    private fun assertSameAsGroupie(
+        why: String,
+        first: List<Pair<Long, String>>,
+        next: List<Pair<Long, String>>,
+        detectMoves: Boolean = true,
+        reuse: Boolean = true
+    ) {
+        val ours = World(first, reuse)
+        val theirs = World(first, reuse)
 
-        SectionUpdate.update(ours.section, ours.rows(next))
-        theirs.section.update(theirs.rows(next))
+        if (detectMoves) {
+            SectionUpdate.update(ours.section, ours.rows(next))
+            theirs.section.update(theirs.rows(next))
+        } else {
+            SectionUpdate.update(ours.section, ours.rows(next), false)
+            theirs.section.update(theirs.rows(next), false)
+        }
 
         assertEquals("$why: the children", theirs.children(), ours.children())
         assertEquals("$why: what the section reports to its parent", theirs.recorder.events, ours.recorder.events)
@@ -129,6 +146,32 @@ class SectionUpdateTest {
         assertSameAsGroupie("emptied", pairs(1, 2, 3), emptyList())
     }
 
+    /** AC-9: the group editor calls `update(subscriptions, false)`; without move detection the result is Groupie's too. */
+    @Test
+    fun ac9_withoutMoveDetection_asGroupie() {
+        assertSameAsGroupie("move", pairs(1, 2, 3, 4, 5), pairs(1, 4, 2, 3, 5), detectMoves = false)
+        assertSameAsGroupie("all at once", pairs(1, 2, 3, 4, 5, 6), listOf(6L to "r6", 1L to "x", 3L to "r3", 7L to "r7", 5L to "r5"), detectMoves = false)
+        val all = (1L..40L).map { it to "r$it" }
+        assertSameAsGroupie("filter to a few", all, all.filter { it.first % 7 == 0L }, detectMoves = false)
+        assertSameAsGroupie("first fill", emptyList(), pairs(1, 2, 3), detectMoves = false)
+    }
+
+    /**
+     * AC-9: both lists get new items for every list (`PickerSubscriptionItem`, `ChannelItem`), with
+     * the subscription's id and content compared by value. The result is Groupie's, with and
+     * without move detection.
+     */
+    @Test
+    fun ac9_newInstancesEveryTime_asGroupie() {
+        val all = (1L..40L).map { it to "r$it" }
+        for (detectMoves in listOf(true, false)) {
+            assertSameAsGroupie("the same rows again [$detectMoves]", all, all, detectMoves, reuse = false)
+            assertSameAsGroupie("one selected [$detectMoves]", all, all.map { if (it.first == 9L) 9L to "selected" else it }, detectMoves, reuse = false)
+            assertSameAsGroupie("search [$detectMoves]", all, all.filter { it.first % 5 == 0L }, detectMoves, reuse = false)
+            assertSameAsGroupie("search cleared [$detectMoves]", all.filter { it.first % 5 == 0L }, all, detectMoves, reuse = false)
+        }
+    }
+
     @Test
     fun ac8_aGroupThatIsNotOneItem_isLeftToGroupie() {
         fun nested(world: World) = Section(world.rows(pairs(20, 21)))
@@ -166,6 +209,15 @@ class SectionUpdateTest {
         SectionUpdate.update(ours, ourNew)
         assertTrue("at most 10 size queries per row, was ${ourCounter.calls}", ourCounter.calls <= 10L * n)
         assertEquals(n, ours.itemCount)
+
+        // AC-9: the group editor's case, new instances for every row and no move detection.
+        val pickerCounter = Counter()
+        val picker = Section((1..n).map { Row(it.toLong(), "r$it", pickerCounter) })
+        val fresh = (1..n).map { Row(it.toLong(), if (it % 80 == 0) "selected" else "r$it", pickerCounter) }
+        pickerCounter.calls = 0
+        SectionUpdate.update(picker, fresh, false)
+        assertTrue("group editor: at most 10 size queries per row, was ${pickerCounter.calls}", pickerCounter.calls <= 10L * n)
+        assertEquals(n, picker.itemCount)
 
         val theirCounter = Counter()
         val (theirOld, theirNew) = lists(theirCounter)
