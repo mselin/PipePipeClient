@@ -448,3 +448,61 @@ moved onto this amendment. `release-views` and `refresh-cooldown` change other l
 
 **Risks.** The group editor and a group's channel page keep the quadratic update until they get
 the same one-line change. A Groupie upgrade could change `DiffCallback`; test 4 then tells.
+
+## Amendment, 2026-11-27 (second): the group editor and a group's channel page (AC-9)
+
+**The two lists.**
+- Group editor, `dialog/FeedGroupDialog.kt:367` in `setupSubscriptionPicker`:
+  `subscriptionMainSection.update(subscriptions, false)`. Every list from
+  `FeedGroupDialogViewModel` (`:40`, new `PickerSubscriptionItem`s per emission) and every change
+  of the editor's search text reaches it. `PickerSubscriptionItem.getId()` is the subscription's
+  `uid`, so rows keep their identity across lists; the content check is the data class's
+  `equals` (entity and `isSelected`), as before.
+- Group's channel page, `SubscriptionListFragment.kt:216` in `updateSubscriptions`:
+  `subscriptionsSection.update(items)`. Each list from `getSubscriptions(groupId, query)` is
+  mapped to new `ChannelItem`s whose id is the subscription's `uid`. Opened from a feed page's
+  "channel list" menu entry; for "All" it lists every subscription.
+
+Both have the finding of the first amendment: Groupie's `DiffCallback` walks the list for every
+comparison, about 2·N² steps per update.
+
+**`SectionUpdate` gains Groupie's second parameter.**
+
+```kotlin
+fun update(section: Section, groups: List<Group>, detectMoves: Boolean = true)
+```
+
+`detectMoves` goes to `DiffUtil.calculateDiff(callback, detectMoves)`, and the fallback for a
+group that is not one item calls `section.update(groups, detectMoves)`. With the default, a call
+is what it was (`Section.update(groups)` means `update(groups, true)`). The identity check is
+unchanged. These two lists get new instances per emission, so it rarely skips anything there;
+the reads by index are what make them linear (ids are stable, so D stays the rows really
+inserted or removed).
+
+**Hooks.** Both 1 changed:
+- `FeedGroupDialog.kt:367` becomes `P.SectionUpdate.update(subscriptionMainSection, subscriptions, false) // ENH`.
+- `SubscriptionListFragment.kt:216` becomes `P.SectionUpdate.update(subscriptionsSection, items) // ENH`.
+
+The whole change: 36 lines (20 added, 16 changed) in 11 upstream files.
+
+**Tests.**
+- `SectionUpdateTest`: with `detectMoves = false`, the move, mixed and filter cases end and
+  report as `Section.update(groups, false)` on a twin section; the 1600-row linear bound also holds
+  with `detectMoves = false`; a test item stands for `PickerSubscriptionItem` (new instances each
+  time, same ids, content by value).
+- `SubscriptionScaleWiringTest`: one marked line in each of the two files, in
+  `setupSubscriptionPicker` and `updateSubscriptions`; `subscriptionMainSection.update(` and
+  `subscriptionsSection.update(` gone from them; 36 lines in 11 files.
+- `NewFilesSourceTest`: the signature with `detectMoves: Boolean = true`.
+
+**Device check (AC-9).** With the debug build: open a group in the group editor, type in its
+search box and clear it, select and unselect channels; open "All" from a feed page's channel
+list menu entry and search there. No freeze; `adb logcat -s Choreographer` shows no "Skipped"
+line above 30 frames.
+
+**Overlap.** `refresh-cooldown` changes `FeedGroupDialog.kt` in `handlePositiveButtonInitialScreen`
+and `handleGroup`, not `setupSubscriptionPicker`; its wiring test's list of the earlier features'
+lines in that file gains this line. No other branch edits `SubscriptionListFragment.kt` or this
+part of `FeedGroupDialog.kt`.
+
+**Risks of the first amendment** about these two lists are resolved by this one.
