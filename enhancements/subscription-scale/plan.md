@@ -357,3 +357,94 @@ on its own. Section 3 (M6) is therefore withdrawn:
   `retainNewStreams` anywhere. If upstream ever drops its trimming, that test fails and AC-1
   needs a fork part again.
 - `NewFilesSourceTest`: five plain files instead of six.
+
+## Amendment, 2026-11-27: a linear list update for the Subscriptions tab (AC-8)
+
+**Finding.** Groupie 2.10.1 `Section.update(groups)` calls `update(groups, true)`, which runs
+`DiffUtil.calculateDiff(DiffCallback(old, new), true)`. `DiffCallback` reads both items of every
+comparison with `GroupUtils.getItem(collection, position)`, which walks the collection from its
+first group, calling `getItemCount()` on each, until it reaches the position. DiffUtil makes at
+least one `areItemsTheSame` and one `areContentsTheSame` call per row of an unchanged list, so
+one update of N rows costs about 2·N² steps: some 5 million for 1600 subscriptions. In the
+owner's ANR of 24.11 15:03 the main thread is in exactly this
+(`SubscriptionFragment.updateSubscriptionItems` → `Section.update` → `DiffUtil` →
+`DiffCallback.areContentsTheSame` → `GroupUtils.getItem`); on the debug build, with a feed
+refresh sharing the CPU, one update took about 3 s.
+
+`updateSubscriptionItems` (`SubscriptionFragment.kt:292`) runs whenever
+`filteredSubscriptionsLiveData` is set, that is by `applyFilter` on: every list the view model
+publishes, every `onResume` (`:101`, `viewModel.updateSearchQuery(currentQuery)`), every change
+of the search text, and the creation of the tab's view (with `release-views`, every return to the
+main page).
+
+**Correction to 5.3.** "A return therefore shows current names, pictures and counts and costs one
+background query and a comparison" is wrong: `onResume` re-applies the filter, so every return
+also ran the full diff on the main thread, whether or not the list had changed.
+
+**Fix.** One new file, `SectionUpdate.kt`. It uses Groupie and `androidx.recyclerview`'s
+`DiffUtil` but no Android framework class, so it runs in JVM tests; it is not one of the plain
+files of section 2.
+
+```kotlin
+object SectionUpdate {
+    /** What section.update(groups) does, in time linear in the rows when every group is one Item. */
+    fun update(section: Section, groups: List<Group>)
+}
+```
+
+- `old = section.groups` (Groupie returns a copy of the children, without header, footer or
+  placeholder).
+- If every group in `old` and in `groups` is an `Item`:
+  - same size and the same instance at every position: return. Nothing changes and nothing is
+    notified. This covers `onResume`, a tab switch, and a list the view model mapped to the same
+    items (`ReusingMapper`).
+  - otherwise `section.update(groups, DiffUtil.calculateDiff(callback, true))`, where the callback
+    reads `old[i]` and `groups[j]` by index and asks what Groupie's `DiffCallback` asks, in the
+    same direction: `new.isSameAs(old)`, `new.hasSameContentAs(old)`, `old.getChangePayload(new)`.
+    `detectMoves = true`, as `Section.update(groups)`.
+- Otherwise (a group that is not exactly one item): `section.update(groups)`, as today.
+- Cost: the identity check is one pass; DiffUtil is O((N + M)·D) with D the rows inserted and
+  removed; `Section.update(groups, diffResult)` is linear. Filtering 1600 rows down to a few is
+  the largest D and is still one DiffUtil run with constant-time reads.
+- Equivalence: DiffUtil gets the same answers for the same pairs, so the section ends with the
+  same children and sends the same notifications as Groupie's own update. Rows look, change and
+  animate as today.
+
+**Hook.** `SubscriptionFragment.kt:292` `subscriptionsSection.update(items)` becomes
+`P.SectionUpdate.update(subscriptionsSection, items) // ENH`: 1 changed. The file has 3 marked
+lines; the whole change has 34 (20 added, 14 changed) in the same 9 upstream files.
+
+**Not changed.** `onResume`'s re-filter is upstream's and now costs one pass. Two other upstream
+lists use the same `Section.update` with subscription-sized lists:
+`SubscriptionListFragment.kt:216` (a group's channels) and `FeedGroupDialog.kt:367` (the group
+editor, `update(subscriptions, false)`). They are not the Subscriptions tab; `SectionUpdate`
+can serve them in a later change (risk below).
+
+**Tests.**
+- `SectionUpdateTest` (JVM, Groupie's real `Section` and `DiffUtil`, a recording
+  `GroupDataObserver` registered on the section):
+  1. The same instances again: no notification, children unchanged.
+  2. For insert, remove, content change (with a change payload), move, filter to a subset, empty
+     to full and full to empty: the children and the recorded notifications equal those of
+     `Section.update(groups)` on a twin section with the same items.
+  3. A group that is not one item (a nested `Section`): the same as `Section.update(groups)`.
+  4. Linear: 1600 items that count their `getItemCount()` calls, 20 of them replaced: the update
+     makes at most 10·1600 calls. The finding, pinned: Groupie's own update of the same lists
+     makes more than 1600²/4. If a Groupie upgrade fixes it, this fails and the fix can go.
+- `SubscriptionScaleWiringTest`: `SubscriptionFragment.kt` has 3 marked lines, the new one in
+  `updateSubscriptionItems`; `subscriptionsSection.update(` is gone; 34 lines in 9 files.
+- `NewFilesSourceTest`: the package holds the seven files; `SectionUpdate.kt` is not among the
+  plain ones.
+
+**Device check (AC-8).** With the debug build and a feed refresh running: switch between the
+Subscriptions tab and another tab, open a channel and come back, type in the tab's search box.
+No freeze. `adb logcat -s Choreographer` shows no "Skipped" line above 30 frames during these
+steps.
+
+**Overlap.** `refresh-cooldown` pins this feature's lines in `SubscriptionFragment.kt` in its
+wiring test (its list of earlier lines); it gains the new line in its own test commit when it is
+moved onto this amendment. `release-views` and `refresh-cooldown` change other lines of the file
+(`onDestroyView`, the long-press menu), not `:292`.
+
+**Risks.** The group editor and a group's channel page keep the quadratic update until they get
+the same one-line change. A Groupie upgrade could change `DiffCallback`; test 4 then tells.
