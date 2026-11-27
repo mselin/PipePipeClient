@@ -366,6 +366,7 @@ public class MediaSourceManager {
         if (isPlayQueueReady() && isPlaybackReady()) {
             final boolean isBlockReleased = maybeUnblock();
             maybeSync(isBlockReleased);
+            org.schabi.newpipe.enhancements.playermemory.SourceUnloader.unloadOutsideWindow(playlist, playQueue.getIndex()); // ENH:player-memory
         }
     }
 

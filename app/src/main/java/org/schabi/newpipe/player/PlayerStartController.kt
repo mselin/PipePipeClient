@@ -215,7 +215,7 @@ class PlayerStartController(private val player: Player) {
         val playQueue = player.playQueue
         if (playQueue != null) {
             player.simpleExoPlayer.setShuffleModeEnabled(playQueue.isShuffled)
-            player.setupMediaSession()
+            // ENH:player-memory the media session was created by initPlayer() above
         }
 
         player.setRepeatMode(repeatMode)
