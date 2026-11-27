@@ -264,6 +264,7 @@ class FeedLoadManager(private val context: Context) {
             .observeOn(Schedulers.io())
             .buffer(BUFFER_COUNT_BEFORE_INSERT)
             .doOnNext(DatabaseConsumer())
+            .doOnNext { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.batchStored() } // ENH:feed-live-update
             // the full results are in the database now, only keep what the new streams
             // notifications need, so that memory doesn't grow with the number of subscriptions
             .map { list ->
@@ -274,6 +275,8 @@ class FeedLoadManager(private val context: Context) {
             .subscribeOn(Schedulers.io())
             .toList()
             .flatMap { x -> postProcessFeed().toSingleDefault(x.flatten()) }
+            .doOnSubscribe { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.started(groupId) } // ENH:feed-live-update
+            .doFinally { org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.ended() } // ENH:feed-live-update
     }
 
     fun cancel() {

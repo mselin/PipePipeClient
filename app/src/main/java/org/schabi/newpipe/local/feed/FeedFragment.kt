@@ -116,6 +116,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
     private var updateListViewModeOnResume = false
     private var updatePullToRefreshOnResume = false
     private var isRefreshing = false
+    private val liveRefresh get() = viewModel.stateLiveData.value is FeedState.ProgressState // ENH:feed-live-update
 
     private var lastNewItemsCount = 0
 
@@ -712,7 +713,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
         feedBinding.itemsList.animate(true, 0)
         feedBinding.refreshRootView.animate(true, 200)
         feedBinding.loadingProgressText.animate(false, 0)
-        feedBinding.swipeRefreshLayout.isRefreshing = false
+        feedBinding.swipeRefreshLayout.isRefreshing = liveRefresh // ENH:feed-live-update
         isRefreshing = false
     }
 
@@ -745,6 +746,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
     }
 
     private fun handleProgressState(progressState: FeedState.ProgressState) {
+        if (progressState.items != null) return handleLiveProgress(progressState.items) // ENH:feed-live-update
         showLoading()
 
         val isIndeterminate = progressState.currentProgress == -1 &&
@@ -764,6 +766,9 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
 
         feedBinding.loadingProgressBar.max = progressState.maxProgress
     }
+    private fun handleLiveProgress(items: List<StreamItem>): Unit = // ENH:feed-live-update
+        if (org.schabi.newpipe.enhancements.feedliveupdate.FeedListRules.sameRows(originalItems, items) { it.streamWithState }) hideLoading() // ENH:feed-live-update
+        else handleLoadedState(FeedState.LoadedState(items, oldestSubscriptionUpdate, 0)) // ENH:feed-live-update
 
     private fun showInfoItemDialog(item: StreamInfoItem) {
         val context = context
@@ -827,14 +832,14 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
         originalItems.clear()
         originalItems.addAll(loadedState.items)
         filteredItems.clear()
-        filteredItems.addAll(originalItems)
+        filteredItems.addAll(if (isFilterEnabled) originalItems.filter { org.schabi.newpipe.enhancements.feedliveupdate.FeedListRules.matches(it.streamWithState.stream.title, it.streamWithState.stream.uploader, editText?.text?.toString().orEmpty()) } else originalItems) // ENH:feed-live-update
 
         playlistControlBinding?.root?.isVisible = loadedState.items.isNotEmpty()
 
         // This need to be saved in a variable as the update occurs async
         val oldOldestSubscriptionUpdate = oldestSubscriptionUpdate
 
-        groupAdapter.updateAsync(loadedState.items, false) {
+        org.schabi.newpipe.enhancements.feedliveupdate.FeedListUpdate.show(feedBinding.itemsList, groupAdapter, filteredItems.toList(), liveRefresh, { if (tryGetNewItemsLoadedButton()?.isVisible == false) showNewItemsLoaded() }) { // ENH:feed-live-update
             oldOldestSubscriptionUpdate?.run {
                 highlightNewItemsAfter(oldOldestSubscriptionUpdate)
             }
@@ -845,7 +850,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
         }
 
         val feedsNotLoaded = loadedState.notLoadedCount > 0
-        feedBinding.refreshSubtitleText.isVisible = feedsNotLoaded
+        feedBinding.refreshSubtitleText.isVisible = if (liveRefresh) feedBinding.refreshSubtitleText.isVisible && feedBinding.refreshSubtitleText.text.isNotEmpty() else feedsNotLoaded // ENH:feed-live-update
         if (feedsNotLoaded) {
             feedBinding.refreshSubtitleText.text = getString(
                 R.string.feed_subscription_not_loaded_count,
@@ -1012,6 +1017,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
             R.string.feed_oldest_subscription_update,
             oldestSubscriptionUpdate?.let { Localization.relativeTime(it) } ?: "—"
         )
+        (viewModel.stateLiveData.value as? FeedState.ProgressState)?.takeIf { it.items != null }?.let { feedBinding.refreshText.text = org.schabi.newpipe.enhancements.feedliveupdate.FeedListRules.progressText(it.currentProgress, it.maxProgress, getString(R.string.feed_notification_loading), if (it.progressMessage > 0) getString(it.progressMessage) else null) } // ENH:feed-live-update
     }
 
     /**
@@ -1069,7 +1075,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
             minOf(groupAdapter.itemCount, maxOf(highlightCount, lastNewItemsCount))
         )
 
-        if (highlightCount > 0) {
+        if (highlightCount > 0 && !liveRefresh) { // ENH:feed-live-update
             showNewItemsLoaded()
         }
 
@@ -1139,6 +1145,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
                 putExtra(FeedLoadService.EXTRA_GROUP_ID, groupId)
             }
         )
+        if (org.schabi.newpipe.enhancements.feedliveupdate.FeedRefreshLog.app.runningElsewhere(groupId)) feedBinding.swipeRefreshLayout.isRefreshing = false // ENH:feed-live-update
         listState = null
     }
 
