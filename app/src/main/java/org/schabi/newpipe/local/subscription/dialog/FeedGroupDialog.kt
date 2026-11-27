@@ -362,7 +362,7 @@ class FeedGroupDialog : DialogFragment(), BackPressable {
                 .contains(it.subscriptionEntity.uid)
         }
 
-        subscriptionMainSection.update(subscriptions, false)
+        org.schabi.newpipe.enhancements.subscriptionscale.SectionUpdate.update(subscriptionMainSection, subscriptions, false) // ENH:subscription-scale
 
         if (subscriptionsListState != null) {
             feedGroupCreateBinding.subscriptionsSelectorList.layoutManager?.onRestoreInstanceState(subscriptionsListState)

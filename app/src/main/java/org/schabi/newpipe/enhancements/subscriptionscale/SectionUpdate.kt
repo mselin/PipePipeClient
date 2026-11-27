@@ -19,11 +19,14 @@ import com.xwray.groupie.Section
  */
 object SectionUpdate {
 
-    /** What `section.update(groups)` does, in time linear in the rows when every group is one item. */
-    fun update(section: Section, groups: List<Group>) {
+    /**
+     * What `section.update(groups, detectMoves)` does, in time linear in the rows when every
+     * group is one item. The default is Groupie's: `section.update(groups)` detects moves.
+     */
+    fun update(section: Section, groups: List<Group>, detectMoves: Boolean = true) {
         val old = section.groups // a copy of the children
         if (!old.all { it is Item<*> } || !groups.all { it is Item<*> }) {
-            section.update(groups)
+            section.update(groups, detectMoves)
             return
         }
         if (sameInstances(old, groups)) {
@@ -31,7 +34,7 @@ object SectionUpdate {
         }
         @Suppress("UNCHECKED_CAST")
         val callback = ByIndex(old as List<Item<*>>, groups as List<Item<*>>)
-        section.update(groups, DiffUtil.calculateDiff(callback, true))
+        section.update(groups, DiffUtil.calculateDiff(callback, detectMoves))
     }
 
     private fun sameInstances(a: List<Group>, b: List<Group>): Boolean {
