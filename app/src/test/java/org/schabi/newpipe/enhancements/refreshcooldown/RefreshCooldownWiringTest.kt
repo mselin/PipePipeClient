@@ -110,7 +110,8 @@ class RefreshCooldownWiringTest {
             FEED_GROUP_DIALOG to emptyList(),
             SUBSCRIPTION_FRAGMENT to listOf(
                 "viewModel.setOnScreen(true) // $SCALE",
-                "viewModel.setOnScreen(false) // $SCALE"
+                "viewModel.setOnScreen(false) // $SCALE",
+                "${SCALE_P}SectionUpdate.update(subscriptionsSection, items) // $SCALE"
             ),
             NOTIFICATION_WORKER to emptyList(),
             FEED_VIEW_MODEL to listOf(
@@ -700,8 +701,9 @@ class RefreshCooldownWiringTest {
 
         val tab = Marked("the features below", SUBSCRIPTION_FRAGMENT)
         tab.expectOrder(
-            "subscription-scale: on screen in onResume, off in onPause, both before the long-press menu",
+            "subscription-scale: on screen in onResume, off in onPause, the list update (plan amendment of 2026-11-27), all before the long-press menu",
             tab.one("viewModel.setOnScreen(true) // $SCALE"), tab.one("viewModel.setOnScreen(false) // $SCALE"),
+            tab.one("${SCALE_P}SectionUpdate.update(subscriptionsSection, items) // $SCALE"),
             tab.one("private fun showLongTapDialog(selectedItem: ChannelInfoItem) {")
         )
         assertEquals("onResume", tab.functionAround(tab.one("viewModel.setOnScreen(true) // $SCALE")))
