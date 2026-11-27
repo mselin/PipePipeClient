@@ -838,3 +838,12 @@ instead of `subscriptionsSection.update(items)`. It sits before `showLongTapDial
 feature's two lines are, and does not touch them. Section 9 is unchanged; the wiring test's list of
 the earlier features' lines in that file gains the new line, in file order after the two
 `setOnScreen` lines.
+
+## Amendment, 2026-11-27 (second): subscription-scale's line in `FeedGroupDialog.kt`
+
+`subscription-scale` (its second plan amendment of 2026-11-27, AC-9) changed one line of
+`FeedGroupDialog.kt`: in `setupSubscriptionPicker`, `subscriptionMainSection.update(subscriptions, false)`
+became `SectionUpdate.update(subscriptionMainSection, subscriptions, false)`. This feature's two
+lines there are in `handlePositiveButtonInitialScreen` and `handleGroup` and are not touched.
+Section 9 is unchanged; the wiring test's list of the earlier features' lines in that file, empty
+until now, gains this line.
