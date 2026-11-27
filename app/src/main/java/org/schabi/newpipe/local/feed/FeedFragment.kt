@@ -243,6 +243,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
 
     override fun onPause() {
         super.onPause()
+        viewModel.setOnScreen(false) // ENH:subscription-scale
         listState = feedBinding.itemsList.layoutManager?.onSaveInstanceState()
         selectionToolbar?.release()
         selectionToolbar = null
@@ -250,6 +251,7 @@ class FeedFragment : BaseStateFragment<FeedState>(), BackPressable {
 
     override fun onResume() {
         super.onResume()
+        viewModel.setOnScreen(true) // ENH:subscription-scale
         updateRelativeTimeViews()
         selectionToolbar = SelectionToolbar.bind(
             activity, R.menu.menu_stream_selection, selection, ::onSelectionAction

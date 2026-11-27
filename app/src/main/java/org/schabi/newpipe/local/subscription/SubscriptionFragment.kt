@@ -90,6 +90,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
 
     override fun onResume() {
         super.onResume()
+        viewModel.setOnScreen(true) // ENH:subscription-scale
         setupBroadcastReceiver()
 
         // Sync the search view with the current filter state
@@ -102,6 +103,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
 
     override fun onPause() {
         super.onPause()
+        viewModel.setOnScreen(false) // ENH:subscription-scale
         itemsListState = binding.itemsList.layoutManager?.onSaveInstanceState()
         feedGroupsListState = feedGroupsCarousel?.onSaveInstanceState()
         importExportItemExpandedState = importExportItem.isExpanded
@@ -282,7 +284,7 @@ class SubscriptionFragment : BaseStateFragment<SubscriptionState>() {
             }
         }
 
-        subscriptionsSection.update(items)
+        org.schabi.newpipe.enhancements.subscriptionscale.SectionUpdate.update(subscriptionsSection, items) // ENH:subscription-scale
     }
 
 

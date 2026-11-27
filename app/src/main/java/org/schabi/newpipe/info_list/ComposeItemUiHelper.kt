@@ -223,7 +223,7 @@ fun buildInfoItemState(
     return when (item.infoType) {
         InfoType.STREAM -> {
             item as StreamInfoItem
-            val state = historyRecordManager?.loadStreamState(item)?.blockingGet()?.firstOrNull()
+            val state = org.schabi.newpipe.enhancements.subscriptionscale.RowWatchState.cached(item) // ENH:subscription-scale
             val details = buildString {
                 if (item.viewCount >= 0) {
                     append(

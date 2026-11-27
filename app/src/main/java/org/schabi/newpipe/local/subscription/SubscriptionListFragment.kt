@@ -213,7 +213,7 @@ class SubscriptionListFragment : BaseStateFragment<FeedState>() {
             }
         }
 
-        subscriptionsSection.update(items)
+        org.schabi.newpipe.enhancements.subscriptionscale.SectionUpdate.update(subscriptionsSection, items) // ENH:subscription-scale
     }
 
     private val channelClickListener = object : OnClickGesture<ChannelInfoItem>() {
