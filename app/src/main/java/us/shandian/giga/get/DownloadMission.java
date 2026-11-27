@@ -370,10 +370,10 @@ public class DownloadMission extends Mission {
         }
 
         if (err instanceof IOException) {
-            if (err.getMessage().contains("Permission denied")) {
+            if (org.schabi.newpipe.enhancements.crashfixes.ErrorMessages.contains(err, "Permission denied")) { // ENH:crash-fixes
                 code = ERROR_PERMISSION_DENIED;
                 err = null;
-            } else if (err.getMessage().contains("ENOSPC")) {
+            } else if (org.schabi.newpipe.enhancements.crashfixes.ErrorMessages.contains(err, "ENOSPC")) { // ENH:crash-fixes
                 code = ERROR_INSUFFICIENT_STORAGE;
                 err = null;
             } else if (!storage.canWrite()) {

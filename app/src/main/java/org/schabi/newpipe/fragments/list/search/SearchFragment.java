@@ -373,6 +373,16 @@ public class SearchFragment extends BaseListFragment<SearchInfo, ListExtractor.I
             Log.d(TAG, "onResume() called");
         }
         super.onResume();
+        final org.schabi.newpipe.enhancements.crashfixes.SearchResume.Action resumeAction // ENH:crash-fixes
+                = org.schabi.newpipe.enhancements.crashfixes.SearchResume.decide(isLoading.get(), // ENH:crash-fixes
+                searchDisposable != null && !searchDisposable.isDisposed(), // ENH:crash-fixes
+                !infoListAdapter.getItemsList().isEmpty(), Page.isValid(nextPage), // ENH:crash-fixes
+                TextUtils.isEmpty(searchString)); // ENH:crash-fixes
+        if (resumeAction == org.schabi.newpipe.enhancements.crashfixes.SearchResume.Action.LOAD_MORE) { // ENH:crash-fixes
+            loadMoreItems(); // ENH:crash-fixes
+        } else if (resumeAction == org.schabi.newpipe.enhancements.crashfixes.SearchResume.Action.RESTART) { // ENH:crash-fixes
+            startLoading(false); // ENH:crash-fixes
+        } // ENH:crash-fixes
 
         if (suggestionDisposable == null || suggestionDisposable.isDisposed()) {
             initSuggestionObserver();

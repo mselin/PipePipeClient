@@ -809,8 +809,8 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
                             uniquePlaylistItems.add(playlistItem);
                             uniquePlaylistItemStreamIds.add(playlistItemStreamId);
                         } else if (!thumbnailVideoRemoved
-                                && playlistManager.getPlaylistThumbnail(playlistId)
-                                .equals(playlistItem.getStreamEntity().getThumbnailUrl())) {
+                                && Objects.equals(playlistManager.getPlaylistThumbnail(playlistId), // ENH:crash-fixes
+                                playlistItem.getStreamEntity().getThumbnailUrl())) { // ENH:crash-fixes
                             thumbnailVideoRemoved = true;
                         }
                     }
@@ -880,8 +880,8 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
                             if (indexInHistory < 0) {
                                 notWatchedItems.add(playlistItem);
                             } else if (!thumbnailVideoRemoved
-                                    && playlistManager.getPlaylistThumbnail(playlistId)
-                                    .equals(playlistItem.getStreamEntity().getThumbnailUrl())) {
+                                    && Objects.equals(playlistManager.getPlaylistThumbnail(playlistId), // ENH:crash-fixes
+                                    playlistItem.getStreamEntity().getThumbnailUrl())) { // ENH:crash-fixes
                                 thumbnailVideoRemoved = true;
                             }
                         }
@@ -900,8 +900,8 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
                                     && !streamStateEntity.isFinished(duration))) {
                                 notWatchedItems.add(playlistItem);
                             } else if (!thumbnailVideoRemoved
-                                    && playlistManager.getPlaylistThumbnail(playlistId)
-                                    .equals(playlistItem.getStreamEntity().getThumbnailUrl())) {
+                                    && Objects.equals(playlistManager.getPlaylistThumbnail(playlistId), // ENH:crash-fixes
+                                    playlistItem.getStreamEntity().getThumbnailUrl())) { // ENH:crash-fixes
                                 thumbnailVideoRemoved = true;
                             }
                         }
@@ -1014,7 +1014,7 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
                     disposables.add(PlaylistDialog.createCorrespondingDialog(
                             getContext(),
                             streamEntities,
-                            dialog -> dialog.show(getParentFragmentManager(), TAG)
+                            org.schabi.newpipe.enhancements.crashfixes.LatePage.ifUsable(this, dialog -> dialog.show(getParentFragmentManager(), TAG)) // ENH:crash-fixes-more
                     ));
                 }, throwable -> showError(new ErrorInfo(throwable, UserAction.REQUESTED_BOOKMARK,
                         "Loading local playlist for append to other playlist"))));
@@ -1107,8 +1107,8 @@ public class LocalPlaylistFragment extends BaseLocalListFragment<List<PlaylistSt
 
         itemListAdapter.removeItem(item);
         retainExistingSelection();
-        if (playlistManager.getPlaylistThumbnail(playlistId)
-                .equals(item.getStreamEntity().getThumbnailUrl())) {
+        if (Objects.equals(playlistManager.getPlaylistThumbnail(playlistId), // ENH:crash-fixes
+                item.getStreamEntity().getThumbnailUrl())) { // ENH:crash-fixes
             updateThumbnailUrl();
         }
 
