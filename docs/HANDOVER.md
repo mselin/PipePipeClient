@@ -15,8 +15,8 @@ Bootstrap only: create the handover docs in pipepipeclient and pipepipe & pipepi
 2. Client design doc and roadmap point here (one line at the top of `PROCESS.md` and `TODO.md`). Check: `grep -l docs/HANDOVER.md enhancements/*.md`. Done.
 3. Extractor branch `docs/handover` from `enhancements/base`: `docs/HANDOVER.md` redirect, one line in `enhancements/README.md`, commit message naming this file (so `git log` redirects). Check: `git show --stat`. Done.
 4. PipePipe branch `docs/handover` from `main`: `docs/HANDOVER.md` redirect, same commit message. Check: `git show --stat`. Done.
-5. Push the three branches; open one PR per repo inside the forks (client and extractor into `enhancements/base`, PipePipe into `main`). Check: each PR's base repo is `mselin/...`. Status in Changes.
-6. CI on the PRs. Check: check runs of the PR heads. Status in Verification.
+5. Push the three branches; open one PR per repo inside the forks (client and extractor into `enhancements/base`, PipePipe into `main`). Check: each PR's base repo is `mselin/...`. Done.
+6. CI on the PRs. Check: check runs of the PR heads. Done.
 
 ## Established
 
@@ -52,15 +52,16 @@ Findings of 2026-11-27 (from the owner's logs):
 
 ## Changes
 
-- Client `docs/handover`: `docs/HANDOVER-PROTOCOL.md`, `docs/HANDOVER.md`, pointer lines in `enhancements/PROCESS.md` and `enhancements/TODO.md`. PR: see Verification.
-- Extractor `docs/handover`: `docs/HANDOVER.md` (redirect), pointer line in `enhancements/README.md`.
-- PipePipe `docs/handover`: `docs/HANDOVER.md` (redirect).
+- Client `docs/handover` (`c7b140f`): `docs/HANDOVER-PROTOCOL.md`, `docs/HANDOVER.md`, pointer lines in `enhancements/PROCESS.md` and `enhancements/TODO.md`. PR mselin/PipePipeClient#17 into `enhancements/base`.
+- Extractor `docs/handover` (`25856a7`): `docs/HANDOVER.md` (redirect), pointer line in `enhancements/README.md`. PR mselin/PipePipeExtractor#2 into `enhancements/base`.
+- PipePipe `docs/handover` (`d76ca52`): `docs/HANDOVER.md` (redirect). PR mselin/PipePipe#28 into `main`; merging makes it the fork's only addition to `main`.
+- The redirect links point at the client's `enhancements/base`; they resolve once #17 is merged.
 - No code, test, spec or plan file changed by this task.
 
 ## Verification
 
 - Last full run before this task: `build/device-test` `449193e`, 1984 unit tests, 2 skipped, 0 failed; APK built; CI green on every branch; draft `device-test-20261127-1225-449193e`, certificate checked.
-- This task: protocol diff empty; PR checks: pending (filled in after the push).
+- This task: protocol diff against the skill empty; `check-layers.sh origin/dev` passed locally; PR checks: client `layers` and `unit-tests` passed, extractor `extractor-tests` passed, PipePipe runs no checks on the PR.
 - Unverified on a device: AC-8 and AC-9; the device checklists of all features; keep-position with the KeepPosition log.
 
 ## Dead ends
