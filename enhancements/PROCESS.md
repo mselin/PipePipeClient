@@ -1,5 +1,7 @@
 # PipePipe enhancements: how we develop them
 
+> Working state, decisions and the next action: [`docs/HANDOVER.md`](../docs/HANDOVER.md) (rules: [`docs/HANDOVER-PROTOCOL.md`](../docs/HANDOVER-PROTOCOL.md)).
+
 This fork adds features on top of upstream PipePipe. Two rules shape everything:
 
 1. **Stay rebasable.** Upstream files get one-line hooks; everything else is new files.
