@@ -218,6 +218,7 @@ public final class InternalUrlsHandler {
                 .subscribe(info -> {
                     final PlayQueue playQueue
                             = new SinglePlayQueue(info, seconds * 1000L);
+                    org.schabi.newpipe.enhancements.keepposition.KeepPosition.onTimestampLink(playQueue); // ENH:keep-position
                     NavigationHelper.playOnMainPlayer(context, playQueue, false);
                 }, throwable -> {
                     if (DEBUG) {

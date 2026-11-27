@@ -238,6 +238,7 @@ class PlayerTransportController(private val player: Player) {
             return
         }
         player.setCurrentItem(item)
+        org.schabi.newpipe.enhancements.keepposition.KeepPosition.onSynchronize(player, item) // ENH:keep-position
 
         // Check if on wrong window
         if (currentPlayQueueIndex != playQueue.index) {
@@ -269,7 +270,7 @@ class PlayerTransportController(private val player: Player) {
             }
 
             if (playQueue.getRecoveryPosition(item) != PlayQueue.RECOVERY_UNSET
-                && player.shouldSeek()
+                && org.schabi.newpipe.enhancements.keepposition.KeepPosition.shouldSeekOnSynchronize(player, item) // ENH:keep-position
             ) {
                 player.simpleExoPlayer.seekTo(
                     currentPlayQueueIndex, playQueue.getRecoveryPosition(item)

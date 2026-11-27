@@ -17,6 +17,7 @@ public final class SinglePlayQueue extends PlayQueue {
         super(0, Collections.singletonList(PlayerMediaItem.forQueueItem(info)));
         if (info.getStartPosition() > 0) {
             setRecovery(getIndex(), info.getStartPosition() * 1000);
+            org.schabi.newpipe.enhancements.keepposition.KeepPosition.onLinkStartPosition(this, info); // ENH:keep-position
         }
     }
 
